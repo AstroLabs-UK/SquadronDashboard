@@ -66,7 +66,7 @@ Go to `http://<device's IP>:3000/edit` from any phone or laptop on the same netw
 
 - **Squadron/unit name** and **weather location** (name + latitude/longitude)
 - **Leaderboard Google Sheets CSV link** — see below
-- **"More events" QR link** — shown as a QR code when there are more than 2 events; point it at a full calendar or events page
+- **"See more events" QR link** — the events panel shows up to 3 events per page, rotating every 10 seconds if there are more, with one final page that's a QR code to this link (defaults to the cadet portal events page — change it to whatever full events page/calendar you use)
 - **Error report link** — shown as a QR code if a panel fails to load (e.g. a Google Form); leave blank to disable
 - **Instagram widget embed code** — paste a full embed snippet from a free widget service like [elfsight.com](https://elfsight.com) or [sociablekit.com](https://sociablekit.com) (their Instagram Feed app, on the free plan); paste the whole script + div they give you into the box, and it'll appear on screen and refresh itself every 10 minutes automatically
 - **Events list** and **social media links** (Facebook, X)
@@ -82,9 +82,15 @@ The dashboard expects a header row with a column containing "name" and a column 
 ## Layout
 
 - **Left third:** weather — temperature, feels-like, and condition, always visible
-- **Right two-thirds:** rotates every 10 seconds through Leaderboard → News → Events → Follow Us
+- **Right two-thirds:** rotates every 10 seconds through Leaderboard → News → Events → Follow Us. The Events section has its own internal rotation too — 3 events per page, then a "see more" QR page — if there are more than 3 events to show.
 
 If a panel (weather, news, or leaderboard) fails to load, it shows a short message and, if you've set an error report link, a QR code linking to it.
+
+## Auto update
+
+Every 30 minutes (and once shortly after boot), the dashboard checks this GitHub repository for new commits. If it finds one, it pulls the latest code, reinstalls dependencies if needed, and restarts itself automatically — no manual `git pull` required once it's deployed.
+
+`setup.sh` configures the passwordless permission this needs automatically. It only runs if the folder is an actual git checkout (which it will be if you installed via `setup.sh`), and does nothing if there's no internet connection at check time.
 
 ## Auto shutdown
 
