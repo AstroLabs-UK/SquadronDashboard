@@ -62,8 +62,17 @@ if [ ! -f "$SUDOERS_FILE" ]; then
   echo "-> Granting passwordless shutdown permission (needed for auto-off)..."
   echo "$SERVICE_USER ALL=(ALL) NOPASSWD: /sbin/shutdown" | sudo tee "$SUDOERS_FILE" > /dev/null
   sudo chmod 0440 "$SUDOERS_FILE"
+fi
+
+# 3b. Allow the dashboard to restart its own systemd service without a password
+#     prompt, so it can apply auto-updates pulled from GitHub without you doing anything
+UPDATE_SUDOERS_FILE="/etc/sudoers.d/squadron-dashboard-restart"
+if [ ! -f "$UPDATE_SUDOERS_FILE" ]; then
+  echo "-> Granting passwordless restart permission (needed for auto-update)..."
+  echo "$SERVICE_USER ALL=(ALL) NOPASSWD: /bin/systemctl restart squadron-dashboard.service" | sudo tee "$UPDATE_SUDOERS_FILE" > /dev/null
+  sudo chmod 0440 "$UPDATE_SUDOERS_FILE"
 else
-  echo "-> Shutdown permission already configured"
+  echo "-> Restart permission already configured"
 fi
 
 # 4. Set up a systemd service so the dashboard starts automatically on boot
