@@ -101,8 +101,8 @@
   #eventsPane li { margin-bottom: 14px; font-size: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
   #eventsPane li .title { font-weight: 700; color: var(--raf-navy); }
   #eventsPane li .meta { color: var(--muted); font-size: 14px; margin-top: 2px; }
-  #eventsMoreQr { margin-top: 14px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
-  #eventsMoreQr .label { font-size: 13px; color: var(--muted); }
+  #eventsSeeMore { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; text-align: center; }
+  #eventsSeeMore .label { font-size: 15px; color: var(--muted); }
 
   #socialsPane { position: relative; padding: 0; }
   #socialsPane .insta-wrap { position: absolute; top: 0; left: 0; right: 0; bottom: 64px; overflow: hidden; }
@@ -151,10 +151,10 @@
       </div>
 
       <div class="rotate-pane" id="eventsPane">
-        <ul></ul>
-        <div id="eventsMoreQr" style="display:none;">
-          <div class="qr-holder" id="eventsQrCode"></div>
-          <div class="label">Scan for the full events list</div>
+        <ul id="eventsList"></ul>
+        <div id="eventsSeeMore" style="display:none;">
+          <div class="qr-holder" id="eventsSeeMoreQr"></div>
+          <div class="label">Scan to see the full events list</div>
         </div>
       </div>
 
@@ -168,6 +168,48 @@
 <script>
 let errorReportUrl = '';
 let lastInstagramEmbedCode = '';
+let latestEvents = [];
+let eventsSeeMoreUrl = '';
+let eventsPages = [];
+let eventsPageIndex = 0;
+
+// Events pane shows up to 3 events per page, cycling through however many events
+// there are, with one extra final page that's just a "see more" QR code.
+function rebuildEventsPages() {
+  const chunks = [];
+  for (let i = 0; i < latestEvents.length; i += 3) {
+    chunks.push(latestEvents.slice(i, i + 3));
+  }
+  if (chunks.length === 0) chunks.push([]);
+  eventsPages = chunks.map(events => ({ type: 'events', events }));
+  if (eventsSeeMoreUrl) eventsPages.push({ type: 'more' });
+  eventsPageIndex = 0;
+  renderEventsPage();
+}
+
+function renderEventsPage() {
+  const ul = document.getElementById('eventsList');
+  const seeMore = document.getElementById('eventsSeeMore');
+  const page = eventsPages[eventsPageIndex] || { type: 'events', events: [] };
+  if (page.type === 'more') {
+    ul.style.display = 'none';
+    seeMore.style.display = 'flex';
+    const size = qrSizeFor(document.getElementById('eventsPane'));
+    makeQr('eventsSeeMoreQr', eventsSeeMoreUrl, Math.min(size, 260));
+  } else {
+    ul.style.display = '';
+    seeMore.style.display = 'none';
+    ul.innerHTML = page.events.map(e =>
+      `<li><div class="title">${e.title}</div><div class="meta">${e.date} &middot; ${e.detail}</div></li>`).join('')
+      || '<li><div class="meta">No events added yet - add some on /edit</div></li>';
+  }
+}
+
+setInterval(() => {
+  if (eventsPages.length <= 1) return;
+  eventsPageIndex = (eventsPageIndex + 1) % eventsPages.length;
+  renderEventsPage();
+}, 10000);
 
 // Renders a pasted widget embed snippet (script + div, e.g. Elfsight) into the socials
 // panel. Scripts inserted via innerHTML don't execute on their own, so each <script>
@@ -248,17 +290,10 @@ async function loadSettings() {
     document.getElementById('otherSocialsList').innerHTML = data.socials
       .filter(s => s.label.toLowerCase() !== 'instagram')
       .map(s => `<li><a href="${s.url}" target="_blank">${s.label}</a> — <span class="handle">${s.handle}</span></li>`).join('');
-    const eventsUl = document.querySelector('#eventsPane ul');
-    eventsUl.innerHTML = data.events.map(e =>
-      `<li><div class="title">${e.title}</div><div class="meta">${e.date} &middot; ${e.detail}</div></li>`).join('');
-    const moreBox = document.getElementById('eventsMoreQr');
-    if (data.events.length > 2 && data.eventsMoreUrl) {
-      moreBox.style.display = 'flex';
-      const size = qrSizeFor(document.getElementById('eventsPane'));
-      makeQr('eventsQrCode', data.eventsMoreUrl, Math.min(size, 180));
-    } else {
-      moreBox.style.display = 'none';
-    }
+
+    latestEvents = data.events || [];
+    eventsSeeMoreUrl = data.eventsSeeMoreUrl || '';
+    rebuildEventsPages();
   } catch (e) { console.error('settings load failed', e); }
 }
 
