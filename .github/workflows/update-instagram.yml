@@ -2,10 +2,8 @@ name: Update Instagram Widget
 
 on:
   schedule:
-    # Every 3 days at 10:00 UTC
     - cron: "0 10 */3 * *"
 
-  # Allows you to run it manually from GitHub Actions
   workflow_dispatch:
 
 permissions:
@@ -17,9 +15,9 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
-      - name: Fetch SociableKIT widget information
+      - name: Get SociableKIT widget
         env:
           SOCIABLEKIT_API_KEY: ${{ secrets.SOCIABLEKIT_API_KEY }}
         run: |
@@ -29,7 +27,27 @@ jobs:
             "https://api.sociablekit.com/v1/widgets/25714430" \
             -o widget.json
 
-      - name: Get Instagram feed URL
+          echo "Widget information retrieved successfully."
+
+      - name: Attempt SociableKIT widget update
+        env:
+          SOCIABLEKIT_API_KEY: ${{ secrets.SOCIABLEKIT_API_KEY }}
+        run: |
+          echo "Attempting to trigger a widget update..."
+
+          curl --fail-with-body \
+            -X PATCH \
+            -H "Authorization: Bearer ${SOCIABLEKIT_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/json" \
+            "https://api.sociablekit.com/v1/widgets/25714430" \
+            -d '{}' \
+            -o update-response.json
+
+          echo "SociableKIT update request completed."
+          cat update-response.json
+
+      - name: Get feed URL
         id: widget
         run: |
           FEED_URL=$(python -c "import json; print(json.load(open('widget.json'))['feed_url'])")
@@ -38,7 +56,8 @@ jobs:
           echo "feed_url=$FEED_URL" >> "$GITHUB_OUTPUT"
           echo "last_synced_at=$LAST_SYNCED" >> "$GITHUB_OUTPUT"
 
-          echo "SociableKIT last sync: $LAST_SYNCED"
+          echo "Last known SociableKIT sync: $LAST_SYNCED"
+          echo "Feed URL: $FEED_URL"
 
       - name: Download Instagram feed
         run: |
@@ -49,9 +68,12 @@ jobs:
             "${{ steps.widget.outputs.feed_url }}" \
             -o data/instagram.json
 
-      - name: Remove temporary widget data
+          echo "Instagram feed downloaded successfully."
+
+      - name: Remove temporary files
         run: |
           rm -f widget.json
+          rm -f update-response.json
 
       - name: Commit updated Instagram data
         run: |
@@ -65,4 +87,5 @@ jobs:
           else
             git commit -m "Update Instagram feed"
             git push
+            echo "Instagram data updated and committed."
           fi
