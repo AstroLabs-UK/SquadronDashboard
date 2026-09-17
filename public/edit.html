@@ -118,8 +118,8 @@
 <input id="lon" type="number" step="0.0001">
 <label>Leaderboard Google Sheets CSV link</label>
 <input id="leaderboardCsvUrl" placeholder="File > Share > Publish to web > CSV in Google Sheets">
-<label>Link for "more events" QR code (shown when there are more than 2 events)</label>
-<input id="eventsMoreUrl" placeholder="e.g. a link to your full events calendar">
+<label>"See more events" QR link (shown as the last page of the events rotation)</label>
+<input id="eventsSeeMoreUrl" placeholder="e.g. your cadet portal's events page">
 <label>Error report link (shown as a QR code if a panel fails to load)</label>
 <input id="errorReportUrl" placeholder="e.g. a Google Form link for reporting issues — leave blank to disable">
 <label>Instagram widget embed code</label>
@@ -172,7 +172,7 @@ async function load() {
   document.getElementById('lat').value = data.location.lat;
   document.getElementById('lon').value = data.location.lon;
   document.getElementById('leaderboardCsvUrl').value = data.leaderboardCsvUrl || '';
-  document.getElementById('eventsMoreUrl').value = data.eventsMoreUrl || '';
+  document.getElementById('eventsSeeMoreUrl').value = data.eventsSeeMoreUrl || '';
   document.getElementById('errorReportUrl').value = data.errorReportUrl || '';
   document.getElementById('instagramEmbedCode').value = data.instagramEmbedCode || '';
   const ec = document.getElementById('eventsContainer'); ec.innerHTML = '';
@@ -200,7 +200,7 @@ async function save() {
       lon: parseFloat(document.getElementById('lon').value)
     },
     leaderboardCsvUrl: document.getElementById('leaderboardCsvUrl').value,
-    eventsMoreUrl: document.getElementById('eventsMoreUrl').value,
+    eventsSeeMoreUrl: document.getElementById('eventsSeeMoreUrl').value,
     errorReportUrl: document.getElementById('errorReportUrl').value,
     instagramEmbedCode: document.getElementById('instagramEmbedCode').value,
     events, socials
