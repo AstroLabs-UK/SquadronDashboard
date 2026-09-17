@@ -71,7 +71,7 @@
     color: var(--deep-navy);
   }
   input:focus, textarea:focus { border-color: var(--raf-blue); outline: none; }
-  .event-row, .social-row {
+  .event-row {
     border: 1px solid var(--border);
     border-radius: 3px;
     padding: 12px;
@@ -124,15 +124,21 @@
 <input id="errorReportUrl" placeholder="e.g. a Google Form link for reporting issues — leave blank to disable">
 <label>Instagram widget embed code</label>
 <textarea id="instagramEmbedCode" rows="4" placeholder="Paste the full embed snippet from a free Instagram-feed widget service (e.g. Elfsight or SociableKit) - the script tag and div, exactly as they give it to you"></textarea>
+<label>Weather widget embed code (optional)</label>
+<textarea id="weatherEmbedCode" rows="4" placeholder="Paste a full embed snippet (e.g. from weatherwidget.io) to replace the built-in weather display - leave blank to use the default"></textarea>
 <p style="color:var(--muted); font-size:13px;">News headlines are fixed to BBC News and aren't editable here. Get a free embed snippet from a service like elfsight.com or sociablekit.com and paste it above - it refreshes on the screen automatically every 10 minutes.</p>
+
+<h2>Important Information</h2>
+<label><input type="checkbox" id="importantInfoEnabled" style="width:auto; margin-right:8px; vertical-align:middle;"> Show a banner on the dashboard</label>
+<label>Title (optional)</label>
+<input id="importantInfoTitle" placeholder="IMPORTANT INFORMATION">
+<label>Message</label>
+<textarea id="importantInfoMessage" rows="3" placeholder="e.g. Parade has been cancelled tonight. Please check SPOND."></textarea>
+<p style="color:var(--muted); font-size:13px;">Shown as a banner at the bottom of the dashboard. Leave the message empty or the checkbox unticked to hide it completely.</p>
 
 <h2>Events</h2>
 <div id="eventsContainer"></div>
 <button class="add" onclick="addEvent()">+ Add event</button>
-
-<h2>Socials</h2>
-<div id="socialsContainer"></div>
-<button class="add" onclick="addSocial()">+ Add social</button>
 
 <h2>&nbsp;</h2>
 <button class="primary" onclick="save()">Save changes</button>
@@ -152,18 +158,7 @@ function eventRow(e = {title:'', date:'', detail:''}) {
     <button class="danger" onclick="this.parentElement.remove()">Remove</button>`;
   return div;
 }
-function socialRow(s = {label:'', url:'', handle:''}) {
-  const div = document.createElement('div');
-  div.className = 'social-row';
-  div.innerHTML = `
-    <label>Platform</label><input class="so-label" value="${s.label}">
-    <label>URL</label><input class="so-url" value="${s.url}">
-    <label>Handle</label><input class="so-handle" value="${s.handle}">
-    <button class="danger" onclick="this.parentElement.remove()">Remove</button>`;
-  return div;
-}
 function addEvent() { document.getElementById('eventsContainer').appendChild(eventRow()); }
-function addSocial() { document.getElementById('socialsContainer').appendChild(socialRow()); }
 
 async function load() {
   data = await (await fetch('/api/data')).json();
@@ -175,10 +170,13 @@ async function load() {
   document.getElementById('eventsSeeMoreUrl').value = data.eventsSeeMoreUrl || '';
   document.getElementById('errorReportUrl').value = data.errorReportUrl || '';
   document.getElementById('instagramEmbedCode').value = data.instagramEmbedCode || '';
+  document.getElementById('weatherEmbedCode').value = data.weatherEmbedCode || '';
+  const info = data.importantInfo || {};
+  document.getElementById('importantInfoEnabled').checked = !!info.enabled;
+  document.getElementById('importantInfoTitle').value = info.title || '';
+  document.getElementById('importantInfoMessage').value = info.message || '';
   const ec = document.getElementById('eventsContainer'); ec.innerHTML = '';
   data.events.forEach(e => ec.appendChild(eventRow(e)));
-  const sc = document.getElementById('socialsContainer'); sc.innerHTML = '';
-  data.socials.forEach(s => sc.appendChild(socialRow(s)));
 }
 
 async function save() {
@@ -186,11 +184,6 @@ async function save() {
     title: r.querySelector('.ev-title').value,
     date: r.querySelector('.ev-date').value,
     detail: r.querySelector('.ev-detail').value
-  }));
-  const socials = [...document.querySelectorAll('.social-row')].map(r => ({
-    label: r.querySelector('.so-label').value,
-    url: r.querySelector('.so-url').value,
-    handle: r.querySelector('.so-handle').value
   }));
   const payload = {
     squadronName: document.getElementById('squadronName').value,
@@ -203,7 +196,13 @@ async function save() {
     eventsSeeMoreUrl: document.getElementById('eventsSeeMoreUrl').value,
     errorReportUrl: document.getElementById('errorReportUrl').value,
     instagramEmbedCode: document.getElementById('instagramEmbedCode').value,
-    events, socials
+    weatherEmbedCode: document.getElementById('weatherEmbedCode').value,
+    importantInfo: {
+      enabled: document.getElementById('importantInfoEnabled').checked,
+      title: document.getElementById('importantInfoTitle').value,
+      message: document.getElementById('importantInfoMessage').value
+    },
+    events
   };
   const res = await fetch('/api/data', {
     method: 'POST',
