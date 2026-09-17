@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Edit Squadron Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --raf-navy: #00205B;
+    --deep-navy: #071525;
+    --raf-blue: #0066A1;
+    --light-blue: #D9EAF3;
+    --white: #FFFFFF;
+    --off-white: #F4F6F8;
+    --raf-red: #C8102E;
+    --muted: #667788;
+    --border: #D5DDE5;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Inter", Arial, Helvetica, sans-serif;
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 0 0 40px 0;
+    background: var(--off-white);
+    color: var(--deep-navy);
+  }
+  header {
+    background: var(--raf-navy);
+    color: var(--white);
+    padding: 18px 20px;
+    border-bottom: 3px solid var(--raf-blue);
+  }
+  header .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--light-blue);
+  }
+  header h1 { margin: 4px 0 0 0; font-size: 20px; font-weight: 700; }
+  .content { padding: 0 20px; }
+  h2 {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-top: 28px;
+    color: var(--raf-navy);
+    border-bottom: 2px solid var(--raf-navy);
+    padding-bottom: 8px;
+  }
+  label {
+    display: block;
+    margin-top: 12px;
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+  }
+  input, textarea {
+    width: 100%;
+    padding: 9px 10px;
+    margin-top: 4px;
+    font-size: 15px;
+    font-family: inherit;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--deep-navy);
+  }
+  input:focus, textarea:focus { border-color: var(--raf-blue); outline: none; }
+  .event-row, .social-row {
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 12px;
+    margin-top: 12px;
+    background: var(--white);
+    box-shadow: 0 2px 8px rgba(7, 21, 37, 0.06);
+  }
+  button {
+    margin-top: 14px;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  .primary { background: var(--raf-navy); color: var(--white); }
+  .primary:hover { background: var(--raf-blue); }
+  .danger { background: var(--white); color: var(--raf-red); border-color: var(--raf-red); }
+  .danger:hover { background: var(--raf-red); color: var(--white); }
+  .add { background: var(--white); color: var(--raf-navy); border-color: var(--raf-navy); }
+  .add:hover { background: var(--raf-navy); color: var(--white); }
+  #status { margin-top: 14px; font-weight: 700; color: var(--raf-navy); }
+</style>
+</head>
+<body>
+<header>
+  <div class="eyebrow">Royal Air Force Air Cadets</div>
+  <h1>Edit Squadron Dashboard</h1>
+</header>
+<div class="content">
+<p style="color:var(--muted); font-size:14px;">Changes appear on the squadron screen within about 2 minutes.</p>
+
+<h2>General</h2>
+<label>Squadron name</label>
+<input id="squadronName">
+<label>Weather location name</label>
+<input id="locName">
+<label>Latitude</label>
+<input id="lat" type="number" step="0.0001">
+<label>Longitude</label>
+<input id="lon" type="number" step="0.0001">
+<label>Leaderboard Google Sheets CSV link</label>
+<input id="leaderboardCsvUrl" placeholder="File > Share > Publish to web > CSV in Google Sheets">
+<label>Link for "more events" QR code (shown when there are more than 2 events)</label>
+<input id="eventsMoreUrl" placeholder="e.g. a link to your full events calendar">
+<label>Error report link (shown as a QR code if a panel fails to load)</label>
+<input id="errorReportUrl" placeholder="e.g. a Google Form link for reporting issues — leave blank to disable">
+<label>Instagram widget embed code</label>
+<textarea id="instagramEmbedCode" rows="4" placeholder="Paste the full embed snippet from a free Instagram-feed widget service (e.g. Elfsight or SociableKit) - the script tag and div, exactly as they give it to you"></textarea>
+<p style="color:var(--muted); font-size:13px;">News headlines are fixed to BBC News and aren't editable here. Get a free embed snippet from a service like elfsight.com or sociablekit.com and paste it above - it refreshes on the screen automatically every 10 minutes.</p>
+
+<h2>Events</h2>
+<div id="eventsContainer"></div>
+<button class="add" onclick="addEvent()">+ Add event</button>
+
+<h2>Socials</h2>
+<div id="socialsContainer"></div>
+<button class="add" onclick="addSocial()">+ Add social</button>
+
+<h2>&nbsp;</h2>
+<button class="primary" onclick="save()">Save changes</button>
+<div id="status"></div>
+</div>
+
+<script>
+let data = null;
+
+function eventRow(e = {title:'', date:'', detail:''}) {
+  const div = document.createElement('div');
+  div.className = 'event-row';
+  div.innerHTML = `
+    <label>Title</label><input class="ev-title" value="${e.title}">
+    <label>Date / recurrence</label><input class="ev-date" value="${e.date}">
+    <label>Detail</label><input class="ev-detail" value="${e.detail}">
+    <button class="danger" onclick="this.parentElement.remove()">Remove</button>`;
+  return div;
+}
+function socialRow(s = {label:'', url:'', handle:''}) {
+  const div = document.createElement('div');
+  div.className = 'social-row';
+  div.innerHTML = `
+    <label>Platform</label><input class="so-label" value="${s.label}">
+    <label>URL</label><input class="so-url" value="${s.url}">
+    <label>Handle</label><input class="so-handle" value="${s.handle}">
+    <button class="danger" onclick="this.parentElement.remove()">Remove</button>`;
+  return div;
+}
+function addEvent() { document.getElementById('eventsContainer').appendChild(eventRow()); }
+function addSocial() { document.getElementById('socialsContainer').appendChild(socialRow()); }
+
+async function load() {
+  data = await (await fetch('/api/data')).json();
+  document.getElementById('squadronName').value = data.squadronName;
+  document.getElementById('locName').value = data.location.name;
+  document.getElementById('lat').value = data.location.lat;
+  document.getElementById('lon').value = data.location.lon;
+  document.getElementById('leaderboardCsvUrl').value = data.leaderboardCsvUrl || '';
+  document.getElementById('eventsMoreUrl').value = data.eventsMoreUrl || '';
+  document.getElementById('errorReportUrl').value = data.errorReportUrl || '';
+  document.getElementById('instagramEmbedCode').value = data.instagramEmbedCode || '';
+  const ec = document.getElementById('eventsContainer'); ec.innerHTML = '';
+  data.events.forEach(e => ec.appendChild(eventRow(e)));
+  const sc = document.getElementById('socialsContainer'); sc.innerHTML = '';
+  data.socials.forEach(s => sc.appendChild(socialRow(s)));
+}
+
+async function save() {
+  const events = [...document.querySelectorAll('.event-row')].map(r => ({
+    title: r.querySelector('.ev-title').value,
+    date: r.querySelector('.ev-date').value,
+    detail: r.querySelector('.ev-detail').value
+  }));
+  const socials = [...document.querySelectorAll('.social-row')].map(r => ({
+    label: r.querySelector('.so-label').value,
+    url: r.querySelector('.so-url').value,
+    handle: r.querySelector('.so-handle').value
+  }));
+  const payload = {
+    squadronName: document.getElementById('squadronName').value,
+    location: {
+      name: document.getElementById('locName').value,
+      lat: parseFloat(document.getElementById('lat').value),
+      lon: parseFloat(document.getElementById('lon').value)
+    },
+    leaderboardCsvUrl: document.getElementById('leaderboardCsvUrl').value,
+    eventsMoreUrl: document.getElementById('eventsMoreUrl').value,
+    errorReportUrl: document.getElementById('errorReportUrl').value,
+    instagramEmbedCode: document.getElementById('instagramEmbedCode').value,
+    events, socials
+  };
+  const res = await fetch('/api/data', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  });
+  document.getElementById('status').textContent = res.ok ? 'Saved!' : 'Something went wrong.';
+}
+
+load();
+</script>
+</body>
+</html>
