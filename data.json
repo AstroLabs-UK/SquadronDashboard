@@ -1,0 +1,21 @@
+{
+  "squadronName": "Your Squadron Name",
+  "location": {
+    "name": "Your Town",
+    "lat": 51.5074,
+    "lon": -0.1278
+  },
+  "leaderboardCsvUrl": "",
+  "eventsMoreUrl": "",
+  "errorReportUrl": "",
+  "instagramEmbedCode": "",
+  "socials": [
+    { "label": "Instagram", "url": "https://instagram.com/", "handle": "@yourhandle" },
+    { "label": "Facebook", "url": "https://facebook.com/", "handle": "Your Squadron" },
+    { "label": "X / Twitter", "url": "https://x.com/", "handle": "@yourhandle" }
+  ],
+  "events": [
+    { "title": "Parade Night", "date": "Every Thursday", "detail": "1900 - 2130, main hall" },
+    { "title": "Example Event", "date": "Edit me on /edit", "detail": "Add real events on the edit page" }
+  ]
+}
