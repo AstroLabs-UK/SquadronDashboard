@@ -24,11 +24,8 @@ const DEFAULT_DATA = {
   eventsSeeMoreUrl: "https://cadets.bader.mod.uk/events",
   errorReportUrl: "",
   instagramEmbedCode: "",
-  socials: [
-    { label: "Instagram", url: "https://instagram.com/", handle: "@yourhandle" },
-    { label: "Facebook", url: "https://facebook.com/", handle: "Your Squadron" },
-    { label: "X / Twitter", url: "https://x.com/", handle: "@yourhandle" }
-  ],
+  weatherEmbedCode: "",
+  importantInfo: { enabled: false, title: "IMPORTANT INFORMATION", message: "" },
   events: []
 };
 
@@ -145,6 +142,9 @@ app.get('/', (req, res) => {
 app.get('/edit', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'edit.html'));
 });
+app.get('/status', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'status.html'));
+});
 
 // ---------- API: settings / events ----------
 app.get('/api/data', (req, res) => {
@@ -225,20 +225,107 @@ app.get('/api/leaderboard', async (req, res) => {
     const nameIdx = headers.findIndex(h => h.includes('name'));
     const pointsIdx = headers.findIndex(h => h.includes('point'));
     const rankIdx = headers.findIndex(h => h.includes('rank'));
+    const flightIdx = headers.findIndex(h => h.includes('flight'));
 
     const dataRows = [];
     for (let i = headerRowIdx + 1; i < table.length; i++) {
       const row = table[i];
       if (!row[nameIdx]) break; // stop at first blank row - end of this section
-      dataRows.push({ name: row[nameIdx], points: Number(row[pointsIdx]) || 0 });
+      dataRows.push({
+        name: row[nameIdx],
+        points: Number(row[pointsIdx]) || 0,
+        flight: flightIdx !== -1 ? row[flightIdx] : null
+      });
     }
 
-    // if the sheet already provides rank order, keep it as-is; otherwise sort by points
-    const rows = (rankIdx !== -1 ? dataRows : dataRows.sort((a, b) => b.points - a.points)).slice(0, 5);
-    res.json({ rows });
+    // Individual leaderboard - unchanged behaviour: keep the sheet's own rank order
+    // if it has one, otherwise sort by points ourselves.
+    const rows = (rankIdx !== -1 ? [...dataRows] : [...dataRows].sort((a, b) => b.points - a.points)).slice(0, 5);
+
+    // Flight leaderboard - group ALL rows (not just the top 5 individuals) by
+    // whatever flight names appear in the sheet, sum their points, sort descending.
+    // No flight names are hardcoded - purely derived from the CSV.
+    let flightRows = null;
+    if (flightIdx !== -1) {
+      const totals = new Map(); // lowercase key -> { flight: original-case label, points }
+      for (const r of dataRows) {
+        const label = (r.flight || '').trim();
+        if (!label) continue;
+        const key = label.toLowerCase();
+        if (!totals.has(key)) totals.set(key, { flight: label, points: 0 });
+        totals.get(key).points += r.points;
+      }
+      flightRows = [...totals.values()].sort((a, b) => b.points - a.points);
+      if (flightRows.length === 0) flightRows = null; // flight column existed but every value was blank
+    }
+
+    res.json({ rows, flightRows });
   } catch (e) {
     res.status(500).json({ error: 'leaderboard fetch failed', detail: String(e) });
   }
+});
+
+// ---------- API: status ----------
+// Diagnostic info only - never exposes secrets, tokens, or raw config values,
+// just reachability/configured-or-not indicators.
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
+  ]);
+}
+
+app.get('/api/status', async (req, res) => {
+  const data = loadData();
+  const status = {
+    serverStatus: 'ONLINE',
+    uptimeSeconds: Math.floor(process.uptime()),
+    currentTime: new Date().toISOString(),
+    nodeVersion: process.version,
+    dashboardVersion: (() => {
+      try { return require('./package.json').version || 'unknown'; } catch (e) { return 'unknown'; }
+    })()
+  };
+
+  status.dataJson = fs.existsSync(DATA_FILE) ? 'ONLINE' : 'OFFLINE';
+  status.dataBackup = fs.existsSync(BACKUP_FILE) ? 'ONLINE' : 'WARNING';
+
+  try {
+    const r = await withTimeout(fetch(`https://api.open-meteo.com/v1/forecast?latitude=${data.location.lat}&longitude=${data.location.lon}&current=temperature_2m`), 5000);
+    status.weatherApi = r.ok ? 'ONLINE' : 'WARNING';
+  } catch (e) { status.weatherApi = 'OFFLINE'; }
+
+  try {
+    await withTimeout(rssParser.parseURL(BBC_NEWS_RSS), 5000);
+    status.newsRss = 'ONLINE';
+  } catch (e) { status.newsRss = 'OFFLINE'; }
+
+  if (!data.leaderboardCsvUrl) {
+    status.leaderboardCsv = 'WARNING'; // not configured
+  } else {
+    try {
+      const r = await withTimeout(fetch(data.leaderboardCsvUrl), 5000);
+      status.leaderboardCsv = r.ok ? 'ONLINE' : 'WARNING';
+    } catch (e) { status.leaderboardCsv = 'OFFLINE'; }
+  }
+
+  status.instagramWidget = (data.instagramEmbedCode && data.instagramEmbedCode.trim()) ? 'ONLINE' : 'WARNING';
+
+  status.git = await new Promise(resolve => {
+    exec('git rev-parse --short HEAD', { cwd: __dirname }, (err, stdout) => {
+      if (err) return resolve({ checkout: false, status: 'WARNING' });
+      exec('git status --porcelain', { cwd: __dirname }, (err2, stdout2) => {
+        resolve({
+          checkout: true,
+          status: 'ONLINE',
+          commit: stdout.trim(),
+          hasLocalChanges: !!(stdout2 && stdout2.trim())
+        });
+      });
+    });
+  });
+
+  res.json(status);
 });
 
 app.listen(PORT, '0.0.0.0', () => {
