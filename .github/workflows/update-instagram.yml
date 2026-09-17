@@ -1,4 +1,3 @@
-```yaml
 name: Update Instagram Widget
 
 on:
@@ -67,4 +66,3 @@ jobs:
             git commit -m "Update Instagram feed"
             git push
           fi
-```
