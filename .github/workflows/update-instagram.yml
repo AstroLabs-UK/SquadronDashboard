@@ -1,0 +1,70 @@
+```yaml
+name: Update Instagram Widget
+
+on:
+  schedule:
+    # Every 3 days at 10:00 UTC
+    - cron: "0 10 */3 * *"
+
+  # Allows you to run it manually from GitHub Actions
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-instagram:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Fetch SociableKIT widget information
+        env:
+          SOCIABLEKIT_API_KEY: ${{ secrets.SOCIABLEKIT_API_KEY }}
+        run: |
+          curl --fail-with-body \
+            -H "Authorization: Bearer ${SOCIABLEKIT_API_KEY}" \
+            -H "Accept: application/json" \
+            "https://api.sociablekit.com/v1/widgets/25714430" \
+            -o widget.json
+
+      - name: Get Instagram feed URL
+        id: widget
+        run: |
+          FEED_URL=$(python -c "import json; print(json.load(open('widget.json'))['feed_url'])")
+          LAST_SYNCED=$(python -c "import json; print(json.load(open('widget.json')).get('last_synced_at', 'unknown'))")
+
+          echo "feed_url=$FEED_URL" >> "$GITHUB_OUTPUT"
+          echo "last_synced_at=$LAST_SYNCED" >> "$GITHUB_OUTPUT"
+
+          echo "SociableKIT last sync: $LAST_SYNCED"
+
+      - name: Download Instagram feed
+        run: |
+          mkdir -p data
+
+          curl --fail-with-body \
+            -H "Accept: application/json" \
+            "${{ steps.widget.outputs.feed_url }}" \
+            -o data/instagram.json
+
+      - name: Remove temporary widget data
+        run: |
+          rm -f widget.json
+
+      - name: Commit updated Instagram data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add data/instagram.json
+
+          if git diff --cached --quiet; then
+            echo "No Instagram data changes detected."
+          else
+            git commit -m "Update Instagram feed"
+            git push
+          fi
+```
