@@ -9,11 +9,12 @@
   "eventsSeeMoreUrl": "https://cadets.bader.mod.uk/events",
   "errorReportUrl": "",
   "instagramEmbedCode": "",
-  "socials": [
-    { "label": "Instagram", "url": "https://instagram.com/", "handle": "@yourhandle" },
-    { "label": "Facebook", "url": "https://facebook.com/", "handle": "Your Squadron" },
-    { "label": "X / Twitter", "url": "https://x.com/", "handle": "@yourhandle" }
-  ],
+  "weatherEmbedCode": "<a class=\"weatherwidget-io\" href=\"https://forecast7.com/en/51d280d53/me14-2ar/\" data-label_1=\"BOXLEY ROAD\" data-label_2=\"WEATHER\" data-font=\"Roboto\" data-icons=\"Climacons\" data-theme=\"original\" >BOXLEY ROAD WEATHER</a><script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src='https://weatherwidget.io/js/widget.min.js';fjs.parentNode.insertBefore(js,fjs);}}(document,'script','weatherwidget-io-js');</script>",
+  "importantInfo": {
+    "enabled": false,
+    "title": "IMPORTANT INFORMATION",
+    "message": ""
+  },
   "events": [
     { "title": "Parade Night", "date": "Every Thursday", "detail": "1900 - 2130, main hall" },
     { "title": "Example Event", "date": "Edit me on /edit", "detail": "Add real events on the edit page" }
