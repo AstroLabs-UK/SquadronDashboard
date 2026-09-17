@@ -21,7 +21,7 @@ const DEFAULT_DATA = {
   squadronName: "Your Squadron Name",
   location: { name: "Your Town", lat: 51.5074, lon: -0.1278 },
   leaderboardCsvUrl: "",
-  eventsMoreUrl: "",
+  eventsSeeMoreUrl: "https://cadets.bader.mod.uk/events",
   errorReportUrl: "",
   instagramEmbedCode: "",
   socials: [
@@ -92,7 +92,34 @@ function scheduleAutoShutdown() {
   });
 }
 
-// very small CSV parser - good enough for a simple Google Sheets export
+// ---------- auto update ----------
+// Periodically checks the GitHub repo for new commits. If there's a newer
+// version, pulls it, reinstalls dependencies if needed, then restarts itself
+// via systemd (which is why setup.sh grants passwordless permission for that
+// specific restart command). Silently does nothing if this isn't a git
+// checkout (e.g. local testing) or there's no internet right now.
+const UPDATE_CHECK_INTERVAL_MS = 30 * 60 * 1000; // every 30 minutes
+function checkForUpdates() {
+  exec('git rev-parse --is-inside-work-tree', { cwd: __dirname }, (err) => {
+    if (err) return; // not a git checkout - nothing to do
+    exec('git fetch --quiet && git rev-parse HEAD && git rev-parse @{u}', { cwd: __dirname }, (err2, stdout) => {
+      if (err2) { console.warn('[auto-update] could not check for updates:', err2.message); return; }
+      const [local, remote] = stdout.trim().split('\n');
+      if (local === remote) return; // already up to date
+      console.log('[auto-update] update found - pulling latest version...');
+      exec('git pull --quiet && npm install --omit=dev --quiet', { cwd: __dirname }, (err3) => {
+        if (err3) { console.warn('[auto-update] update failed:', err3.message); return; }
+        console.log('[auto-update] updated successfully - restarting...');
+        exec('sudo systemctl restart squadron-dashboard.service', (err4) => {
+          if (err4) console.warn('[auto-update] pulled latest code but could not restart automatically - restart the service manually to apply it');
+          // if the restart command succeeds, this process is about to be killed and replaced - nothing more to do here
+        });
+      });
+    });
+  });
+}
+
+
 function parseCsv(text) {
   const lines = text.trim().split(/\r?\n/);
   return lines.map(line => {
@@ -219,4 +246,6 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`  Display:  http://localhost:${PORT}`);
   console.log(`  Edit (from any phone/laptop on the network): http://<this-pi's-IP>:${PORT}/edit`);
   scheduleAutoShutdown();
+  setTimeout(checkForUpdates, 60 * 1000); // one check shortly after boot
+  setInterval(checkForUpdates, UPDATE_CHECK_INTERVAL_MS);
 });
