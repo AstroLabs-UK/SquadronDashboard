@@ -23,6 +23,7 @@ const DEFAULT_DATA = {
   leaderboardCsvUrl: "",
   eventsSeeMoreUrl: "https://cadets.bader.mod.uk/events",
   errorReportUrl: "",
+  autoShutdownMinutes: 165,
   instagramEmbedCode: "",
   weatherEmbedCode: "",
   importantInfo: { enabled: false, title: "IMPORTANT INFORMATION", message: "" },
