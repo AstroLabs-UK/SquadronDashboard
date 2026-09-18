@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Squadron Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root {
+    --raf-navy: #00205B;
+    --deep-navy: #071525;
+    --raf-blue: #0066A1;
+    --light-blue: #D9EAF3;
+    --white: #FFFFFF;
+    --off-white: #F4F6F8;
+    --raf-red: #C8102E;
+    --muted: #667788;
+    --border: #D5DDE5;
+  }
+  * { box-sizing: border-box; }
+  /* Hide Elfsight's own branding/toolbar wherever their widget markup allows it */
+  .eapps-widget-toolbar, .global-styles, a[href*="elfsight.com"] { display: none !important; }
+  body {
+    margin: 0;
+    background: var(--off-white);
+    color: var(--deep-navy);
+    font-family: "Inter", Arial, Helvetica, sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+  }
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 28px;
+    background: var(--raf-navy);
+    color: var(--white);
+    border-bottom: 3px solid var(--raf-blue);
+  }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .roundel { width: 48px; height: 48px; flex-shrink: 0; }
+  .brand-text h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: 0.01em; }
+  .clockbox { text-align: right; }
+  #clock { font-size: 32px; font-weight: 700; letter-spacing: 0.02em; }
+  #date { font-size: 13px; color: var(--light-blue); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; }
+
+  main {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 16px;
+    padding: 16px;
+    min-height: 0;
+  }
+  .panel {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 20px 24px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 2px 8px rgba(7, 21, 37, 0.08);
+    min-height: 0;
+  }
+  .panel h2 {
+    margin: 0 0 14px 0;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--raf-navy);
+    border-bottom: 2px solid var(--raf-navy);
+    padding-bottom: 8px;
+  }
+
+  /* Weather panel (always shown, left) */
+  #weatherPanel { align-items: center; justify-content: center; text-align: center; }
+  #weatherPanel h2 { align-self: flex-start; width: 100%; }
+  #weatherContent { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; gap: 10px; }
+  #weatherContent .temp { font-size: 96px; font-weight: 700; color: var(--raf-navy); line-height: 1; }
+  #weatherContent .feels { font-size: 18px; color: var(--muted); }
+  #weatherContent .condition { font-size: 26px; font-weight: 700; color: var(--deep-navy); }
+  #weatherWidgetWrap { display: none; flex: 1; width: 100%; align-items: center; justify-content: center; overflow: hidden; }
+
+  /* Rotating panel (right) */
+  #rotatingPanel { position: relative; }
+  .rotate-pane { display: none; flex-direction: column; flex: 1; min-height: 0; }
+  .rotate-pane.active { display: flex; }
+  .rotate-pane ul { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex: 1; }
+
+  #newsPane li { margin-bottom: 12px; font-size: 16px; line-height: 1.45; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+  #newsPane li a { color: var(--deep-navy); text-decoration: none; }
+
+  /* Leaderboard: individual + flight side by side */
+  #lbPane { flex-direction: row; gap: 24px; }
+  .lb-col { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .lb-col h3 {
+    margin: 0 0 10px 0; font-size: 12px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--raf-blue);
+  }
+  .lb-col table { width: 100%; border-collapse: collapse; font-size: 17px; }
+  .lb-col thead th { background: var(--raf-navy); color: var(--white); text-align: left; padding: 10px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .lb-col thead th.num { text-align: right; }
+  .lb-col td { padding: 10px; border-bottom: 1px solid var(--border); }
+  .lb-col tr:nth-child(even) td { background: var(--off-white); }
+  .lb-col td.rank { color: var(--raf-blue); font-weight: 700; width: 34px; }
+  .lb-col td.points { text-align: right; font-weight: 700; color: var(--raf-navy); }
+  .lb-unavailable { color: var(--muted); font-size: 14px; padding: 12px 0; }
+  @media (max-width: 700px) {
+    #lbPane { flex-direction: column; }
+  }
+
+  #eventsPane li { margin-bottom: 14px; font-size: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+  #eventsPane li .title { font-weight: 700; color: var(--raf-navy); }
+  #eventsPane li .meta { color: var(--muted); font-size: 14px; margin-top: 2px; }
+  #eventsSeeMore { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; text-align: center; }
+  #eventsSeeMore .label { font-size: 15px; color: var(--muted); }
+
+  #socialsPane { position: relative; padding: 0; }
+  #socialsPane .insta-wrap { position: absolute; top: 0; left: 0; right: 0; bottom: 0; overflow: hidden; }
+  #socialsPane .insta-wrap iframe { display: block; width: 100%; height: 100%; border: none; }
+
+  /* Error fallback with QR */
+  .error-box { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; text-align: center; }
+  .error-box p { color: var(--muted); font-size: 15px; max-width: 320px; margin: 0; }
+  .qr-holder { padding: 8px; background: var(--white); border: 1px solid var(--border); border-radius: 4px; display: inline-flex; }
+  .qr-holder img, .qr-holder canvas { display: block; }
+
+  /* Important information banner - part of normal layout, zero space when hidden */
+  #infoBanner {
+    display: none;
+    align-items: flex-start;
+    gap: 14px;
+    margin: 0 16px 16px 16px;
+    padding: 14px 20px;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-left: 6px solid var(--raf-red);
+    border-radius: 3px;
+    box-shadow: 0 2px 8px rgba(7, 21, 37, 0.08);
+  }
+  #infoBanner.visible { display: flex; }
+  #infoBanner .icon { font-size: 22px; line-height: 1.2; color: var(--raf-red); flex-shrink: 0; }
+  #infoBanner .body { flex: 1; min-width: 0; }
+  #infoBanner .title {
+    margin: 0 0 4px 0; font-size: 13px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--raf-red);
+  }
+  #infoBanner .message { font-size: 15px; color: var(--deep-navy); line-height: 1.4; }
+</style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <img class="roundel" src="/roundel.png" alt="RAF Air Cadets roundel">
+      <div class="brand-text"><h1 id="squadronName">Your Squadron</h1></div>
+    </div>
+    <div class="clockbox">
+      <div id="clock">--:--</div>
+      <div id="date"></div>
+    </div>
+  </header>
+
+  <main>
+    <div class="panel" id="weatherPanel">
+      <h2>Weather<br><span id="weatherLocationName">Your Town</span></h2>
+      <div id="weatherContent"><p style="color:var(--muted)">Loading...</p></div>
+      <div id="weatherWidgetWrap"></div>
+    </div>
+
+    <div class="panel" id="rotatingPanel">
+      <h2 id="rotatingTitle">Leaderboard</h2>
+
+      <div class="rotate-pane active" id="lbPane">
+        <div class="lb-col">
+          <h3>Individual</h3>
+          <table><thead><tr><th>#</th><th>Cadet</th><th class="num">Points</th></tr></thead><tbody id="lbIndividualBody"></tbody></table>
+        </div>
+        <div class="lb-col">
+          <h3>Flight</h3>
+          <table id="lbFlightTable"><thead><tr><th>#</th><th>Flight</th><th class="num">Points</th></tr></thead><tbody id="lbFlightBody"></tbody></table>
+          <div class="lb-unavailable" id="lbFlightUnavailable" style="display:none;">FLIGHT DATA UNAVAILABLE</div>
+        </div>
+      </div>
+
+      <div class="rotate-pane" id="newsPane">
+        <ul></ul>
+      </div>
+
+      <div class="rotate-pane" id="eventsPane">
+        <ul id="eventsList"></ul>
+        <div id="eventsSeeMore" style="display:none;">
+          <div class="qr-holder" id="eventsSeeMoreQr"></div>
+          <div class="label">Scan to see the full events list</div>
+        </div>
+      </div>
+
+      <div class="rotate-pane" id="socialsPane">
+        <div class="insta-wrap" id="instaWrap"></div>
+      </div>
+    </div>
+  </main>
+
+  <div id="infoBanner">
+    <div class="icon">⚠</div>
+    <div class="body">
+      <div class="title" id="infoBannerTitle">IMPORTANT INFORMATION</div>
+      <div class="message" id="infoBannerMessage"></div>
+    </div>
+  </div>
+
+<script>
+let errorReportUrl = '';
+let lastInstagramEmbedCode = '';
+let lastWeatherEmbedCode = '';
+let weatherEmbedActive = false;
+let latestEvents = [];
+let eventsSeeMoreUrl = '';
+let eventsPages = [];
+let eventsPageIndex = 0;
+
+// Snapshot each rotating pane's original markup so it can be restored after an
+// error state (showError fully replaces a pane's contents with an error box).
+const paneTemplates = {
+  lbPane: document.getElementById('lbPane').innerHTML,
+  newsPane: document.getElementById('newsPane').innerHTML
+};
+function ensurePaneSkeleton(paneId) {
+  const pane = document.getElementById(paneId);
+  if (pane.querySelector('.error-box')) pane.innerHTML = paneTemplates[paneId];
+  return pane;
+}
+
+
+// Events pane shows up to 3 events per page, cycling through however many events
+// there are, with one extra final page that's just a "see more" QR code.
+function rebuildEventsPages() {
+  const chunks = [];
+  for (let i = 0; i < latestEvents.length; i += 3) {
+    chunks.push(latestEvents.slice(i, i + 3));
+  }
+  if (chunks.length === 0) chunks.push([]);
+  eventsPages = chunks.map(events => ({ type: 'events', events }));
+  if (eventsSeeMoreUrl) eventsPages.push({ type: 'more' });
+  eventsPageIndex = 0;
+  renderEventsPage();
+}
+
+function renderEventsPage() {
+  const ul = document.getElementById('eventsList');
+  const seeMore = document.getElementById('eventsSeeMore');
+  const page = eventsPages[eventsPageIndex] || { type: 'events', events: [] };
+  if (page.type === 'more') {
+    ul.style.display = 'none';
+    seeMore.style.display = 'flex';
+    const size = qrSizeFor(document.getElementById('eventsPane'));
+    makeQr('eventsSeeMoreQr', eventsSeeMoreUrl, Math.min(size, 260));
+  } else {
+    ul.style.display = '';
+    seeMore.style.display = 'none';
+    ul.innerHTML = page.events.map(e =>
+      `<li><div class="title">${e.title}</div><div class="meta">${e.date} &middot; ${e.detail}</div></li>`).join('')
+      || '<li><div class="meta">No events added yet - add some on /edit</div></li>';
+  }
+}
+
+setInterval(() => {
+  if (eventsPages.length <= 1) return;
+  eventsPageIndex = (eventsPageIndex + 1) % eventsPages.length;
+  renderEventsPage();
+}, 10000);
+
+// Renders a pasted widget embed snippet (script + div, e.g. Elfsight or a
+// weatherwidget.io embed) into a container. Scripts inserted via innerHTML don't
+// execute on their own, so each <script> tag is recreated manually. Mounted once
+// when the code changes on /edit - NOT recreated every time the carousel switches
+// back to this pane.
+function mountEmbedCode(containerId, embedCode) {
+  const wrap = document.getElementById(containerId);
+  wrap.innerHTML = '';
+  const temp = document.createElement('div');
+  temp.innerHTML = embedCode;
+  [...temp.childNodes].forEach(node => {
+    if (node.tagName === 'SCRIPT') {
+      const s = document.createElement('script');
+      if (node.src) { s.src = node.src; s.async = true; }
+      else { s.textContent = node.textContent; }
+      wrap.appendChild(s);
+    } else {
+      wrap.appendChild(node);
+    }
+  });
+}
+
+function mountInstagramEmbed(embedCode) { mountEmbedCode('instaWrap', embedCode); }
+
+// Force the embedded widget to refresh on its own schedule (every 10 minutes),
+// independent of how often the carousel happens to bring this pane into view.
+function refreshInstagramEmbed() {
+  if (lastInstagramEmbedCode) mountInstagramEmbed(lastInstagramEmbedCode);
+}
+setInterval(refreshInstagramEmbed, 10 * 60 * 1000);
+
+function tick() {
+  const now = new Date();
+  document.getElementById('clock').textContent = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+  document.getElementById('date').textContent = now.toLocaleDateString([], {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+}
+setInterval(tick, 1000); tick();
+
+function makeQr(containerId, url, size) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = '';
+  new QRCode(el, { text: url, width: size || 120, height: size || 120 });
+}
+
+function qrSizeFor(referenceEl) {
+  // Size the QR as large as the panel comfortably allows, capped for readability on a room-sized screen
+  const w = referenceEl.clientWidth || 300;
+  const h = referenceEl.clientHeight || 300;
+  return Math.max(100, Math.min(w * 0.7, h * 0.6, 320));
+}
+
+function showError(containerEl, label) {
+  const message = errorReportUrl
+    ? `This panel isn't working right now — scan the QR code to report it.`
+    : `This panel isn't working right now (${label}).`;
+  if (!errorReportUrl) {
+    containerEl.innerHTML = `<div class="error-box"><p>${message}</p></div>`;
+    return;
+  }
+  containerEl.innerHTML = `<div class="error-box"><div class="qr-holder" id="qr-${containerEl.id}"></div><p>${message}</p></div>`;
+  const size = qrSizeFor(containerEl);
+  makeQr('qr-' + containerEl.id, errorReportUrl, size);
+}
+
+const WEATHER_CODES = {0:'Clear',1:'Mostly Clear',2:'Partly Cloudy',3:'Overcast',45:'Foggy',48:'Foggy',
+51:'Drizzling',61:'Raining',63:'Raining',65:'Raining Heavily',71:'Snowing',73:'Snowing',75:'Snowing Heavily',
+80:'Showers',95:'Thunderstorm'};
+
+async function loadSettings() {
+  try {
+    const data = await (await fetch('/api/data')).json();
+    errorReportUrl = data.errorReportUrl || '';
+    document.getElementById('squadronName').textContent = data.squadronName;
+    document.getElementById('weatherLocationName').textContent = data.location.name;
+    if (data.instagramEmbedCode && data.instagramEmbedCode !== lastInstagramEmbedCode) {
+      lastInstagramEmbedCode = data.instagramEmbedCode;
+      mountInstagramEmbed(data.instagramEmbedCode);
+    }
+
+    weatherEmbedActive = !!(data.weatherEmbedCode && data.weatherEmbedCode.trim());
+    document.getElementById('weatherWidgetWrap').style.display = weatherEmbedActive ? 'flex' : 'none';
+    document.getElementById('weatherContent').style.display = weatherEmbedActive ? 'none' : 'flex';
+    if (weatherEmbedActive && data.weatherEmbedCode !== lastWeatherEmbedCode) {
+      lastWeatherEmbedCode = data.weatherEmbedCode;
+      mountEmbedCode('weatherWidgetWrap', data.weatherEmbedCode);
+    }
+
+    const info = data.importantInfo;
+    const banner = document.getElementById('infoBanner');
+    if (info && info.enabled && info.message && info.message.trim()) {
+      document.getElementById('infoBannerTitle').textContent = (info.title && info.title.trim()) || 'IMPORTANT INFORMATION';
+      document.getElementById('infoBannerMessage').textContent = info.message;
+      banner.classList.add('visible');
+    } else {
+      banner.classList.remove('visible');
+    }
+
+    latestEvents = data.events || [];
+    eventsSeeMoreUrl = data.eventsSeeMoreUrl || '';
+    rebuildEventsPages();
+  } catch (e) { console.error('settings load failed', e); }
+}
+
+async function loadWeather() {
+  if (weatherEmbedActive) return; // using the pasted weather widget instead of the built-in one
+  const box = document.getElementById('weatherContent');
+  try {
+    const w = await (await fetch('/api/weather')).json();
+    const c = w.current;
+    box.innerHTML = `
+      <div class="temp">${Math.round(c.temperature_2m)}&deg;</div>
+      <div class="feels">Feels like ${Math.round(c.apparent_temperature ?? c.temperature_2m)}&deg;</div>
+      <div class="condition">${WEATHER_CODES[c.weather_code] || 'Unknown'}</div>`;
+  } catch (e) {
+    showError(box, 'weather');
+  }
+}
+
+async function loadNews() {
+  const pane = ensurePaneSkeleton('newsPane');
+  const ul = pane.querySelector('ul');
+  try {
+    const n = await (await fetch('/api/news')).json();
+    if (!n.items || !n.items.length) throw new Error('empty');
+    ul.innerHTML = n.items.map(i => `<li><a href="${i.link}" target="_blank">${i.title}</a></li>`).join('');
+  } catch (e) {
+    showError(pane, 'news');
+  }
+}
+
+async function loadLeaderboard() {
+  const pane = ensurePaneSkeleton('lbPane');
+  const indivBody = document.getElementById('lbIndividualBody');
+  try {
+    const lb = await (await fetch('/api/leaderboard')).json();
+    if (!lb.rows || !lb.rows.length) throw new Error(lb.note || 'empty');
+    indivBody.innerHTML = lb.rows.map((r, i) =>
+      `<tr><td class="rank">${i+1}</td><td>${r.name}</td><td class="points">${r.points}</td></tr>`).join('');
+
+    const flightTable = document.getElementById('lbFlightTable');
+    const flightUnavailable = document.getElementById('lbFlightUnavailable');
+    if (lb.flightRows && lb.flightRows.length) {
+      flightTable.style.display = '';
+      flightUnavailable.style.display = 'none';
+      document.getElementById('lbFlightBody').innerHTML = lb.flightRows.map((r, i) =>
+        `<tr><td class="rank">${i+1}</td><td>${r.flight}</td><td class="points">${r.points}</td></tr>`).join('');
+    } else {
+      flightTable.style.display = 'none';
+      flightUnavailable.style.display = 'block';
+    }
+  } catch (e) {
+    showError(pane, 'leaderboard');
+  }
+}
+
+async function refreshAll() {
+  await loadSettings();
+  await loadWeather();
+  await loadNews();
+  await loadLeaderboard();
+}
+refreshAll();
+setInterval(loadWeather, 10 * 60 * 1000);
+setInterval(loadNews, 15 * 60 * 1000);
+setInterval(loadLeaderboard, 5 * 60 * 1000);
+setInterval(loadSettings, 10 * 1000); // checks for edits made on /edit every 10 seconds
+
+// ---- Carousel: Leaderboard -> News -> Events -> Socials, every 10s ----
+const panes = [
+  { id: 'lbPane', title: 'Leaderboard' },
+  { id: 'newsPane', title: 'News Headlines' },
+  { id: 'eventsPane', title: 'Upcoming Events' },
+  { id: 'socialsPane', title: 'Follow Us' }
+];
+let paneIndex = 0;
+function showPane(i) {
+  panes.forEach((p, idx) => {
+    document.getElementById(p.id).classList.toggle('active', idx === i);
+  });
+  document.getElementById('rotatingTitle').textContent = panes[i].title;
+}
+showPane(0);
+setInterval(() => {
+  paneIndex = (paneIndex + 1) % panes.length;
+  showPane(paneIndex);
+}, 10000);
+</script>
+</body>
+</html>
