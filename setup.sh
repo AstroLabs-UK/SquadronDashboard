@@ -91,27 +91,21 @@ EOF
 sudo systemctl daemon-reload
 sudo systemctl enable --now squadron-dashboard-shutdown.service
 
-# 3b. Auto update - checks this repo every 30 minutes, pulls and restarts the
-#     systemd service if there's a new commit
+# 3b. Auto update - checks this repo 2 minutes after every boot and then every 30
+#     minutes, applies new commits and restarts the service. Custom settings
+#     (data.json) are preserved - see update.sh
 echo "-> Setting up auto-update (checks every 30 minutes)..."
 cat > "$DIR/npm-update.sh" <<EOF
 #!/usr/bin/env bash
-cd "$DIR"
-git fetch --quiet
-LOCAL=\$(git rev-parse HEAD)
-REMOTE=\$(git rev-parse @{u})
-if [ "\$LOCAL" != "\$REMOTE" ]; then
-  echo "Update found - pulling and restarting..."
-  git pull --quiet
-  npm install --omit=dev --quiet
-  sudo systemctl restart squadron-dashboard.service
-fi
+exec bash "$DIR/update.sh"
 EOF
 chmod +x "$DIR/npm-update.sh"
 
 sudo tee /etc/systemd/system/squadron-dashboard-update.service > /dev/null <<EOF
 [Unit]
 Description=Squadron Dashboard auto update check
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=oneshot
