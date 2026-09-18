@@ -15,7 +15,7 @@ This single command:
 - Clones this repository
 - Builds and starts the dashboard in a Docker container (all dependencies bundled in the image - no `npm install` headaches, ever)
 - Installs Chromium if needed, and sets it to launch automatically on boot in kiosk mode, pointed at the dashboard
-- Sets up auto-shutdown (duration configurable on `/edit`, defaults to 2h45m after boot) and auto-update (checks this repo every 30 minutes and rebuilds automatically) as host-level systemd timers
+- Sets up auto-shutdown (duration configurable on `/edit`, defaults to 2h45m after boot) and auto-update (checks this repo shortly after every boot, then every 30 minutes, and applies any changes automatically - your settings from `/edit` are never overwritten) as host-level systemd timers
 
 Reboot when it finishes, and it comes up full-screen on its own:
 
@@ -55,7 +55,7 @@ Everything is done from `/edit` in a normal browser - no code editing needed. Go
 
 - **Squadron/unit name** and **weather location** (name + latitude/longitude)
 - **Leaderboard Google Sheets CSV link** — see below
-- **"See more events" QR link** — shown as the final page of the events rotation; defaults to the cadet portal events page
+- **"See all events" QR link** — shown on the right-hand side of the events panel; defaults to the cadet portal events page
 - **Error report link** — shown as a QR code if a panel fails to load (e.g. a Google Form); leave blank to disable
 - **Auto shutdown after (minutes)** — how long after boot the device powers itself off, defaults to 165 (2h45m). Takes effect from the next boot onwards, since the timer reads this value fresh at boot time rather than while it's already counting down
 - **Instagram widget embed code** — paste a full embed snippet from a free widget service like [elfsight.com](https://elfsight.com) or [sociablekit.com](https://sociablekit.com); refreshes itself on screen every 10 minutes
@@ -74,10 +74,14 @@ The dashboard expects a header row with a column containing "name" and a column 
 ## Layout
 
 - **Left third:** weather — temperature, feels-like, and condition (or your custom weather widget), always visible
-- **Right two-thirds:** rotates every 10 seconds through Leaderboard → News → Events → Instagram. The Leaderboard shows Individual and Flight side by side. Events show 3 at a time with their own internal rotation, ending on a "see more" QR page if there are more than 3.
+- **Right two-thirds:** rotates every 10 seconds through Leaderboard → News → Events → Instagram. The Leaderboard shows Individual and Flight side by side. Events show 3 at a time with their own internal rotation, with the "see all events" QR code fixed on the right. The Flight leaderboard shows the top 3 flights.
 - **Bottom banner:** only appears when Important Information is enabled and has a message - otherwise takes up zero space
 
 If weather, news, or the leaderboard fails to load, it shows a short message and, if you've set an error report link, a QR code linking to it.
+
+## Updating
+
+Push changes to GitHub and the Pi picks them up by itself (after its next boot, or within 30 minutes). `update.sh` sets `data.json` and `data.backup.json` aside, applies the new code, puts them back and restarts the app. Those two files are in `.gitignore`, so they're never committed. Run it by hand any time with `bash update.sh`.
 
 ## Power cuts and corrupted settings
 
