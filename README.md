@@ -81,18 +81,21 @@ If weather, news, or the leaderboard fails to load, it shows a short message and
 
 ## Updating
 
-Push changes to GitHub and the Pi picks them up by itself (after its next boot, or within 30 minutes). `update.sh` sets `data.json` and `data.backup.json` aside, applies the new code, puts them back and restarts the app. Those two files are in `.gitignore`, so they're never committed. Run it by hand any time with `bash update.sh`.
+Push changes to GitHub and the Pi picks them up by itself (after its next boot, or within 30 minutes). `update.sh` pulls the new code and restarts the app. Your settings are never touched: they live in the `data/` folder, which is in `.gitignore`, so it is never committed and never overwritten. Run it by hand any time with `bash update.sh`.
 
-## Power cuts and corrupted settings
+## Power cuts, restarts and updates: your settings are kept
 
-The Pi may get switched off at the wall at any point, with no warning. The app is built around that:
+Everything saved on `/edit` (name, weather location, events, links, banner, and so on) is stored in `data/data.json` and survives power cuts, restarts and updates.
 
-- Settings are never held only in memory — every page load and every save reads and writes straight to `data.json` on disk (bind-mounted into the container, so it lives on the host's storage, not inside the container).
-- Saves are atomic (write to a temp file, then rename it into place), so a mid-write power cut can never leave `data.json` half-written or corrupted.
-- A redundant copy is kept at `data.backup.json` on every save. If `data.json` is ever found corrupted on boot, the server automatically restores it from the backup.
-- If both files are somehow lost, the server falls back to sensible built-in defaults rather than crashing, and immediately writes those back to disk.
+- Settings are never held only in memory - every page load and every save reads and writes straight to disk. In Docker, `data/` is bind-mounted into the container, so it lives on the host's storage.
+- Saves are atomic and flushed to disk (write to a temp file, `fsync`, then rename it into place), so a power cut can never leave `data.json` half-written. It is either the complete old version or the complete new one.
+- A second copy is kept at `data/data.backup.json` on every save. If `data.json` is ever found empty or corrupted on boot, the server restores it from the backup automatically.
+- If both files are somehow lost, the server falls back to built-in defaults rather than crashing.
+- Settings added in later updates are filled in with defaults, so an older settings file keeps working after an update.
+- Invalid values (for example a blank or non-numeric latitude) are ignored on save and the previous value is kept, so a bad save can't break the screen.
+- Older versions kept `data.json` next to `server.js`. On first start it is copied into `data/` automatically.
 
-No manual recovery steps needed — just power it back on.
+No manual recovery steps needed - just power it back on.
 
 ## Alternative: without Docker
 
