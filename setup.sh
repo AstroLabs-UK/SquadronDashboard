@@ -65,8 +65,12 @@ cat > "$DIR/shutdown-timer.sh" <<EOF
 #!/usr/bin/env bash
 MINUTES=\$(python3 -c "
 import json
+import os
+p = '$DIR/data/data.json'
+if not os.path.exists(p):
+    p = '$DIR/data.json'
 try:
-    d = json.load(open('$DIR/data.json'))
+    d = json.load(open(p))
     print(int(d.get('autoShutdownMinutes', 165)))
 except Exception:
     print(165)
