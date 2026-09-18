@@ -122,6 +122,9 @@
 <input id="eventsSeeMoreUrl" placeholder="e.g. your cadet portal's events page">
 <label>Error report link (shown as a QR code if a panel fails to load)</label>
 <input id="errorReportUrl" placeholder="e.g. a Google Form link for reporting issues — leave blank to disable">
+<label>Auto shutdown after (minutes)</label>
+<input id="autoShutdownMinutes" type="number" min="1" placeholder="e.g. 165 for 2h 45m">
+<p style="color:var(--muted); font-size:13px;">How long after boot the device powers itself off. Takes effect from the next boot onwards, not immediately.</p>
 <label>Instagram widget embed code</label>
 <textarea id="instagramEmbedCode" rows="4" placeholder="Paste the full embed snippet from a free Instagram-feed widget service (e.g. Elfsight or SociableKit) - the script tag and div, exactly as they give it to you"></textarea>
 <label>Weather widget embed code (optional)</label>
@@ -169,6 +172,7 @@ async function load() {
   document.getElementById('leaderboardCsvUrl').value = data.leaderboardCsvUrl || '';
   document.getElementById('eventsSeeMoreUrl').value = data.eventsSeeMoreUrl || '';
   document.getElementById('errorReportUrl').value = data.errorReportUrl || '';
+  document.getElementById('autoShutdownMinutes').value = data.autoShutdownMinutes || 165;
   document.getElementById('instagramEmbedCode').value = data.instagramEmbedCode || '';
   document.getElementById('weatherEmbedCode').value = data.weatherEmbedCode || '';
   const info = data.importantInfo || {};
@@ -195,6 +199,7 @@ async function save() {
     leaderboardCsvUrl: document.getElementById('leaderboardCsvUrl').value,
     eventsSeeMoreUrl: document.getElementById('eventsSeeMoreUrl').value,
     errorReportUrl: document.getElementById('errorReportUrl').value,
+    autoShutdownMinutes: parseInt(document.getElementById('autoShutdownMinutes').value, 10) || 165,
     instagramEmbedCode: document.getElementById('instagramEmbedCode').value,
     weatherEmbedCode: document.getElementById('weatherEmbedCode').value,
     importantInfo: {
