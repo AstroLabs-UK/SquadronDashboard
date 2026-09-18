@@ -73,15 +73,23 @@ The dashboard expects a header row with a column containing "name" and a column 
 
 ## Layout
 
-- **Left third:** weather — temperature, feels-like, and condition (or your custom weather widget), always visible
-- **Right two-thirds:** rotates every 10 seconds through Leaderboard → News → Events → Instagram. The Leaderboard shows Individual and Flight side by side. Events show 3 at a time with their own internal rotation, with the "see all events" QR code fixed on the right. The Flight leaderboard shows the top 3 flights.
+- **Left quarter:** weather — temperature, feels-like, and condition (or your custom weather widget), always visible
+- **Right three-quarters:** rotates every 10 seconds through Leaderboard → News → Events → Instagram. The Leaderboard shows Individual and Flight side by side. Events show 3 at a time with their own internal rotation, with the "see all events" QR code fixed on the right. The Flight leaderboard shows the top 3 flights.
 - **Bottom banner:** only appears when Important Information is enabled and has a message - otherwise takes up zero space
 
 If weather, news, or the leaderboard fails to load, it shows a short message and, if you've set an error report link, a QR code linking to it.
 
 ## Updating
 
-Push changes to GitHub and the Pi picks them up by itself (after its next boot, or within 30 minutes). `update.sh` pulls the new code and restarts the app. Your settings are never touched: they live in the `data/` folder, which is in `.gitignore`, so it is never committed and never overwritten. Run it by hand any time with `bash update.sh`.
+From anywhere on the Pi (SSH or a terminal), run:
+
+```bash
+sqndash --update
+```
+
+That downloads the latest version from GitHub and restarts the dashboard; the screen reloads itself a few seconds later. If you're already on the latest version it just says so. Other commands: `sqndash --restart` (restart only) and `sqndash --help`.
+
+The Pi also checks by itself 2 minutes after every boot and then every 30 minutes, so pushing to GitHub is enough. Your settings are never touched by an update: they live in the `data/` folder, which is in `.gitignore`, so it is never committed and never overwritten. (`sqndash` is installed by `install.sh`, and refreshed by every update, so re-running `bash install.sh` once is all it takes to get it.)
 
 ## Power cuts, restarts and updates: your settings are kept
 
