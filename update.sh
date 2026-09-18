@@ -1,55 +1,102 @@
 #!/usr/bin/env bash
 # Squadron Dashboard - update from GitHub, keeping this device's own settings.
 #
-# Runs shortly after every boot and every 30 minutes after that. Safe to run by
-# hand any time:  bash update.sh
+#   sqndash --update      (from anywhere - the easy way)
+#   bash update.sh        (same thing, from inside the folder)
+#
+# Also runs automatically shortly after every boot and every 30 minutes after that.
 #
 # Settings saved from /edit live in the data/ folder, which is git-ignored, so
-# updating the code never touches them. This script also copies them to a safe
-# place before updating and checks they're still there afterwards.
+# updating the code never touches them. This script also keeps a safety copy while
+# it updates and checks the settings are still there afterwards.
 set -u
-DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 cd "$DIR" || exit 1
+OWNER="$(stat -c %U "$DIR")"
+if [ "$(id -u)" -eq 0 ]; then SUDO=""; else SUDO="sudo"; fi
 
-# Older versions kept settings in data.json next to server.js. Move them into data/
-# (copy only - never delete - and never overwrite anything already in data/).
-mkdir -p data
-for f in data.json data.backup.json; do
-  if [ -f "$f" ] && [ ! -f "data/$f" ]; then cp -p "$f" "data/$f"; fi
-done
-[ -f data/data.json ] || cp data.example.json data/data.json
-[ -f data/data.backup.json ] || cp data/data.json data/data.backup.json
+# Makes the `sqndash` command available everywhere on the Pi
+install_command() {
+  local target=/usr/local/bin/sqndash
+  local content="#!/usr/bin/env bash
+exec bash \"$DIR/sqndash.sh\" \"\$@\""
+  if [ "$(cat "$target" 2>/dev/null)" = "$content" ]; then return 0; fi
+  { printf '%s\n' "$content" | $SUDO tee "$target" >/dev/null && $SUDO chmod +x "$target"; } 2>/dev/null || true
+}
 
-if ! git fetch --quiet 2>/dev/null; then
-  echo "[update] can't reach GitHub - skipping this check"
-  exit 0
-fi
+# Step 1 - download the new code. Runs as the folder's owner (never as root), so git
+# doesn't complain about ownership and files/folders keep the right owner.
+# Exit code: 0 = already up to date, 10 = updated, anything else = problem.
+sync_code() {
+  # Older versions kept settings in data.json next to server.js. Move them into data/
+  # (copy only - never delete - and never overwrite anything already in data/).
+  mkdir -p data
+  for f in data.json data.backup.json; do
+    if [ -f "$f" ] && [ ! -f "data/$f" ]; then cp -p "$f" "data/$f"; fi
+  done
+  [ -f data/data.json ] || cp data.example.json data/data.json
+  [ -f data/data.backup.json ] || cp data/data.json data/data.backup.json
 
-LOCAL="$(git rev-parse HEAD)"
-REMOTE="$(git rev-parse '@{u}')"
-if [ "$LOCAL" = "$REMOTE" ]; then
-  echo "[update] already up to date"
-  exit 0
-fi
+  echo "[update] checking GitHub..."
+  if ! git fetch --quiet 2>/dev/null; then
+    echo "[update] can't reach GitHub - skipping this check"
+    return 1
+  fi
 
-echo "[update] update found - applying..."
-KEEP="$(mktemp -d)"
-cp -a data "$KEEP/data"           # safety copy of the settings
+  local LOCAL REMOTE
+  LOCAL="$(git rev-parse HEAD)"
+  REMOTE="$(git rev-parse '@{u}')"
+  if [ "$LOCAL" = "$REMOTE" ]; then
+    echo "[update] already on the latest version ($(git rev-parse --short HEAD))"
+    return 0
+  fi
 
-git reset --hard --quiet '@{u}'   # replaces code only; data/ is git-ignored so it's untouched
+  echo "[update] new version found - downloading..."
+  local KEEP
+  KEEP="$(mktemp -d)"
+  cp -a data "$KEEP/data"           # safety copy of the settings
 
-# Belt and braces: if anything about data/ went missing, put the safety copy back
-mkdir -p data
-for f in data.json data.backup.json; do
-  [ -f "data/$f" ] || { [ -f "$KEEP/data/$f" ] && cp -p "$KEEP/data/$f" "data/$f"; }
-done
-rm -rf "$KEEP"
+  git reset --hard --quiet '@{u}'   # replaces code only; data/ is git-ignored so it's untouched
 
-# Restart the app so the new code is running
-if command -v docker >/dev/null 2>&1 && docker ps -a --format '{{.Names}}' 2>/dev/null | grep -qx 'squadron-dashboard'; then
-  docker compose up -d --build
+  # Belt and braces: if anything about data/ went missing, put the safety copy back
+  mkdir -p data
+  for f in data.json data.backup.json; do
+    [ -f "data/$f" ] || { [ -f "$KEEP/data/$f" ] && cp -p "$KEEP/data/$f" "data/$f"; }
+  done
+  rm -rf "$KEEP"
+  echo "[update] downloaded $(git rev-parse --short HEAD)"
+  return 10
+}
+
+# Step 2 - restart the app so the new code is running (needs root)
+restart_app() {
+  echo "[update] restarting the dashboard..."
+  if command -v docker >/dev/null 2>&1 && $SUDO docker ps -a --format '{{.Names}}' 2>/dev/null | grep -qx 'squadron-dashboard'; then
+    $SUDO docker compose up -d --build
+  else
+    npm install --omit=dev --quiet
+    $SUDO systemctl restart squadron-dashboard.service
+  fi
+  echo "[update] done - the screen reloads itself within about 10 seconds"
+}
+
+case "${1:-}" in
+  --sync)    sync_code; exit $? ;;
+  --restart) restart_app; exit $? ;;
+esac
+
+install_command
+
+if [ "$(id -u)" -eq 0 ] && [ "$OWNER" != "root" ]; then
+  runuser -u "$OWNER" -- bash "$DIR/update.sh" --sync
 else
-  npm install --omit=dev --quiet
-  systemctl restart squadron-dashboard.service 2>/dev/null || sudo systemctl restart squadron-dashboard.service
+  bash "$DIR/update.sh" --sync
 fi
-echo "[update] done"
+rc=$?
+
+if [ "$rc" -eq 10 ]; then
+  restart_app
+  exit $?
+fi
+[ "$rc" -eq 0 ] && exit 0
+exit "$rc"
