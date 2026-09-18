@@ -139,6 +139,13 @@ fi
 sudo systemctl daemon-reload
 sudo systemctl enable --now squadron-dashboard-update.timer
 
+# The `sqndash` command - works from any folder:  sqndash --update
+sudo tee /usr/local/bin/sqndash > /dev/null <<EOF
+#!/usr/bin/env bash
+exec bash "$DIR/sqndash.sh" "\$@"
+EOF
+sudo chmod +x /usr/local/bin/sqndash
+
 # 4. Set up a systemd service so the dashboard starts automatically on boot
 #    and restarts itself if it ever crashes
 SERVICE_FILE="/etc/systemd/system/squadron-dashboard.service"
@@ -174,5 +181,6 @@ echo "  Edit (from any phone/laptop on the network): http://$(hostname -I | awk 
 echo "  Status:   http://$(hostname -I | awk '{print $1}'):3000/status"
 echo
 echo "To point Chromium at it in kiosk mode on boot, see 'Kiosk autostart' in README.md."
+echo "To update to the latest version any time:  sqndash --update"
 echo "To check on the service later:  sudo systemctl status squadron-dashboard"
 echo "To view logs:                    journalctl -u squadron-dashboard -f"
