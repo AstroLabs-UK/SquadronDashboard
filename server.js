@@ -206,7 +206,7 @@ app.get('/api/leaderboard', async (req, res) => {
         if (!totals.has(key)) totals.set(key, { flight: label, points: 0 });
         totals.get(key).points += r.points;
       }
-      flightRows = [...totals.values()].sort((a, b) => b.points - a.points);
+      flightRows = [...totals.values()].sort((a, b) => b.points - a.points).slice(0, 3); // top 3 flights only
       if (flightRows.length === 0) flightRows = null; // flight column existed but every value was blank
     }
 
