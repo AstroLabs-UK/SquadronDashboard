@@ -1,0 +1,12 @@
+services:
+  dashboard:
+    build: .
+    container_name: squadron-dashboard
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      # Bind-mounted so settings survive container rebuilds/updates and are
+      # editable/inspectable directly on the host if ever needed.
+      - ./data.json:/app/data.json
+      - ./data.backup.json:/app/data.backup.json

@@ -1,0 +1,6 @@
+node_modules/
+data.json.tmp
+data.backup.json.tmp
+npm-debug.log
+npm-update.sh
+docker-update.sh
