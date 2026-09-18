@@ -7,8 +7,10 @@ const { exec } = require('child_process');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const DATA_FILE = path.join(__dirname, 'data.json');
-const BACKUP_FILE = path.join(__dirname, 'data.backup.json');
+const { createStore } = require('./storage');
+// Settings live in data/ (git-ignored, so updates never touch them). In Docker this
+// folder is a bind mount, so it also survives container rebuilds.
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const rssParser = new Parser();
 
 app.use(express.json());
@@ -32,40 +34,13 @@ const DEFAULT_DATA = {
 
 // ---------- helpers ----------
 // Settings are NEVER kept only in memory - every read goes to disk, and every
-// write hits disk immediately, so a power cut can never lose or diverge from
-// what's actually saved.
-function loadData() {
-  try {
-    return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
-  } catch (e) {
-    console.warn('[storage] data.json missing or corrupt (' + e.message + ') - trying backup');
-    try {
-      const backupRaw = fs.readFileSync(BACKUP_FILE, 'utf8');
-      const parsed = JSON.parse(backupRaw); // validate before trusting it
-      try { fs.writeFileSync(DATA_FILE, backupRaw); } catch (e3) { /* best effort restore */ }
-      console.warn('[storage] restored data.json from backup');
-      return parsed;
-    } catch (e2) {
-      console.warn('[storage] backup also missing or corrupt (' + e2.message + ') - falling back to built-in defaults');
-      saveData(DEFAULT_DATA);
-      return DEFAULT_DATA;
-    }
-  }
-}
-
-function saveData(data) {
-  const json = JSON.stringify(data, null, 2);
-  // Atomic write: write to a temp file, then rename over the real file.
-  // A rename is a single filesystem operation, so a power cut can never leave
-  // data.json half-written/corrupted - it's either the old version or the new one.
-  const tmpFile = DATA_FILE + '.tmp';
-  fs.writeFileSync(tmpFile, json);
-  fs.renameSync(tmpFile, DATA_FILE);
-  // Always keep a redundant copy on solid storage too, written the same atomic way.
-  const tmpBackup = BACKUP_FILE + '.tmp';
-  fs.writeFileSync(tmpBackup, json);
-  fs.renameSync(tmpBackup, BACKUP_FILE);
-}
+// write hits disk immediately (fsync'd + atomic), so a power cut can never lose or
+// diverge from what's actually saved. See storage.js for the details.
+const store = createStore({ dir: DATA_DIR, defaults: DEFAULT_DATA, legacyDir: __dirname });
+const DATA_FILE = store.dataFile;
+const BACKUP_FILE = store.backupFile;
+const loadData = () => store.load();
+const saveData = (data) => store.save(data);
 
 // ---------- CSV parsing helper ----------
 function parseCsv(text) {
@@ -103,10 +78,15 @@ app.get('/api/data', (req, res) => {
 });
 
 app.post('/api/data', (req, res) => {
-  const current = loadData();
-  const updated = { ...current, ...req.body };
-  saveData(updated);
-  res.json({ ok: true, data: updated });
+  try {
+    const current = loadData();
+    const updated = store.sanitize(current, req.body);
+    saveData(updated);
+    res.json({ ok: true, data: updated });
+  } catch (e) {
+    console.error('[storage] save failed', e);
+    res.status(500).json({ ok: false, error: 'save failed' });
+  }
 });
 
 // ---------- API: weather (Open-Meteo, no key needed) ----------
