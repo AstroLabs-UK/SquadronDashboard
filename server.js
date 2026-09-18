@@ -72,6 +72,16 @@ app.get('/status', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'status.html'));
 });
 
+// ---------- API: boot id ----------
+// Changes every time the server starts. The dashboard page polls this and reloads itself
+// when it changes, so after an auto-update restarts the app the screen picks up the new
+// version without anyone touching the Pi.
+const BOOT_ID = Date.now().toString(36);
+app.get('/api/boot', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ id: BOOT_ID });
+});
+
 // ---------- API: settings / events ----------
 app.get('/api/data', (req, res) => {
   res.json(loadData());
