@@ -118,7 +118,7 @@
 <input id="lon" type="number" step="0.0001">
 <label>Leaderboard Google Sheets CSV link</label>
 <input id="leaderboardCsvUrl" placeholder="File > Share > Publish to web > CSV in Google Sheets">
-<label>"See more events" QR link (shown as the last page of the events rotation)</label>
+<label>"See all events" QR link (shown beside the events list)</label>
 <input id="eventsSeeMoreUrl" placeholder="e.g. your cadet portal's events page">
 <label>Error report link (shown as a QR code if a panel fails to load)</label>
 <input id="errorReportUrl" placeholder="e.g. a Google Form link for reporting issues — leave blank to disable">
@@ -150,6 +150,7 @@
 
 <script>
 let data = null;
+let statusTimer = null;
 
 function eventRow(e = {title:'', date:'', detail:''}) {
   const div = document.createElement('div');
@@ -214,7 +215,10 @@ async function save() {
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(payload)
   });
-  document.getElementById('status').textContent = res.ok ? 'Saved!' : 'Something went wrong.';
+  const statusEl = document.getElementById('status');
+  statusEl.textContent = res.ok ? 'Saved!' : 'Something went wrong.';
+  clearTimeout(statusTimer);
+  statusTimer = setTimeout(() => { statusEl.textContent = ''; }, 3000);
 }
 
 load();
