@@ -6,7 +6,7 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      # Bind-mounted so settings survive container rebuilds/updates and are
-      # editable/inspectable directly on the host if ever needed.
-      - ./data.json:/app/data.json
-      - ./data.backup.json:/app/data.backup.json
+      # Settings folder. Bind-mounted so settings survive container rebuilds, code
+      # updates and power cuts, and stay inspectable on the host (./data).
+      # (A folder, not single files: single-file mounts can't be atomically replaced.)
+      - ./data:/app/data
