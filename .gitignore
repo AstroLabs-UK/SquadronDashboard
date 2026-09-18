@@ -4,3 +4,7 @@ data.backup.json.tmp
 npm-debug.log
 npm-update.sh
 docker-update.sh
+
+# Per-device settings saved from /edit - never committed, never touched by updates
+data.json
+data.backup.json
