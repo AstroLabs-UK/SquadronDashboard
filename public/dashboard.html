@@ -464,6 +464,18 @@ setInterval(loadNews, 15 * 60 * 1000);
 setInterval(loadLeaderboard, 5 * 60 * 1000);
 setInterval(loadSettings, 10 * 1000); // checks for edits made on /edit every 10 seconds
 
+// ---- Reload when the server restarts (e.g. after an auto-update) ----
+let bootId = null;
+async function checkForRestart() {
+  try {
+    const { id } = await (await fetch('/api/boot', { cache: 'no-store' })).json();
+    if (bootId === null) bootId = id;
+    else if (id !== bootId) location.reload();
+  } catch (e) { /* server is restarting - try again next time */ }
+}
+checkForRestart();
+setInterval(checkForRestart, 10 * 1000);
+
 // ---- Carousel: Leaderboard -> News -> Events -> Socials, every 10s ----
 const panes = [
   { id: 'lbPane', title: 'Leaderboard' },
