@@ -56,17 +56,34 @@ echo "-> Installing dependencies..."
 cd "$DIR"
 npm install --omit=dev
 
-# 3. Auto shutdown - 2h45m after every boot, a plain host-level timer (no
-#    reliance on the app itself, so it works the same whether the app is
-#    healthy, crashed, or mid-restart)
-echo "-> Setting up auto-shutdown (2h45m after boot)..."
-sudo tee /etc/systemd/system/squadron-dashboard-shutdown.service > /dev/null <<'EOF'
+# 3. Auto shutdown - configurable duration after every boot (set on /edit as
+#    "Auto shutdown after (minutes)", read fresh from data.json at every boot),
+#    a plain host-level timer so it works the same whether the app is healthy,
+#    crashed, or mid-restart
+echo "-> Setting up auto-shutdown (reads the duration from data.json at boot)..."
+cat > "$DIR/shutdown-timer.sh" <<EOF
+#!/usr/bin/env bash
+MINUTES=\$(python3 -c "
+import json
+try:
+    d = json.load(open('$DIR/data.json'))
+    print(int(d.get('autoShutdownMinutes', 165)))
+except Exception:
+    print(165)
+")
+echo "Squadron Dashboard: shutting down in \${MINUTES} minutes (set on /edit)"
+sleep "\$((MINUTES * 60))"
+/sbin/shutdown -h now
+EOF
+chmod +x "$DIR/shutdown-timer.sh"
+
+sudo tee /etc/systemd/system/squadron-dashboard-shutdown.service > /dev/null <<EOF
 [Unit]
-Description=Squadron Dashboard auto shutdown (2h45m after boot)
+Description=Squadron Dashboard auto shutdown (duration set on /edit)
 
 [Service]
 Type=simple
-ExecStart=/bin/bash -c 'sleep 9900 && /sbin/shutdown -h now'
+ExecStart=$DIR/shutdown-timer.sh
 
 [Install]
 WantedBy=multi-user.target
