@@ -95,17 +95,19 @@
 
   /* Leaderboard: individual + flight side by side */
   #lbPane { flex-direction: row; gap: 24px; }
-  .lb-col { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .lb-col { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
   .lb-col h3 {
     margin: 0 0 10px 0; font-size: 12px; font-weight: 700; text-transform: uppercase;
     letter-spacing: 0.06em; color: var(--raf-blue);
   }
-  .lb-col table { width: 100%; border-collapse: collapse; font-size: 17px; }
-  .lb-col thead th { background: var(--raf-navy); color: var(--white); text-align: left; padding: 10px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .lb-col table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: clamp(12px, 2.4vh, 17px); }
+  .lb-col thead th { background: var(--raf-navy); color: var(--white); text-align: left; padding: clamp(5px, 1.1vh, 10px) 10px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
   .lb-col thead th.num { text-align: right; }
-  .lb-col td { padding: 10px; border-bottom: 1px solid var(--border); }
+  .lb-col td { padding: clamp(4px, 1.1vh, 10px) 10px; border-bottom: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .lb-col tr:nth-child(even) td { background: var(--off-white); }
-  .lb-col td.rank { color: var(--raf-blue); font-weight: 700; width: 34px; }
+  .lb-col td.rank, .lb-col th:first-child { width: 44px; }
+  .lb-col td.rank { color: var(--raf-blue); font-weight: 700; }
+  .lb-col th:last-child, .lb-col td.points { width: 84px; }
   .lb-col td.points { text-align: right; font-weight: 700; color: var(--raf-navy); }
   .lb-unavailable { color: var(--muted); font-size: 14px; padding: 12px 0; }
   @media (max-width: 700px) {
@@ -359,7 +361,7 @@ function showError(containerEl, label) {
   makeQr('qr-' + containerEl.id, errorReportUrl, size);
 }
 
-const WEATHER_CODES = {0:'Clear',1:'Mostly Clear',2:'Partly Cloudy',3:'Overcast',45:'Foggy',48:'Foggy',
+const WEATHER_CODES = {0:'Clear',1:'Mostly Clear',2:'Partly Cloudy',3:'Overcast',45:'Foggy',48:'Foggy',53:'Drizzle',55:'Heavy Drizzle',
 51:'Drizzling',61:'Raining',63:'Raining',65:'Raining Heavily',71:'Snowing',73:'Snowing',75:'Snowing Heavily',
 80:'Showers',95:'Thunderstorm'};
 
