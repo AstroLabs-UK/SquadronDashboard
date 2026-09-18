@@ -115,7 +115,9 @@
   #eventsPane li { margin-bottom: 14px; font-size: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
   #eventsPane li .title { font-weight: 700; color: var(--raf-navy); }
   #eventsPane li .meta { color: var(--muted); font-size: 14px; margin-top: 2px; }
-  #eventsSeeMore { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; text-align: center; }
+  #eventsLayout { flex: 1; display: flex; gap: 24px; min-height: 0; }
+  #eventsList { flex: 1; min-width: 0; }
+  #eventsSeeMore { flex: 0 0 34%; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 16px; text-align: center; border-left: 1px solid var(--border); padding-left: 24px; }
   #eventsSeeMore .label { font-size: 15px; color: var(--muted); }
 
   #socialsPane { position: relative; padding: 0; }
@@ -190,10 +192,12 @@
       </div>
 
       <div class="rotate-pane" id="eventsPane">
-        <ul id="eventsList"></ul>
-        <div id="eventsSeeMore" style="display:none;">
-          <div class="qr-holder" id="eventsSeeMoreQr"></div>
-          <div class="label">Scan to see the full events list</div>
+        <div id="eventsLayout">
+          <ul id="eventsList"></ul>
+          <div id="eventsSeeMore">
+            <div class="qr-holder" id="eventsSeeMoreQr"></div>
+            <div class="label">Scan to see all events</div>
+          </div>
         </div>
       </div>
 
@@ -234,16 +238,25 @@ function ensurePaneSkeleton(paneId) {
 }
 
 
-// Events pane shows up to 3 events per page, cycling through however many events
-// there are, with one extra final page that's just a "see more" QR code.
+// Events pane shows up to 3 events per page and cycles through them. The "see all
+// events" QR code sits permanently on the right-hand side of the pane.
+let eventsSignature = '';
+let renderedQrUrl = null;
+let eventsTimer = null;
+
 function rebuildEventsPages() {
+  // loadSettings() runs every 10 seconds - only rebuild when events or the QR link
+  // actually changed, otherwise the page index gets reset every time.
+  const signature = JSON.stringify([latestEvents, eventsSeeMoreUrl]);
+  if (signature === eventsSignature) return;
+  eventsSignature = signature;
+
   const chunks = [];
   for (let i = 0; i < latestEvents.length; i += 3) {
     chunks.push(latestEvents.slice(i, i + 3));
   }
   if (chunks.length === 0) chunks.push([]);
-  eventsPages = chunks.map(events => ({ type: 'events', events }));
-  if (eventsSeeMoreUrl) eventsPages.push({ type: 'more' });
+  eventsPages = chunks;
   eventsPageIndex = 0;
   renderEventsPage();
 }
@@ -251,26 +264,35 @@ function rebuildEventsPages() {
 function renderEventsPage() {
   const ul = document.getElementById('eventsList');
   const seeMore = document.getElementById('eventsSeeMore');
-  const page = eventsPages[eventsPageIndex] || { type: 'events', events: [] };
-  if (page.type === 'more') {
-    ul.style.display = 'none';
+  const events = eventsPages[eventsPageIndex] || [];
+  ul.innerHTML = events.map(e =>
+    `<li><div class="title">${e.title}</div><div class="meta">${e.date} &middot; ${e.detail}</div></li>`).join('')
+    || '<li><div class="meta">No events added yet - add some on /edit</div></li>';
+
+  if (eventsSeeMoreUrl) {
     seeMore.style.display = 'flex';
-    const size = qrSizeFor(document.getElementById('eventsPane'));
-    makeQr('eventsSeeMoreQr', eventsSeeMoreUrl, Math.min(size, 260));
+    if (renderedQrUrl !== eventsSeeMoreUrl) {
+      makeQr('eventsSeeMoreQr', eventsSeeMoreUrl, 240);
+      renderedQrUrl = eventsSeeMoreUrl;
+    }
   } else {
-    ul.style.display = '';
     seeMore.style.display = 'none';
-    ul.innerHTML = page.events.map(e =>
-      `<li><div class="title">${e.title}</div><div class="meta">${e.date} &middot; ${e.detail}</div></li>`).join('')
-      || '<li><div class="meta">No events added yet - add some on /edit</div></li>';
+    renderedQrUrl = null;
   }
 }
 
-setInterval(() => {
-  if (eventsPages.length <= 1) return;
-  eventsPageIndex = (eventsPageIndex + 1) % eventsPages.length;
+// Restarted each time the events pane comes into view, so page 1 always shows first
+function startEventsRotation() {
+  clearInterval(eventsTimer);
+  eventsPageIndex = 0;
   renderEventsPage();
-}, 10000);
+  if (eventsPages.length > 1) {
+    eventsTimer = setInterval(() => {
+      eventsPageIndex = (eventsPageIndex + 1) % eventsPages.length;
+      renderEventsPage();
+    }, 10000);
+  }
+}
 
 // Renders a pasted widget embed snippet (script + div, e.g. Elfsight or a
 // weatherwidget.io embed) into a container. Scripts inserted via innerHTML don't
@@ -453,12 +475,20 @@ function showPane(i) {
     document.getElementById(p.id).classList.toggle('active', idx === i);
   });
   document.getElementById('rotatingTitle').textContent = panes[i].title;
+  if (panes[i].id === 'eventsPane') startEventsRotation();
+  else clearInterval(eventsTimer);
 }
-showPane(0);
-setInterval(() => {
+// Every pane gets 10s, except events which gets 10s per page of events
+function paneDuration(i) {
+  return panes[i].id === 'eventsPane' ? Math.max(1, eventsPages.length) * 10000 : 10000;
+}
+function nextPane() {
   paneIndex = (paneIndex + 1) % panes.length;
   showPane(paneIndex);
-}, 10000);
+  setTimeout(nextPane, paneDuration(paneIndex));
+}
+showPane(0);
+setTimeout(nextPane, paneDuration(0));
 </script>
 </body>
 </html>
