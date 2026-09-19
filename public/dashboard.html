@@ -444,31 +444,32 @@ function qrSizeFor(referenceEl) {
 }
 
 function showError(containerEl, label, reason) {
-  const detail = (reason && String(reason).trim()) ? String(reason).trim() : '';
-  let message;
-  if (detail) {
-    message = `This panel isn't working (${label}): ${detail}`;
-  } else if (errorReportUrl) {
-    message = `This panel isn't working right now — scan the QR code to report it.`;
-  } else {
-    message = `This panel isn't working right now (${label}).`;
-  }
+  const detail = (reason && String(reason).trim()) || '';
+  const message = detail
+    ? `This panel isn't working (${label}): ${detail}`
+    : errorReportUrl
+      ? `This panel isn't working right now — scan the QR code to report it.`
+      : `This panel isn't working right now (${label}).`;
   if (!errorReportUrl) {
     containerEl.innerHTML = `<div class="error-box"><p>${message}</p></div>`;
     return;
   }
   containerEl.innerHTML = `<div class="error-box"><div class="qr-holder" id="qr-${containerEl.id}"></div><p>${message}</p></div>`;
-  const size = qrSizeFor(containerEl);
-  makeQr('qr-' + containerEl.id, errorReportUrl, size);
+  makeQr('qr-' + containerEl.id, errorReportUrl, qrSizeFor(containerEl));
+}
+
+async function apiJson(url) {
+  const r = await fetch(url);
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.detail || data.error || ('HTTP ' + r.status));
+  return data;
 }
 
 const WEATHER_CODES = {0:'Clear',1:'Mostly Clear',2:'Partly Cloudy',3:'Overcast',45:'Foggy',48:'Foggy',53:'Drizzle',55:'Heavy Drizzle',
 51:'Drizzling',61:'Raining',63:'Raining',65:'Raining Heavily',71:'Snowing',73:'Snowing',75:'Snowing Heavily',
 80:'Showers',95:'Thunderstorm'};
 
-// Scrolling banner: icon + title + description move together as one horizontal message.
-// The track holds two identical groups and slides left by half its width for a seamless loop.
-// Only rebuilt when the content or ticker width changes.
+// Banner: icon + title + description scroll together. Two identical halves for a seamless loop.
 let lastBannerKey = null;
 let currentBannerTitle = 'IMPORTANT INFORMATION';
 function updateBannerTicker(message, title) {
@@ -482,26 +483,15 @@ function updateBannerTicker(message, title) {
   const makeUnit = () => {
     const g = document.createElement('div');
     g.className = 'group';
-    const icon = document.createElement('span');
-    icon.className = 'icon';
-    icon.textContent = '⚠';
-    const t = document.createElement('span');
-    t.className = 'title';
-    t.textContent = currentBannerTitle;
-    const m = document.createElement('span');
-    m.className = 'message';
-    m.textContent = message;
-    g.appendChild(icon);
-    g.appendChild(t);
-    g.appendChild(m);
+    g.innerHTML = `<span class="icon">⚠</span><span class="title"></span><span class="message"></span>`;
+    g.querySelector('.title').textContent = currentBannerTitle;
+    g.querySelector('.message').textContent = message;
     return g;
   };
-  // One half of the track: enough units to cover the viewport; used twice for a seamless loop
-  const makeHalf = (copies) => {
+  const makeHalf = (n) => {
     const wrap = document.createElement('div');
-    wrap.style.display = 'inline-flex';
-    wrap.style.flexShrink = '0';
-    for (let i = 0; i < copies; i++) wrap.appendChild(makeUnit());
+    wrap.style.cssText = 'display:inline-flex;flex-shrink:0';
+    for (let i = 0; i < n; i++) wrap.appendChild(makeUnit());
     return wrap;
   };
 
@@ -514,9 +504,8 @@ function updateBannerTicker(message, title) {
   track.innerHTML = '';
   track.appendChild(makeHalf(copies));
   track.appendChild(makeHalf(copies));
-  const groupWidth = oneWidth * copies;
-  const speed = isCompact ? 55 * unitPx() : 90; // px per second
-  track.style.setProperty('--dur', Math.max(8, groupWidth / speed) + 's');
+  const speed = isCompact ? 55 * unitPx() : 90;
+  track.style.setProperty('--dur', Math.max(8, (oneWidth * copies) / speed) + 's');
   void track.offsetWidth;
   track.style.animation = '';
 }
@@ -661,12 +650,10 @@ async function loadSettings() {
 }
 
 async function loadWeather() {
-  if (weatherEmbedActive) return; // using the pasted weather widget instead of the built-in one
+  if (weatherEmbedActive) return;
   const box = document.getElementById('weatherContent');
   try {
-    const r = await fetch('/api/weather');
-    const w = await r.json();
-    if (!r.ok) throw new Error(w.detail || w.error || ('HTTP ' + r.status));
+    const w = await apiJson('/api/weather');
     if (!w.current) throw new Error('No current weather data returned');
     const c = w.current;
     box.innerHTML = `
@@ -678,31 +665,34 @@ async function loadWeather() {
   }
 }
 
-// Cache full news list so we can re-fit on resize without refetching
-let cachedNewsItems = null;
-function countVisibleNewsItems(ul) {
-  // Measure how many stories fit in the available pane height without scrolling.
-  const pane = document.getElementById('newsPane');
-  if (!pane || !ul) return 6;
-  const available = pane.clientHeight - 8; // small padding allowance
-  if (available <= 0) return isCompact ? 2 : 4;
-  // Probe with a temporary item to get approximate row height
-  const probe = document.createElement('li');
-  probe.style.visibility = 'hidden';
-  probe.innerHTML = '<a href="#">Probe title for height measurement</a>';
-  ul.appendChild(probe);
-  const rowH = Math.max(probe.offsetHeight, isCompact ? 28 : 44);
-  ul.removeChild(probe);
-  const max = Math.max(1, Math.floor(available / rowH));
-  return max;
+// Fit as many rows as possible into available height (no scrollbar).
+function fitCount(availablePx, rowPx, fallback) {
+  if (availablePx <= 0) return fallback;
+  return Math.max(1, Math.floor(availablePx / rowPx));
 }
+
+let cachedNewsItems = null;
+let lastNewsMax = -1;
 function renderNewsFromCache() {
   if (!widgetFlags.news || !cachedNewsItems) return;
   const pane = ensurePaneSkeleton('newsPane');
   if (pane.querySelector('.error-box')) return;
   const ul = pane.querySelector('ul');
   if (!ul) return;
-  const max = countVisibleNewsItems(ul);
+  const available = pane.clientHeight - 8;
+  let rowH = isCompact ? 28 : 44;
+  if (ul.children.length) rowH = Math.max(ul.children[0].offsetHeight, rowH);
+  else {
+    const probe = document.createElement('li');
+    probe.style.visibility = 'hidden';
+    probe.innerHTML = '<a href="#">Probe</a>';
+    ul.appendChild(probe);
+    rowH = Math.max(probe.offsetHeight, rowH);
+    ul.removeChild(probe);
+  }
+  const max = fitCount(available, rowH, isCompact ? 2 : 4);
+  if (max === lastNewsMax && ul.children.length === Math.min(max, cachedNewsItems.length)) return;
+  lastNewsMax = max;
   const items = cachedNewsItems.slice(0, max);
   ul.innerHTML = items.map(i => `<li><a href="${i.link}" target="_blank">${i.title}</a></li>`).join('')
     || '<li style="color:var(--muted)">No headlines available</li>';
@@ -711,32 +701,31 @@ function renderNewsFromCache() {
 async function loadNews() {
   if (!widgetFlags.news) return;
   const pane = ensurePaneSkeleton('newsPane');
-  const ul = pane.querySelector('ul');
   try {
-    const r = await fetch('/api/news');
-    const n = await r.json();
-    if (!r.ok) throw new Error(n.detail || n.error || ('HTTP ' + r.status));
+    const n = await apiJson('/api/news');
     if (!n.items || !n.items.length) throw new Error('No news items returned from BBC RSS');
     cachedNewsItems = n.items;
+    lastNewsMax = -1;
     renderNewsFromCache();
   } catch (e) {
     cachedNewsItems = null;
+    lastNewsMax = -1;
     showError(pane, 'news', e.message || String(e));
   }
 }
 
-// Cache full leaderboard so we can re-fit rows on resize
 let cachedLb = null;
+let lastLbKey = '';
+function lbRowHeight() {
+  return isCompact ? Math.max(22, Math.round(11 * unitPx())) : Math.max(36, Math.round(window.innerHeight * 0.028));
+}
 function countVisibleLbRows(tableEl) {
   const col = tableEl && tableEl.closest('.lb-col');
   if (!col) return isCompact ? 3 : 6;
   const h3 = col.querySelector('h3');
   const thead = tableEl.querySelector('thead');
-  const available = col.clientHeight - (h3 ? h3.offsetHeight + 10 : 0) - (thead ? thead.offsetHeight : 0) - 4;
-  if (available <= 0) return isCompact ? 2 : 4;
-  // Approximate row height from CSS clamp / compact
-  const rowH = isCompact ? Math.max(22, Math.round(11 * unitPx())) : Math.max(36, Math.round(window.innerHeight * 0.028));
-  return Math.max(1, Math.floor(available / rowH));
+  const reserved = (h3 ? h3.offsetHeight + 10 : 0) + (thead ? thead.offsetHeight : 0) + 4;
+  return fitCount(col.clientHeight - reserved, lbRowHeight(), isCompact ? 2 : 4);
 }
 function renderLeaderboardFromCache() {
   if (!widgetFlags.leaderboard || !cachedLb) return;
@@ -748,17 +737,21 @@ function renderLeaderboardFromCache() {
   const flightUnavailable = document.getElementById('lbFlightUnavailable');
   if (!indivBody) return;
 
-  const maxIndiv = countVisibleLbRows(indivBody.closest('table'));
-  const rows = (cachedLb.rows || []).slice(0, maxIndiv);
-  indivBody.innerHTML = rows.map((r, i) =>
+  // Hard caps: individual top 5, flight top 3 (also never exceed what fits on screen)
+  const maxIndiv = Math.min(5, countVisibleLbRows(indivBody.closest('table')));
+  const hasFlight = !!(cachedLb.flightRows && cachedLb.flightRows.length);
+  const maxFlight = hasFlight ? Math.min(3, countVisibleLbRows(flightTable)) : 0;
+  const key = maxIndiv + '|' + maxFlight + '|' + hasFlight;
+  if (key === lastLbKey) return;
+  lastLbKey = key;
+
+  indivBody.innerHTML = (cachedLb.rows || []).slice(0, maxIndiv).map((r, i) =>
     `<tr><td class="rank">${i+1}</td><td>${r.name}</td><td class="points">${r.points}</td></tr>`).join('');
 
-  if (cachedLb.flightRows && cachedLb.flightRows.length) {
+  if (hasFlight) {
     flightTable.style.display = '';
     flightUnavailable.style.display = 'none';
-    const maxFlight = countVisibleLbRows(flightTable);
-    const frows = cachedLb.flightRows.slice(0, maxFlight);
-    flightBody.innerHTML = frows.map((r, i) =>
+    flightBody.innerHTML = cachedLb.flightRows.slice(0, maxFlight).map((r, i) =>
       `<tr><td class="rank">${i+1}</td><td>${r.flight}</td><td class="points">${r.points}</td></tr>`).join('');
   } else {
     flightTable.style.display = 'none';
@@ -770,14 +763,14 @@ async function loadLeaderboard() {
   if (!widgetFlags.leaderboard) return;
   const pane = ensurePaneSkeleton('lbPane');
   try {
-    const r = await fetch('/api/leaderboard');
-    const lb = await r.json();
-    if (!r.ok) throw new Error(lb.detail || lb.error || ('HTTP ' + r.status));
+    const lb = await apiJson('/api/leaderboard');
     if (!lb.rows || !lb.rows.length) throw new Error(lb.note || 'No leaderboard rows returned');
     cachedLb = lb;
+    lastLbKey = '';
     renderLeaderboardFromCache();
   } catch (e) {
     cachedLb = null;
+    lastLbKey = '';
     showError(pane, 'leaderboard', e.message || String(e));
   }
 }
