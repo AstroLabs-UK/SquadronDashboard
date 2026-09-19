@@ -99,7 +99,13 @@ From anywhere on the Pi (SSH or a terminal), run:
 sqndash --update
 ```
 
-That downloads the latest version from GitHub and restarts the dashboard; the screen reloads itself a few seconds later. If you're already on the latest version it just says so. Other commands: `sqndash --restart` (restart only) and `sqndash --help`.
+That downloads the latest version from GitHub and restarts the dashboard; the screen reloads itself a few seconds later. If you're already on the latest version it just says so. Other commands: `sqndash --force-update` (re-download and restart even if already up to date), `sqndash --restart` (restart only) and `sqndash --help`.
+
+### Force update button
+
+At the bottom of `/edit`, next to **Save changes**, there's an orange **Force update** button - a safety net in case the automatic updates ever stop working. It is greyed out and can't be clicked while there are unsaved changes; save first and it turns orange. Pressing it (after a confirmation) makes the Pi check GitHub straight away, re-apply the latest code even if it looks up to date, and restart the dashboard. The page shows progress ("Waiting for the Pi... Downloaded abc1234... Updated and restarted") and reloads itself when it's done. If something goes wrong it says what, e.g. that the Pi can't reach GitHub.
+
+How it works: the page can't restart the dashboard itself, so it drops a small request file into `data/`. A systemd path unit (`squadron-dashboard-update.path`, set up by `install.sh` and repaired by `update.sh`) sees the file and runs the same update script in force mode. This is separate from the 30-minute timer, so the button still works if the timer breaks. If the button just says it's waiting for the Pi, re-run `bash install.sh` once, or run `sqndash --force-update` on the Pi.
 
 The Pi also checks by itself 2 minutes after every boot and then every 30 minutes, so pushing to GitHub is enough. Your settings are never touched by an update: they live in the `data/` folder, which is in `.gitignore`, so it is never committed and never overwritten. (`sqndash` is installed by `install.sh`, and refreshed by every update, so re-running `bash install.sh` once is all it takes to get it.)
 
