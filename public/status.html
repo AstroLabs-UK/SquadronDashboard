@@ -136,19 +136,9 @@ async function refreshStatus() {
 
     const git = data.git || {};
     document.getElementById('gitStatus').innerHTML = dot(git.checkout ? (git.hasLocalChanges ? 'WARNING' : 'ONLINE') : 'WARNING');
-    let commitText = 'Not a git checkout';
-    if (git.checkout) {
-      commitText = git.commit || 'unknown';
-      if (git.hasLocalChanges) {
-        commitText += ' (local changes)';
-        if (git.reason) commitText += ' — ' + git.reason;
-      } else if (git.reason && !git.checkout) {
-        commitText += ' — ' + git.reason;
-      }
-    } else if (git.reason) {
-      commitText = git.reason;
-    }
-    document.getElementById('gitCommit').textContent = commitText;
+    document.getElementById('gitCommit').textContent = !git.checkout
+      ? (git.reason || 'Not a git checkout')
+      : (git.commit || 'unknown') + (git.hasLocalChanges ? ' (local changes)' + (git.reason ? ' — ' + git.reason : '') : '');
 
     document.getElementById('lastChecked').textContent = 'Last checked: ' + new Date().toLocaleTimeString();
   } catch (e) {

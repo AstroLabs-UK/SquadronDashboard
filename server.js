@@ -200,17 +200,17 @@ app.get('/api/leaderboard', async (req, res) => {
       });
     }
 
-    // Individual leaderboard: top 5. Keep sheet rank order if present, else sort by points.
+    // Individual leaderboard: always top 5 only.
     const rows = (rankIdx !== -1 ? [...dataRows] : [...dataRows].sort((a, b) => b.points - a.points)).slice(0, 5);
 
-    // Flight leaderboard: top 3 flights by total points (names come from the sheet).
+    // Flight leaderboard: always top 3 only. Skip blank / N/A labels.
     let flightRows = null;
     if (flightIdx !== -1) {
-      const totals = new Map(); // lowercase key -> { flight: original-case label, points }
+      const totals = new Map();
       for (const r of dataRows) {
         const label = (r.flight || '').trim();
-        if (!label) continue;
         const key = label.toLowerCase();
+        if (!label || key === 'n/a' || key === 'na' || key === '-' || key === 'none' || key === 'null') continue;
         if (!totals.has(key)) totals.set(key, { flight: label, points: 0 });
         totals.get(key).points += r.points;
       }

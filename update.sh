@@ -86,10 +86,7 @@ sync_code() {
 
   local LOCAL REMOTE RC=10
   LOCAL="$(git rev-parse HEAD 2>/dev/null)" || LOCAL=""
-  # Prefer upstream tracking branch; fall back to origin/main or origin/master
-  REMOTE="$(git rev-parse '@{u}' 2>/dev/null)" || \
-    REMOTE="$(git rev-parse origin/main 2>/dev/null)" || \
-    REMOTE="$(git rev-parse origin/master 2>/dev/null)" || REMOTE=""
+  REMOTE="$(git rev-parse '@{u}' 2>/dev/null || git rev-parse origin/main 2>/dev/null || git rev-parse origin/master 2>/dev/null || true)"
   if [ -z "$REMOTE" ]; then
     echo "[update] could not determine remote tip - is the remote configured?"
     return 3

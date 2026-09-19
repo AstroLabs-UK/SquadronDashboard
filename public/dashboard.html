@@ -737,11 +737,15 @@ function renderLeaderboardFromCache() {
   const flightUnavailable = document.getElementById('lbFlightUnavailable');
   if (!indivBody) return;
 
-  // Hard caps: individual top 5, flight top 3 (also never exceed what fits on screen)
+  // Always at most 5 individual / 3 flight rows
   const maxIndiv = Math.min(5, countVisibleLbRows(indivBody.closest('table')));
-  const hasFlight = !!(cachedLb.flightRows && cachedLb.flightRows.length);
+  const flightSrc = (cachedLb.flightRows || []).filter(r => {
+    const k = String(r.flight || '').trim().toLowerCase();
+    return k && k !== 'n/a' && k !== 'na' && k !== '-' && k !== 'none';
+  }).slice(0, 3);
+  const hasFlight = flightSrc.length > 0;
   const maxFlight = hasFlight ? Math.min(3, countVisibleLbRows(flightTable)) : 0;
-  const key = maxIndiv + '|' + maxFlight + '|' + hasFlight;
+  const key = '5|3|' + maxIndiv + '|' + maxFlight + '|' + (cachedLb.rows || []).length;
   if (key === lastLbKey) return;
   lastLbKey = key;
 
@@ -751,7 +755,7 @@ function renderLeaderboardFromCache() {
   if (hasFlight) {
     flightTable.style.display = '';
     flightUnavailable.style.display = 'none';
-    flightBody.innerHTML = cachedLb.flightRows.slice(0, maxFlight).map((r, i) =>
+    flightBody.innerHTML = flightSrc.slice(0, maxFlight).map((r, i) =>
       `<tr><td class="rank">${i+1}</td><td>${r.flight}</td><td class="points">${r.points}</td></tr>`).join('');
   } else {
     flightTable.style.display = 'none';
