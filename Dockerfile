@@ -5,7 +5,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install --omit=dev
 
-COPY server.js storage.js ./
+COPY server.js storage.js updater.js ./
 COPY public ./public
 
 EXPOSE 3000
