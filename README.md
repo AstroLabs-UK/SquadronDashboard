@@ -2,7 +2,7 @@
 
 **Release 1.2**
 
-A self-hosted room display for RAF Air Cadets (and similar units): clock, weather, news, individual + flight leaderboard, events, Instagram, and custom embed widgets — plus a phone-friendly **edit** page and a **status** page.
+A self-hosted room display for RAF Air Cadets (and similar organisations): clock, weather, news, individual + flight leaderboard, events, Instagram, and custom embed widgets — plus a phone-friendly **edit** page and a **status** page.
 
 **Repository:** [github.com/AstroLabs-UK/SquadronDashboard](https://github.com/AstroLabs-UK/SquadronDashboard)
 
