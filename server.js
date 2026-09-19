@@ -138,7 +138,8 @@ const BBC_NEWS_RSS = 'http://feeds.bbci.co.uk/news/rss.xml';
 app.get('/api/news', async (req, res) => {
   try {
     const feed = await rssParser.parseURL(BBC_NEWS_RSS);
-    const items = feed.items.slice(0, 8).map(i => ({
+    // Return plenty of items; the dashboard client picks how many fit the screen height
+    const items = feed.items.slice(0, 20).map(i => ({
       title: i.title,
       link: i.link,
       pubDate: i.pubDate
@@ -199,12 +200,11 @@ app.get('/api/leaderboard', async (req, res) => {
       });
     }
 
-    // Individual leaderboard - unchanged behaviour: keep the sheet's own rank order
-    // if it has one, otherwise sort by points ourselves.
-    const rows = (rankIdx !== -1 ? [...dataRows] : [...dataRows].sort((a, b) => b.points - a.points)).slice(0, 5);
+    // Individual leaderboard - keep the sheet's own rank order if it has one,
+    // otherwise sort by points. Return enough rows for large screens; client limits by height.
+    const rows = (rankIdx !== -1 ? [...dataRows] : [...dataRows].sort((a, b) => b.points - a.points)).slice(0, 15);
 
-    // Flight leaderboard - group ALL rows (not just the top 5 individuals) by
-    // whatever flight names appear in the sheet, sum their points, sort descending.
+    // Flight leaderboard - group ALL rows by flight names in the sheet, sum points, sort descending.
     // No flight names are hardcoded - purely derived from the CSV.
     let flightRows = null;
     if (flightIdx !== -1) {
@@ -216,7 +216,7 @@ app.get('/api/leaderboard', async (req, res) => {
         if (!totals.has(key)) totals.set(key, { flight: label, points: 0 });
         totals.get(key).points += r.points;
       }
-      flightRows = [...totals.values()].sort((a, b) => b.points - a.points).slice(0, 3); // top 3 flights only
+      flightRows = [...totals.values()].sort((a, b) => b.points - a.points).slice(0, 10);
       if (flightRows.length === 0) flightRows = null; // flight column existed but every value was blank
     }
 
@@ -273,14 +273,40 @@ app.get('/api/status', async (req, res) => {
   status.instagramWidget = (data.instagramEmbedCode && data.instagramEmbedCode.trim()) ? 'ONLINE' : 'WARNING';
 
   status.git = await new Promise(resolve => {
+    // Prefer the system git already installed on the host; fall back cleanly if missing.
     exec('git rev-parse --short HEAD', { cwd: __dirname }, (err, stdout) => {
-      if (err) return resolve({ checkout: false, status: 'WARNING' });
-      exec('git status --porcelain', { cwd: __dirname }, (err2, stdout2) => {
+      if (err) {
+        return resolve({
+          checkout: false,
+          status: 'WARNING',
+          reason: 'Not a git checkout or git is not available on this system'
+        });
+      }
+      // Ignore untracked files under data/ (already gitignored) and focus on real tracked changes.
+      // Use --untracked-files=no so transient files never look like "local changes".
+      exec('git status --porcelain --untracked-files=no', { cwd: __dirname }, (err2, stdout2) => {
+        const porcelain = (stdout2 || '').trim();
+        const lines = porcelain ? porcelain.split('\n').filter(Boolean) : [];
+        // Filter out known non-user changes that can appear after install/update
+        // (e.g. file mode only, or files that install scripts touch briefly).
+        const meaningful = lines.filter(line => {
+          // Ignore pure mode changes (e.g. " M script.sh" with only +x bit) by checking
+          // that the path is not a pure permission-only report when possible.
+          const pathPart = line.slice(3).trim();
+          if (!pathPart) return false;
+          // data/ is gitignored; anything still listed is noise
+          if (pathPart.startsWith('data/') || pathPart === 'data') return false;
+          return true;
+        });
         resolve({
           checkout: true,
           status: 'ONLINE',
           commit: stdout.trim(),
-          hasLocalChanges: !!(stdout2 && stdout2.trim())
+          hasLocalChanges: meaningful.length > 0,
+          changedFiles: meaningful.slice(0, 20), // diagnostic: which files look dirty
+          reason: meaningful.length > 0
+            ? ('Local changes detected in: ' + meaningful.slice(0, 5).map(l => l.slice(3).trim()).join(', ') + (meaningful.length > 5 ? '…' : ''))
+            : undefined
         });
       });
     });
