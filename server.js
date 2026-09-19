@@ -87,23 +87,6 @@ app.get('/api/boot', (req, res) => {
   res.json({ id: BOOT_ID });
 });
 
-// ---------- API: force update (see updater.js) ----------
-const updater = require('./updater');
-app.post('/api/update', (req, res) => {
-  try {
-    const r = updater.requestUpdate(DATA_DIR);
-    if (!r.ok) return res.status(r.code).json({ ok: false, error: r.error });
-    res.json({ ok: true, requestedAt: r.requestedAt });
-  } catch (e) {
-    console.error('[update] could not write request', e);
-    res.status(500).json({ ok: false, error: 'could not request an update' });
-  }
-});
-app.get('/api/update/status', (req, res) => {
-  res.set('Cache-Control', 'no-store');
-  res.json(updater.getStatus(DATA_DIR));
-});
-
 // Compare local git checkout vs GitHub (for /edit confirmation and sqndash --check)
 function gitOut(args, timeoutMs = 12000) {
   return new Promise(resolve => {
@@ -114,7 +97,6 @@ function gitOut(args, timeoutMs = 12000) {
       env: { ...process.env, GIT_TERMINAL_PROMPT: '0' }
     }, (err, stdout, stderr) => {
       const out = (stdout || '').trim();
-      // Some git commands write warnings to stderr but still succeed
       resolve({ ok: !err || !!out, out, err: (stderr || '').trim(), code: err ? err.code : 0 });
     });
   });
@@ -132,7 +114,7 @@ app.get('/api/version', async (req, res) => {
       });
     }
     const localFull = head.out.split(/\s/)[0];
-    const localShort = (await gitOut('rev-parse --short HEAD')).out.split(/\s/)[0] || localFull.slice(0, 7);
+    const localShort = ((await gitOut('rev-parse --short HEAD')).out || '').split(/\s/)[0] || localFull.slice(0, 7);
     const localMsg = (await gitOut('log -1 --pretty=%s')).out || '';
 
     // Best-effort fetch — do not fail the whole request if network is slow/offline
@@ -174,6 +156,51 @@ app.get('/api/version', async (req, res) => {
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e && e.message ? e.message : e), local: null, remote: null });
   }
+});
+
+// ---------- API: force update (see updater.js) ----------
+// On Windows / bare Node: run the update in-process. On Pi with systemd watcher,
+// also drop the request file so the host path unit can run update.sh if preferred.
+const updater = require('./updater');
+const autoUpdate = require('./autoUpdate');
+app.post('/api/update', async (req, res) => {
+  try {
+    const hasGit = fs.existsSync(path.join(__dirname, '.git'));
+    if (hasGit && process.env.UPDATE_IN_PROCESS !== '0') {
+      const requestedAt = Date.now();
+      res.json({ ok: true, requestedAt, mode: 'in-process' });
+      // Respond first, then update + restart so the HTTP client is not cut off mid-body
+      setTimeout(async () => {
+        try {
+          const result = await autoUpdate.checkAndUpdate({
+            cwd: __dirname,
+            dataDir: DATA_DIR,
+            force: true
+          });
+          if (result.updated) {
+            console.log('[update] force update applied — restarting');
+            autoUpdate.restartProcess(__dirname);
+          } else {
+            console.log('[update] force update: ' + result.reason);
+          }
+        } catch (e) {
+          console.error('[update] in-process failed', e);
+          autoUpdate.writeStatus(DATA_DIR, 'error', String(e && e.message ? e.message : e));
+        }
+      }, 300);
+      return;
+    }
+    const r = updater.requestUpdate(DATA_DIR);
+    if (!r.ok) return res.status(r.code).json({ ok: false, error: r.error });
+    res.json({ ok: true, requestedAt: r.requestedAt, mode: 'request-file' });
+  } catch (e) {
+    console.error('[update] could not request update', e);
+    res.status(500).json({ ok: false, error: 'could not request an update' });
+  }
+});
+app.get('/api/update/status', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json(updater.getStatus(DATA_DIR));
 });
 
 // ---------- API: settings / events ----------
@@ -374,9 +401,13 @@ app.get('/api/status', async (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Squadron dashboard running:`);
   console.log(`  Display:  http://localhost:${PORT}`);
-  console.log(`  Edit (from any phone/laptop on the network): http://<this-pi's-IP>:${PORT}/edit`);
-  console.log(`  Status:   http://<this-pi's-IP>:${PORT}/status`);
-  // Auto shutdown and auto update are handled on the host by install.sh
-  // (systemd timers) when running via Docker, since a container can't reach
-  // out and shut down or update its own host.
+  console.log(`  Edit:     http://localhost:${PORT}/edit`);
+  console.log(`  Status:   http://localhost:${PORT}/status`);
+  console.log(`  Version:  http://localhost:${PORT}/api/version`);
+  // Windows / bare-metal Node: check GitHub at launch and every 5 minutes
+  autoUpdate.startAutoUpdate({
+    cwd: __dirname,
+    dataDir: DATA_DIR,
+    intervalMs: 5 * 60 * 1000
+  });
 });
