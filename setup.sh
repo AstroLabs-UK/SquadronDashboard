@@ -22,12 +22,17 @@ else
   echo "== Squadron Dashboard setup =="
   echo "-> Not running from inside the repo - cloning it first..."
   if ! command -v git >/dev/null 2>&1; then
+    echo "-> Git not found, installing..."
     sudo apt-get update -y
     sudo apt-get install -y git
+  else
+    echo "-> Using existing local Git installation ($(git --version 2>/dev/null | head -1))"
   fi
   if [ -d "$REPO_DIRNAME" ]; then
     echo "-> $REPO_DIRNAME already exists, pulling latest instead of re-cloning"
-    (cd "$REPO_DIRNAME" && git pull)
+    (cd "$REPO_DIRNAME" && git config --global --add safe.directory "$(pwd)" 2>/dev/null || true
+     git config core.filemode false 2>/dev/null || true
+     git fetch --quiet && (git reset --hard --quiet '@{u}' 2>/dev/null || git pull --ff-only || git pull))
   else
     git clone "$REPO_URL" "$REPO_DIRNAME"
   fi
@@ -40,6 +45,12 @@ echo "== Squadron Dashboard setup =="
 echo "Working directory: $DIR"
 echo "Running as user:   $SERVICE_USER"
 echo
+
+# Ensure local Git (if present) treats this folder as safe and ignores file-mode noise
+if command -v git >/dev/null 2>&1 && [ -d "$DIR/.git" ]; then
+  git -C "$DIR" config --global --add safe.directory "$DIR" 2>/dev/null || true
+  git -C "$DIR" config core.filemode false 2>/dev/null || true
+fi
 
 # 1. Install Node.js if it's missing
 if ! command -v node >/dev/null 2>&1; then
