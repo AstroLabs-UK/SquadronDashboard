@@ -1,0 +1,12 @@
+node_modules/
+data.json.tmp
+data.backup.json.tmp
+npm-debug.log
+npm-update.sh
+docker-update.sh
+
+# Per-device settings saved from /edit - never committed, never touched by updates
+# (older versions kept them in data.json / data.backup.json next to server.js)
+data/
+data.json
+data.backup.json

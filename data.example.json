@@ -1,0 +1,40 @@
+{
+  "squadronName": "Your Squadron Name",
+  "location": {
+    "name": "Your Town",
+    "lat": 51.5074,
+    "lon": -0.1278
+  },
+  "leaderboardCsvUrl": "",
+  "eventsSeeMoreUrl": "https://cadets.bader.mod.uk/events",
+  "errorReportUrl": "",
+  "autoShutdownMinutes": 165,
+  "instagramEmbedCode": "",
+  "weatherEmbedCode": "",
+  "newsEmbedCode": "<div class=\"feedgrabbr_widget\" id=\"fgid_b7dd1083e39bf6aa6963069d2\"></div>\n<script>if (typeof (fg_widgets) === \"undefined\") fg_widgets = new Array(); fg_widgets.push(\"fgid_b7dd1083e39bf6aa6963069d2\");</script>\n<script async src=\"https://www.feedgrabbr.com/widget/fgwidget.js\"></script>",
+  "importantInfo": {
+    "enabled": false,
+    "title": "IMPORTANT INFORMATION",
+    "message": ""
+  },
+  "widgets": {
+    "leaderboard": true,
+    "news": true,
+    "events": true,
+    "instagram": true
+  },
+  "customWidgets": [],
+  "layout": "auto",
+  "events": [
+    {
+      "title": "Parade Night",
+      "date": "Every Thursday",
+      "detail": "1900 - 2130, main hall"
+    },
+    {
+      "title": "Example Event",
+      "date": "Edit me on /edit",
+      "detail": "Add real events on the edit page"
+    }
+  ]
+}
