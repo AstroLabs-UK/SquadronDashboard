@@ -103,6 +103,12 @@
   .primary:hover { background: var(--raf-blue); }
   .danger { background: var(--white); color: var(--raf-red); border-color: var(--raf-red); }
   .danger:hover { background: var(--raf-red); color: var(--white); }
+  .force { background: #E8710A; color: var(--white); }
+  .force:hover:not(:disabled) { background: #C55F05; }
+  .force:disabled { background: #C9D1D9; color: #8A96A3; cursor: not-allowed; }
+  .actions { display: flex; gap: 12px; flex-wrap: wrap; }
+  #updateStatus { margin-top: 8px; font-weight: 700; color: var(--raf-navy); }
+  #updateStatus.error { color: var(--raf-red); }
   .add { background: var(--white); color: var(--raf-navy); border-color: var(--raf-navy); }
   .add:hover { background: var(--raf-navy); color: var(--white); }
   #status { margin-top: 14px; font-weight: 700; color: var(--raf-navy); }
@@ -173,8 +179,13 @@
 <button class="add" onclick="addEvent()">+ Add event</button>
 
 <h2>&nbsp;</h2>
-<button class="primary" onclick="save()">Save changes</button>
+<div class="actions">
+  <button class="primary" onclick="save()">Save changes</button>
+  <button class="force" id="forceBtn" onclick="forceUpdate()" disabled>Force update</button>
+</div>
 <div id="status"></div>
+<p class="hint" id="forceHint">Force update checks GitHub right now and restarts the dashboard - use it if automatic updates ever stop working.</p>
+<div id="updateStatus"></div>
 </div>
 
 <script>
@@ -242,15 +253,18 @@ async function load() {
   document.getElementById('importantInfoMessage').value = info.message || '';
   const ec = document.getElementById('eventsContainer'); ec.innerHTML = '';
   data.events.forEach(e => ec.appendChild(eventRow(e)));
+  savedSnapshot = JSON.stringify(collectPayload());
+  updateForceButton();
 }
 
-async function save() {
+// Everything on the page as the object that gets saved. Also used to spot unsaved changes.
+function collectPayload() {
   const events = [...document.querySelectorAll('#eventsContainer .event-row')].map(r => ({
     title: r.querySelector('.ev-title').value,
     date: r.querySelector('.ev-date').value,
     detail: r.querySelector('.ev-detail').value
   }));
-  const payload = {
+  return {
     squadronName: document.getElementById('squadronName').value,
     location: {
       name: document.getElementById('locName').value,
@@ -284,6 +298,29 @@ async function save() {
     },
     events
   };
+}
+
+// ---- Unsaved changes: the Force update button is only usable when everything is saved ----
+let savedSnapshot = null;   // what the page looked like when it was last loaded / saved
+let updateInProgress = false;
+function hasUnsavedChanges() {
+  return savedSnapshot === null || JSON.stringify(collectPayload()) !== savedSnapshot;
+}
+function updateForceButton() {
+  const btn = document.getElementById('forceBtn');
+  const hint = document.getElementById('forceHint');
+  const dirty = hasUnsavedChanges();
+  btn.disabled = dirty || updateInProgress;
+  btn.title = dirty ? 'Save your changes first' : '';
+  hint.textContent = dirty
+    ? 'You have unsaved changes - save them first, then Force update becomes available.'
+    : 'Force update checks GitHub right now and restarts the dashboard - use it if automatic updates ever stop working.';
+}
+['input', 'change', 'click'].forEach(ev =>
+  document.addEventListener(ev, () => setTimeout(updateForceButton, 0)));
+
+async function save() {
+  const payload = collectPayload();
   const res = await fetch('/api/data', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
@@ -293,6 +330,59 @@ async function save() {
   statusEl.textContent = res.ok ? 'Saved!' : 'Something went wrong.';
   clearTimeout(statusTimer);
   statusTimer = setTimeout(() => { statusEl.textContent = ''; }, 3000);
+  if (res.ok) { savedSnapshot = JSON.stringify(payload); updateForceButton(); }
+}
+
+// ---- Force update ----
+function showUpdateStatus(text, isError) {
+  const el = document.getElementById('updateStatus');
+  el.textContent = text;
+  el.className = isError ? 'error' : '';
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function forceUpdate() {
+  if (hasUnsavedChanges() || updateInProgress) return;
+  if (!confirm('Force an update now?\n\nThe dashboard downloads the latest version from GitHub and restarts, so the screen goes blank for a few seconds. Your settings are kept.')) return;
+
+  updateInProgress = true; updateForceButton();
+  try {
+    showUpdateStatus('Requesting update...');
+    const res = await fetch('/api/update', { method: 'POST' });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body.ok) { showUpdateStatus(body.error || 'Could not request an update.', true); return; }
+    const requestedAt = body.requestedAt;
+
+    // Poll for the result (the server itself goes offline for a moment while it restarts)
+    const started = Date.now();
+    while (Date.now() - started < 5 * 60 * 1000) {
+      await sleep(2000);
+      let st = null;
+      try { st = await (await fetch('/api/update/status', { cache: 'no-store' })).json(); }
+      catch (e) { showUpdateStatus('Restarting the dashboard...'); continue; }
+
+      if (st.state === 'requested') {
+        showUpdateStatus((Date.now() - started > 30000)
+          ? "Waiting for the Pi to pick this up... If nothing happens, run 'sqndash --force-update' on the Pi (re-running install.sh sets this button up)."
+          : 'Waiting for the Pi to pick up the request...');
+      } else if ((st.state === 'done' || st.state === 'error') && st.time * 1000 >= requestedAt - 5000) {
+        if (st.state === 'error') { showUpdateStatus(st.message, true); return; }
+        if (!hasUnsavedChanges()) {
+          showUpdateStatus(st.message + ' - reloading this page...');
+          await sleep(3000);
+          location.reload();
+        } else {
+          showUpdateStatus(st.message + ' - reload this page to load the new version.');
+        }
+        return;
+      } else if (st.state === 'running') {
+        showUpdateStatus(st.message || 'Updating...');
+      }
+    }
+    showUpdateStatus("The update didn't report back in 5 minutes. Check the Pi, or run 'sqndash --force-update' on it.", true);
+  } finally {
+    updateInProgress = false; updateForceButton();
+  }
 }
 
 load();
