@@ -29,6 +29,9 @@ const DEFAULT_DATA = {
   instagramEmbedCode: "",
   weatherEmbedCode: "",
   importantInfo: { enabled: false, title: "IMPORTANT INFORMATION", message: "" },
+  widgets: { leaderboard: true, news: true, events: true, instagram: true }, // carousel tick boxes
+  customWidgets: [],                                                       // extra embed widgets
+  layout: "auto",                                                          // auto | full | compact
   events: []
 };
 
