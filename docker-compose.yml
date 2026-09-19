@@ -1,0 +1,12 @@
+services:
+  dashboard:
+    build: .
+    container_name: squadron-dashboard
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      # Settings folder. Bind-mounted so settings survive container rebuilds, code
+      # updates and power cuts, and stay inspectable on the host (./data).
+      # (A folder, not single files: single-file mounts can't be atomically replaced.)
+      - ./data:/app/data
