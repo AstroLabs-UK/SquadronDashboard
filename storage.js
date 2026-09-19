@@ -10,6 +10,7 @@
 //     filled in from the defaults, so old settings files keep working after updates.
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 function fsyncDir(dir) {
   try {
@@ -48,6 +49,8 @@ function createStore({ dir, defaults, legacyDir }) {
       ...d,
       location: { ...defaults.location, ...(d.location && typeof d.location === 'object' ? d.location : {}) },
       importantInfo: { ...defaults.importantInfo, ...(d.importantInfo && typeof d.importantInfo === 'object' ? d.importantInfo : {}) },
+      widgets: { ...defaults.widgets, ...(d.widgets && typeof d.widgets === 'object' ? d.widgets : {}) },
+      customWidgets: Array.isArray(d.customWidgets) ? d.customWidgets : defaults.customWidgets,
       events: Array.isArray(d.events) ? d.events : defaults.events
     };
   }
@@ -122,6 +125,39 @@ function createStore({ dir, defaults, legacyDir }) {
       if (isStr(info.title)) next.title = info.title;
       if (isStr(info.message)) next.message = info.message;
       out.importantInfo = next;
+    }
+
+    // Which built-in widgets appear in the carousel
+    const flags = incoming.widgets;
+    if (flags && typeof flags === 'object') {
+      const next = { ...current.widgets };
+      for (const k of ['leaderboard', 'news', 'events', 'instagram']) {
+        if (typeof flags[k] === 'boolean') next[k] = flags[k];
+      }
+      out.widgets = next;
+    }
+
+    // Small-screen layout: automatic detection, or forced either way
+    if (['auto', 'full', 'compact'].includes(incoming.layout)) out.layout = incoming.layout;
+
+    // Extra embed widgets: {id, name (shown on /edit), title (shown on the carousel), embedCode, enabled}
+    if (Array.isArray(incoming.customWidgets)) {
+      const seen = new Set();
+      out.customWidgets = incoming.customWidgets
+        .filter(w => w && typeof w === 'object')
+        .slice(0, 20)
+        .map(w => {
+          let id = isStr(w.id) && /^[A-Za-z0-9_-]{1,40}$/.test(w.id) ? w.id : null;
+          if (!id || seen.has(id)) id = 'w' + crypto.randomBytes(4).toString('hex');
+          seen.add(id);
+          return {
+            id,
+            name: String(w.name ?? '').slice(0, 80),
+            title: String(w.title ?? '').slice(0, 80),
+            embedCode: String(w.embedCode ?? '').slice(0, 20000),
+            enabled: w.enabled !== false
+          };
+        });
     }
 
     if (Array.isArray(incoming.events)) {
