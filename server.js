@@ -200,12 +200,10 @@ app.get('/api/leaderboard', async (req, res) => {
       });
     }
 
-    // Individual leaderboard - keep the sheet's own rank order if it has one,
-    // otherwise sort by points. Return enough rows for large screens; client limits by height.
-    const rows = (rankIdx !== -1 ? [...dataRows] : [...dataRows].sort((a, b) => b.points - a.points)).slice(0, 15);
+    // Individual leaderboard: top 5. Keep sheet rank order if present, else sort by points.
+    const rows = (rankIdx !== -1 ? [...dataRows] : [...dataRows].sort((a, b) => b.points - a.points)).slice(0, 5);
 
-    // Flight leaderboard - group ALL rows by flight names in the sheet, sum points, sort descending.
-    // No flight names are hardcoded - purely derived from the CSV.
+    // Flight leaderboard: top 3 flights by total points (names come from the sheet).
     let flightRows = null;
     if (flightIdx !== -1) {
       const totals = new Map(); // lowercase key -> { flight: original-case label, points }
@@ -216,8 +214,8 @@ app.get('/api/leaderboard', async (req, res) => {
         if (!totals.has(key)) totals.set(key, { flight: label, points: 0 });
         totals.get(key).points += r.points;
       }
-      flightRows = [...totals.values()].sort((a, b) => b.points - a.points).slice(0, 10);
-      if (flightRows.length === 0) flightRows = null; // flight column existed but every value was blank
+      flightRows = [...totals.values()].sort((a, b) => b.points - a.points).slice(0, 3);
+      if (flightRows.length === 0) flightRows = null;
     }
 
     res.json({ rows, flightRows });
@@ -273,39 +271,26 @@ app.get('/api/status', async (req, res) => {
   status.instagramWidget = (data.instagramEmbedCode && data.instagramEmbedCode.trim()) ? 'ONLINE' : 'WARNING';
 
   status.git = await new Promise(resolve => {
-    // Prefer the system git already installed on the host; fall back cleanly if missing.
     exec('git rev-parse --short HEAD', { cwd: __dirname }, (err, stdout) => {
       if (err) {
-        return resolve({
-          checkout: false,
-          status: 'WARNING',
-          reason: 'Not a git checkout or git is not available on this system'
-        });
+        return resolve({ checkout: false, status: 'WARNING', reason: 'Not a git checkout or git is not available on this system' });
       }
-      // Ignore untracked files under data/ (already gitignored) and focus on real tracked changes.
-      // Use --untracked-files=no so transient files never look like "local changes".
+      // Tracked changes only; ignore untracked noise. Skip data/ (gitignored settings).
       exec('git status --porcelain --untracked-files=no', { cwd: __dirname }, (err2, stdout2) => {
-        const porcelain = (stdout2 || '').trim();
-        const lines = porcelain ? porcelain.split('\n').filter(Boolean) : [];
-        // Filter out known non-user changes that can appear after install/update
-        // (e.g. file mode only, or files that install scripts touch briefly).
-        const meaningful = lines.filter(line => {
-          // Ignore pure mode changes (e.g. " M script.sh" with only +x bit) by checking
-          // that the path is not a pure permission-only report when possible.
-          const pathPart = line.slice(3).trim();
-          if (!pathPart) return false;
-          // data/ is gitignored; anything still listed is noise
-          if (pathPart.startsWith('data/') || pathPart === 'data') return false;
-          return true;
+        const meaningful = (stdout2 || '').trim().split('\n').filter(line => {
+          if (!line) return false;
+          const p = line.slice(3).trim();
+          return p && p !== 'data' && !p.startsWith('data/');
         });
+        const paths = meaningful.slice(0, 5).map(l => l.slice(3).trim());
         resolve({
           checkout: true,
           status: 'ONLINE',
           commit: stdout.trim(),
           hasLocalChanges: meaningful.length > 0,
-          changedFiles: meaningful.slice(0, 20), // diagnostic: which files look dirty
-          reason: meaningful.length > 0
-            ? ('Local changes detected in: ' + meaningful.slice(0, 5).map(l => l.slice(3).trim()).join(', ') + (meaningful.length > 5 ? '…' : ''))
+          changedFiles: meaningful.slice(0, 20),
+          reason: meaningful.length
+            ? 'Local changes detected in: ' + paths.join(', ') + (meaningful.length > 5 ? '…' : '')
             : undefined
         });
       });
