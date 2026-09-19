@@ -68,14 +68,32 @@ sync_code() {
   [ -f data/data.backup.json ] || cp data/data.json data/data.backup.json
 
   echo "[update] checking GitHub..."
-  if ! git fetch --quiet 2>/dev/null; then
+  # Ensure we can use the existing local Git installation (no reinstall needed).
+  if ! command -v git >/dev/null 2>&1; then
+    echo "[update] git is not installed - cannot update"
+    return 2
+  fi
+  # Avoid "dubious ownership" / safe.directory issues on the Pi when the folder
+  # is owned by a different user than the one running the update.
+  git config --global --add safe.directory "$DIR" 2>/dev/null || true
+  # Reduce false "local changes" from executable-bit differences across installs
+  git config core.filemode false 2>/dev/null || true
+
+  if ! git fetch --quiet origin 2>/dev/null && ! git fetch --quiet 2>/dev/null; then
     echo "[update] can't reach GitHub - skipping this check"
     return 1
   fi
 
   local LOCAL REMOTE RC=10
-  LOCAL="$(git rev-parse HEAD)"
-  REMOTE="$(git rev-parse '@{u}')"
+  LOCAL="$(git rev-parse HEAD 2>/dev/null)" || LOCAL=""
+  # Prefer upstream tracking branch; fall back to origin/main or origin/master
+  REMOTE="$(git rev-parse '@{u}' 2>/dev/null)" || \
+    REMOTE="$(git rev-parse origin/main 2>/dev/null)" || \
+    REMOTE="$(git rev-parse origin/master 2>/dev/null)" || REMOTE=""
+  if [ -z "$REMOTE" ]; then
+    echo "[update] could not determine remote tip - is the remote configured?"
+    return 3
+  fi
   if [ "$LOCAL" = "$REMOTE" ]; then
     if [ "$FORCE" -ne 1 ]; then
       echo "[update] already on the latest version ($(git rev-parse --short HEAD))"
@@ -91,7 +109,11 @@ sync_code() {
   KEEP="$(mktemp -d)"
   cp -a data "$KEEP/data"           # safety copy of the settings
 
-  git reset --hard --quiet '@{u}'   # replaces code only; data/ is git-ignored so it's untouched
+  # Force the working tree to match GitHub exactly. Do not stop for a dirty tree;
+  # any local edits to tracked files are discarded (settings live in data/ and are kept).
+  git reset --hard --quiet "$REMOTE" 2>/dev/null || git reset --hard --quiet '@{u}'
+  # Remove untracked files/dirs that are not settings (data/ is gitignored and preserved)
+  git clean -fd --quiet 2>/dev/null || true
 
   # Belt and braces: if anything about data/ went missing, put the safety copy back
   mkdir -p data
