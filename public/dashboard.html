@@ -716,7 +716,7 @@ function computePanes() {
   const list = [];
   if (widgetFlags.leaderboard) list.push({ id: 'lbPane', title: 'Leaderboard' });
   if (widgetFlags.news) list.push({ id: 'newsPane', title: 'News Headlines' });
-  if (widgetFlags.events) list.push({ id: 'eventsPane', title: 'Upcoming Events' });
+  if (widgetFlags.events) list.push({ id: 'eventsPane', title: 'Latest Events' });
   if (widgetFlags.instagram && lastInstagramEmbedCode) list.push({ id: 'socialsPane', title: 'Follow Us' });
   customWidgets.forEach(w => {
     if (w.enabled && (w.embedCode || '').trim()) {
