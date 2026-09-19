@@ -103,7 +103,7 @@ function createStore({ dir, defaults, legacyDir }) {
     const isStr = v => typeof v === 'string';
 
     if (isStr(incoming.squadronName) && incoming.squadronName.trim()) out.squadronName = incoming.squadronName;
-    for (const k of ['leaderboardCsvUrl', 'eventsSeeMoreUrl', 'errorReportUrl', 'instagramEmbedCode', 'weatherEmbedCode']) {
+    for (const k of ['leaderboardCsvUrl', 'eventsSeeMoreUrl', 'errorReportUrl', 'instagramEmbedCode', 'weatherEmbedCode', 'newsEmbedCode']) {
       if (isStr(incoming[k])) out[k] = incoming[k];
     }
     const mins = Number(incoming.autoShutdownMinutes);

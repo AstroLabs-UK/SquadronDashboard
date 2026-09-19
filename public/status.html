@@ -84,7 +84,7 @@
   <h2>Data Sources</h2>
   <div class="grid">
     <div class="card"><div class="label">Weather API</div><div class="value" id="weatherApi">—</div></div>
-    <div class="card"><div class="label">BBC News RSS</div><div class="value" id="newsRss">—</div></div>
+    <div class="card"><div class="label">News widget</div><div class="value" id="newsRss">—</div></div>
     <div class="card"><div class="label">Leaderboard CSV</div><div class="value" id="leaderboardCsv">—</div></div>
     <div class="card"><div class="label">Instagram Widget</div><div class="value" id="instagramWidget">—</div></div>
   </div>
@@ -127,7 +127,7 @@ async function refreshStatus() {
     document.getElementById('nodeVersion').textContent = data.nodeVersion || 'unknown';
 
     document.getElementById('weatherApi').innerHTML = dot(data.weatherApi || 'OFFLINE');
-    document.getElementById('newsRss').innerHTML = dot(data.newsRss || 'OFFLINE');
+    document.getElementById('newsRss').innerHTML = dot(data.newsWidget || data.newsRss || 'OFFLINE');
     document.getElementById('leaderboardCsv').innerHTML = dot(data.leaderboardCsv || 'OFFLINE');
     document.getElementById('instagramWidget').innerHTML = dot(data.instagramWidget || 'WARNING');
 

@@ -149,14 +149,17 @@
 <p class="hint">Automatic switches to the compact small-screen layout on screens 800 pixels wide or less, or 500 pixels tall or less (like the official 7-inch Pi display and smaller). Use the other two options to force one or the other.</p>
 <label>Weather widget embed code (optional, full-size layout only)</label>
 <textarea id="weatherEmbedCode" rows="4" placeholder="Paste a full embed snippet (e.g. from weatherwidget.io) to replace the built-in weather display - leave blank to use the default"></textarea>
-<p class="hint">News headlines are fixed to BBC News. The small-screen layout always uses the built-in weather display, so a weather widget is only used on larger screens.</p>
+<p class="hint">The small-screen layout always uses the built-in weather display, so a weather widget is only used on larger screens.</p>
 
 <h2>Carousel widgets</h2>
 <p class="hint">Tick the widgets you want in the rotating panel. Anything unticked isn't shown, and each ticked widget gets 10 seconds on screen.</p>
 <label class="check"><input type="checkbox" id="w-leaderboard"> Leaderboard</label>
-<label class="check"><input type="checkbox" id="w-news"> News headlines (BBC)</label>
+<label class="check"><input type="checkbox" id="w-news"> News</label>
 <label class="check"><input type="checkbox" id="w-events"> Upcoming events</label>
 <label class="check"><input type="checkbox" id="w-instagram"> Instagram / social feed</label>
+<label>News widget embed code</label>
+<textarea id="newsEmbedCode" rows="4" placeholder="Paste a news feed embed snippet (script + div). A default FeedGrabbr embed is used if you leave this as shipped."></textarea>
+<p class="hint">News is skipped while this is empty. Paste any compatible embed (e.g. FeedGrabbr) to change the feed.</p>
 <label>Instagram widget embed code</label>
 <textarea id="instagramEmbedCode" rows="4" placeholder="Paste the full embed snippet from a free Instagram-feed widget service (e.g. Elfsight or SociableKit) - the script tag and div, exactly as they give it to you"></textarea>
 <p class="hint">The Instagram widget is skipped while this is empty.</p>
@@ -239,6 +242,7 @@ async function load() {
   document.getElementById('errorReportUrl').value = data.errorReportUrl || '';
   document.getElementById('autoShutdownMinutes').value = data.autoShutdownMinutes || 165;
   document.getElementById('instagramEmbedCode').value = data.instagramEmbedCode || '';
+  document.getElementById('newsEmbedCode').value = data.newsEmbedCode || '';
   document.getElementById('weatherEmbedCode').value = data.weatherEmbedCode || '';
   document.getElementById('layout').value = data.layout || 'auto';
   const wf = data.widgets || {};
@@ -276,6 +280,7 @@ function collectPayload() {
     errorReportUrl: document.getElementById('errorReportUrl').value,
     autoShutdownMinutes: parseInt(document.getElementById('autoShutdownMinutes').value, 10) || 165,
     instagramEmbedCode: document.getElementById('instagramEmbedCode').value,
+    newsEmbedCode: document.getElementById('newsEmbedCode').value,
     weatherEmbedCode: document.getElementById('weatherEmbedCode').value,
     layout: document.getElementById('layout').value,
     widgets: {

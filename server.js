@@ -28,10 +28,12 @@ const DEFAULT_DATA = {
   autoShutdownMinutes: 165,
   instagramEmbedCode: "",
   weatherEmbedCode: "",
+  // Default news embed (FeedGrabbr). Editable on /edit; replace to use any other news widget.
+  newsEmbedCode: "<div class=\"feedgrabbr_widget\" id=\"fgid_b7dd1083e39bf6aa6963069d2\"></div>\n<script>if (typeof (fg_widgets) === \"undefined\") fg_widgets = new Array(); fg_widgets.push(\"fgid_b7dd1083e39bf6aa6963069d2\");</script>\n<script async src=\"https://www.feedgrabbr.com/widget/fgwidget.js\"></script>",
   importantInfo: { enabled: false, title: "IMPORTANT INFORMATION", message: "" },
-  widgets: { leaderboard: true, news: true, events: true, instagram: true }, // carousel tick boxes
-  customWidgets: [],                                                       // extra embed widgets
-  layout: "auto",                                                          // auto | full | compact
+  widgets: { leaderboard: true, news: true, events: true, instagram: true },
+  customWidgets: [],
+  layout: "auto",
   events: []
 };
 
@@ -254,10 +256,7 @@ app.get('/api/status', async (req, res) => {
     status.weatherApi = r.ok ? 'ONLINE' : 'WARNING';
   } catch (e) { status.weatherApi = 'OFFLINE'; }
 
-  try {
-    await withTimeout(rssParser.parseURL(BBC_NEWS_RSS), 5000);
-    status.newsRss = 'ONLINE';
-  } catch (e) { status.newsRss = 'OFFLINE'; }
+  status.newsWidget = (data.newsEmbedCode && data.newsEmbedCode.trim()) ? 'ONLINE' : 'WARNING';
 
   if (!data.leaderboardCsvUrl) {
     status.leaderboardCsv = 'WARNING'; // not configured

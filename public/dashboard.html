@@ -91,9 +91,8 @@
   .rotate-pane.active { display: flex; }
   .rotate-pane ul { list-style: none; padding: 0; margin: 0; overflow: hidden; flex: 1; min-height: 0; }
 
-  #newsPane li { margin-bottom: 12px; font-size: 16px; line-height: 1.45; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
-  #newsPane li a { color: var(--deep-navy); text-decoration: none; }
-  #newsPane ul { overflow: hidden; }
+  /* News is an embed widget (same fill behaviour as Instagram) */
+  #newsPane.embed-pane { padding: 0; }
 
   /* Leaderboard: individual + flight side by side — fill available vertical space with taller rows */
   #lbPane { flex-direction: row; gap: 24px; }
@@ -217,7 +216,7 @@
   body.compact .lb-col th:last-child, body.compact .lb-col td.points { width: max(38px, calc(46 * var(--u))); }
   body.compact .lb-unavailable { font-size: var(--fs); padding: calc(4 * var(--u)) 0; }
 
-  body.compact #newsPane li { font-size: var(--fm); line-height: 1.3; margin-bottom: calc(5 * var(--u)); padding-bottom: calc(4 * var(--u)); }
+
   body.compact #eventsPane li { font-size: var(--fm); margin-bottom: calc(5 * var(--u)); padding-bottom: calc(4 * var(--u)); }
   body.compact #eventsPane li .meta { font-size: var(--fs); margin-top: 1px; }
   body.compact #eventsLayout { gap: calc(8 * var(--u)); }
@@ -269,8 +268,8 @@
         </div>
       </div>
 
-      <div class="rotate-pane" id="newsPane">
-        <ul></ul>
+      <div class="rotate-pane embed-pane" id="newsPane">
+        <div class="insta-wrap" id="newsWrap"></div>
       </div>
 
       <div class="rotate-pane" id="eventsPane">
@@ -300,6 +299,7 @@
 <script>
 let errorReportUrl = '';
 let lastInstagramEmbedCode = '';
+let lastNewsEmbedCode = '';
 let lastWeatherEmbedCode = '';
 let weatherEmbedActive = false;
 let latestEvents = [];
@@ -317,8 +317,7 @@ let currentBannerMessage = null;
 // Snapshot each rotating pane's original markup so it can be restored after an
 // error state (showError fully replaces a pane's contents with an error box).
 const paneTemplates = {
-  lbPane: document.getElementById('lbPane').innerHTML,
-  newsPane: document.getElementById('newsPane').innerHTML
+  lbPane: document.getElementById('lbPane').innerHTML
 };
 function ensurePaneSkeleton(paneId) {
   const pane = document.getElementById(paneId);
@@ -526,13 +525,11 @@ function applyLayout() {
   lastBannerKey = null;
   if (currentBannerMessage) updateBannerTicker(currentBannerMessage, currentBannerTitle);
   applyWeatherMode();
-  renderNewsFromCache();
   renderLeaderboardFromCache();
 }
 window.addEventListener('resize', () => {
   applyLayout();
   if (currentBannerMessage) updateBannerTicker(currentBannerMessage, currentBannerTitle);
-  renderNewsFromCache();
   renderLeaderboardFromCache();
 });
 
@@ -564,9 +561,20 @@ function applyWidgetSettings(data) {
     events: f.events !== false,
     instagram: f.instagram !== false
   };
-  // a widget that was just ticked on needs its data straight away
-  if (widgetFlags.news && !prev.news) loadNews();
   if (widgetFlags.leaderboard && !prev.leaderboard) loadLeaderboard();
+
+  // News embed (default FeedGrabbr; editable on /edit)
+  const newsCode = (data.newsEmbedCode || '').trim();
+  if (widgetFlags.news && newsCode) {
+    if (newsCode !== lastNewsEmbedCode) {
+      lastNewsEmbedCode = newsCode;
+      mountEmbedCode('newsWrap', newsCode);
+    }
+  } else if (lastNewsEmbedCode) {
+    lastNewsEmbedCode = '';
+    const nw = document.getElementById('newsWrap');
+    if (nw) nw.innerHTML = '';
+  }
 
   // Instagram: only loaded while ticked (and it has an embed code)
   const igCode = (data.instagramEmbedCode || '').trim();
@@ -664,55 +672,6 @@ async function loadWeather() {
   }
 }
 
-// Fit as many rows as possible into available height (no scrollbar).
-function fitCount(availablePx, rowPx, fallback) {
-  if (availablePx <= 0) return fallback;
-  return Math.max(1, Math.floor(availablePx / rowPx));
-}
-
-let cachedNewsItems = null;
-let lastNewsMax = -1;
-function renderNewsFromCache() {
-  if (!widgetFlags.news || !cachedNewsItems) return;
-  const pane = ensurePaneSkeleton('newsPane');
-  if (pane.querySelector('.error-box')) return;
-  const ul = pane.querySelector('ul');
-  if (!ul) return;
-  const available = pane.clientHeight - 8;
-  let rowH = isCompact ? 28 : 44;
-  if (ul.children.length) rowH = Math.max(ul.children[0].offsetHeight, rowH);
-  else {
-    const probe = document.createElement('li');
-    probe.style.visibility = 'hidden';
-    probe.innerHTML = '<a href="#">Probe</a>';
-    ul.appendChild(probe);
-    rowH = Math.max(probe.offsetHeight, rowH);
-    ul.removeChild(probe);
-  }
-  const max = fitCount(available, rowH, isCompact ? 2 : 4);
-  if (max === lastNewsMax && ul.children.length === Math.min(max, cachedNewsItems.length)) return;
-  lastNewsMax = max;
-  const items = cachedNewsItems.slice(0, max);
-  ul.innerHTML = items.map(i => `<li><a href="${i.link}" target="_blank">${i.title}</a></li>`).join('')
-    || '<li style="color:var(--muted)">No headlines available</li>';
-}
-
-async function loadNews() {
-  if (!widgetFlags.news) return;
-  const pane = ensurePaneSkeleton('newsPane');
-  try {
-    const n = await apiJson('/api/news');
-    if (!n.items || !n.items.length) throw new Error('No news items returned from BBC RSS');
-    cachedNewsItems = n.items;
-    lastNewsMax = -1;
-    renderNewsFromCache();
-  } catch (e) {
-    cachedNewsItems = null;
-    lastNewsMax = -1;
-    showError(pane, 'news', e.message || String(e));
-  }
-}
-
 let cachedLb = null;
 let lastLbKey = '';
 function renderLeaderboardFromCache() {
@@ -769,12 +728,10 @@ async function loadLeaderboard() {
 async function refreshAll() {
   await loadSettings();
   await loadWeather();
-  await loadNews();
   await loadLeaderboard();
 }
 refreshAll();
 setInterval(loadWeather, 10 * 60 * 1000);
-setInterval(loadNews, 15 * 60 * 1000);
 setInterval(loadLeaderboard, 5 * 60 * 1000);
 setInterval(loadSettings, 10 * 1000); // checks for edits made on /edit every 10 seconds
 
@@ -801,7 +758,7 @@ let paneSignature = null;
 function computePanes() {
   const list = [];
   if (widgetFlags.leaderboard) list.push({ id: 'lbPane', title: 'Leaderboard' });
-  if (widgetFlags.news) list.push({ id: 'newsPane', title: 'News Headlines' });
+  if (widgetFlags.news && lastNewsEmbedCode) list.push({ id: 'newsPane', title: 'News' });
   if (widgetFlags.events) list.push({ id: 'eventsPane', title: 'Latest Events' });
   if (widgetFlags.instagram && lastInstagramEmbedCode) list.push({ id: 'socialsPane', title: 'Follow Us' });
   customWidgets.forEach(w => {
