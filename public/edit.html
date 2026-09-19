@@ -59,7 +59,7 @@
     letter-spacing: 0.04em;
     color: var(--muted);
   }
-  input, textarea {
+  input, textarea, select {
     width: 100%;
     padding: 9px 10px;
     margin-top: 4px;
@@ -70,8 +70,17 @@
     border-radius: 3px;
     color: var(--deep-navy);
   }
-  input:focus, textarea:focus { border-color: var(--raf-blue); outline: none; }
-  .event-row {
+  input:focus, textarea:focus, select:focus { border-color: var(--raf-blue); outline: none; }
+  /* tick-box rows */
+  label.check {
+    display: flex; align-items: center; gap: 10px; margin-top: 12px;
+    font-size: 15px; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--deep-navy);
+    cursor: pointer;
+  }
+  label.check input { width: 20px; height: 20px; margin: 0; flex-shrink: 0; cursor: pointer; }
+  .hint { color: var(--muted); font-size: 13px; }
+  h3 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--raf-blue); margin: 24px 0 0 0; }
+  .event-row, .widget-row {
     border: 1px solid var(--border);
     border-radius: 3px;
     padding: 12px;
@@ -105,7 +114,7 @@
   <h1>Edit Squadron Dashboard</h1>
 </header>
 <div class="content">
-<p style="color:var(--muted); font-size:14px;">Changes appear on the squadron screen within about 2 minutes.</p>
+<p style="color:var(--muted); font-size:14px;">Changes appear on the squadron screen within about 10 seconds.</p>
 
 <h2>General</h2>
 <label>Squadron name</label>
@@ -125,11 +134,31 @@
 <label>Auto shutdown after (minutes)</label>
 <input id="autoShutdownMinutes" type="number" min="1" placeholder="e.g. 165 for 2h 45m">
 <p style="color:var(--muted); font-size:13px;">How long after boot the device powers itself off. Takes effect from the next boot onwards, not immediately.</p>
+<label>Screen layout</label>
+<select id="layout">
+  <option value="auto">Automatic - detect the screen size</option>
+  <option value="full">Always full size</option>
+  <option value="compact">Always small screen</option>
+</select>
+<p class="hint">Automatic switches to the compact small-screen layout on screens 800 pixels wide or less, or 500 pixels tall or less (like the official 7-inch Pi display and smaller). Use the other two options to force one or the other.</p>
+<label>Weather widget embed code (optional, full-size layout only)</label>
+<textarea id="weatherEmbedCode" rows="4" placeholder="Paste a full embed snippet (e.g. from weatherwidget.io) to replace the built-in weather display - leave blank to use the default"></textarea>
+<p class="hint">News headlines are fixed to BBC News. The small-screen layout always uses the built-in weather display, so a weather widget is only used on larger screens.</p>
+
+<h2>Carousel widgets</h2>
+<p class="hint">Tick the widgets you want in the rotating panel. Anything unticked isn't shown, and each ticked widget gets 10 seconds on screen.</p>
+<label class="check"><input type="checkbox" id="w-leaderboard"> Leaderboard</label>
+<label class="check"><input type="checkbox" id="w-news"> News headlines (BBC)</label>
+<label class="check"><input type="checkbox" id="w-events"> Upcoming events</label>
+<label class="check"><input type="checkbox" id="w-instagram"> Instagram / social feed</label>
 <label>Instagram widget embed code</label>
 <textarea id="instagramEmbedCode" rows="4" placeholder="Paste the full embed snippet from a free Instagram-feed widget service (e.g. Elfsight or SociableKit) - the script tag and div, exactly as they give it to you"></textarea>
-<label>Weather widget embed code (optional)</label>
-<textarea id="weatherEmbedCode" rows="4" placeholder="Paste a full embed snippet (e.g. from weatherwidget.io) to replace the built-in weather display - leave blank to use the default"></textarea>
-<p style="color:var(--muted); font-size:13px;">News headlines are fixed to BBC News and aren't editable here. Get a free embed snippet from a service like elfsight.com or sociablekit.com and paste it above - it refreshes on the screen automatically every 10 minutes.</p>
+<p class="hint">The Instagram widget is skipped while this is empty.</p>
+
+<h3>Extra embed widgets</h3>
+<p class="hint">Add as many as you like - a weather radar, a countdown, a map, another social feed. Paste the embed code from the service, choose a display name (only shown on this page, to tell them apart) and the title that appears above it on the screen. They rotate after the built-in widgets, in the order listed here. Get free embed snippets from services like elfsight.com or sociablekit.com; they refresh on the screen automatically every 10 minutes.</p>
+<div id="customWidgets"></div>
+<button class="add" onclick="addWidget()">+ Add embed widget</button>
 
 <h2>Important Information</h2>
 <label><input type="checkbox" id="importantInfoEnabled" style="width:auto; margin-right:8px; vertical-align:middle;"> Show a banner on the dashboard</label>
@@ -156,13 +185,37 @@ function eventRow(e = {title:'', date:'', detail:''}) {
   const div = document.createElement('div');
   div.className = 'event-row';
   div.innerHTML = `
-    <label>Title</label><input class="ev-title" value="${e.title}">
-    <label>Date / recurrence</label><input class="ev-date" value="${e.date}">
-    <label>Detail</label><input class="ev-detail" value="${e.detail}">
+    <label>Title</label><input class="ev-title">
+    <label>Date / recurrence</label><input class="ev-date">
+    <label>Detail</label><input class="ev-detail">
     <button class="danger" onclick="this.parentElement.remove()">Remove</button>`;
+  // set values as text (not into the HTML) so quotes etc. in an event can't break the page
+  div.querySelector('.ev-title').value = e.title || '';
+  div.querySelector('.ev-date').value = e.date || '';
+  div.querySelector('.ev-detail').value = e.detail || '';
   return div;
 }
 function addEvent() { document.getElementById('eventsContainer').appendChild(eventRow()); }
+
+// One row per extra embed widget
+function newWidgetId() { return 'w' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function widgetRow(w = {}) {
+  const div = document.createElement('div');
+  div.className = 'widget-row';
+  div.dataset.id = w.id || newWidgetId();
+  div.innerHTML = `
+    <label class="check"><input type="checkbox" class="cw-enabled"> Show on the dashboard</label>
+    <label>Display name (only shown here)</label><input class="cw-name" placeholder="e.g. Rain radar">
+    <label>Title shown on the carousel</label><input class="cw-title" placeholder="e.g. Rain Radar">
+    <label>Embed code</label><textarea class="cw-code" rows="4" placeholder="Paste the full embed snippet - the script tag and div, exactly as the service gives it to you"></textarea>
+    <button class="danger" onclick="this.parentElement.remove()">Remove</button>`;
+  div.querySelector('.cw-enabled').checked = w.enabled !== false;
+  div.querySelector('.cw-name').value = w.name || '';
+  div.querySelector('.cw-title').value = w.title || '';
+  div.querySelector('.cw-code').value = w.embedCode || '';
+  return div;
+}
+function addWidget() { document.getElementById('customWidgets').appendChild(widgetRow()); }
 
 async function load() {
   data = await (await fetch('/api/data')).json();
@@ -176,6 +229,13 @@ async function load() {
   document.getElementById('autoShutdownMinutes').value = data.autoShutdownMinutes || 165;
   document.getElementById('instagramEmbedCode').value = data.instagramEmbedCode || '';
   document.getElementById('weatherEmbedCode').value = data.weatherEmbedCode || '';
+  document.getElementById('layout').value = data.layout || 'auto';
+  const wf = data.widgets || {};
+  ['leaderboard', 'news', 'events', 'instagram'].forEach(k => {
+    document.getElementById('w-' + k).checked = wf[k] !== false;
+  });
+  const cw = document.getElementById('customWidgets'); cw.innerHTML = '';
+  (data.customWidgets || []).forEach(w => cw.appendChild(widgetRow(w)));
   const info = data.importantInfo || {};
   document.getElementById('importantInfoEnabled').checked = !!info.enabled;
   document.getElementById('importantInfoTitle').value = info.title || '';
@@ -185,7 +245,7 @@ async function load() {
 }
 
 async function save() {
-  const events = [...document.querySelectorAll('.event-row')].map(r => ({
+  const events = [...document.querySelectorAll('#eventsContainer .event-row')].map(r => ({
     title: r.querySelector('.ev-title').value,
     date: r.querySelector('.ev-date').value,
     detail: r.querySelector('.ev-detail').value
@@ -203,6 +263,20 @@ async function save() {
     autoShutdownMinutes: parseInt(document.getElementById('autoShutdownMinutes').value, 10) || 165,
     instagramEmbedCode: document.getElementById('instagramEmbedCode').value,
     weatherEmbedCode: document.getElementById('weatherEmbedCode').value,
+    layout: document.getElementById('layout').value,
+    widgets: {
+      leaderboard: document.getElementById('w-leaderboard').checked,
+      news: document.getElementById('w-news').checked,
+      events: document.getElementById('w-events').checked,
+      instagram: document.getElementById('w-instagram').checked
+    },
+    customWidgets: [...document.querySelectorAll('.widget-row')].map(r => ({
+      id: r.dataset.id,
+      enabled: r.querySelector('.cw-enabled').checked,
+      name: r.querySelector('.cw-name').value,
+      title: r.querySelector('.cw-title').value,
+      embedCode: r.querySelector('.cw-code').value
+    })),
     importantInfo: {
       enabled: document.getElementById('importantInfoEnabled').checked,
       title: document.getElementById('importantInfoTitle').value,
