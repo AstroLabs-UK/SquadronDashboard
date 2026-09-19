@@ -136,8 +136,23 @@ if [ ! -f "$UPDATE_SUDOERS_FILE" ]; then
   sudo chmod 0440 "$UPDATE_SUDOERS_FILE"
 fi
 
+# "Force update" button on /edit: the web page drops data/update-request.json and this path
+# unit notices it and runs the update service right away (the timer above stays as normal).
+mkdir -p "$DIR/data"
+sudo tee /etc/systemd/system/squadron-dashboard-update.path > /dev/null <<EOF
+[Unit]
+Description=Squadron Dashboard - update now when requested from /edit
+
+[Path]
+PathExists=$DIR/data/update-request.json
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 sudo systemctl daemon-reload
 sudo systemctl enable --now squadron-dashboard-update.timer
+sudo systemctl enable --now squadron-dashboard-update.path
 
 # The `sqndash` command - works from any folder:  sqndash --update
 sudo tee /usr/local/bin/sqndash > /dev/null <<EOF
