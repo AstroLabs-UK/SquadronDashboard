@@ -16,8 +16,24 @@
     "title": "IMPORTANT INFORMATION",
     "message": ""
   },
+  "widgets": {
+    "leaderboard": true,
+    "news": true,
+    "events": true,
+    "instagram": true
+  },
+  "customWidgets": [],
+  "layout": "auto",
   "events": [
-    { "title": "Parade Night", "date": "Every Thursday", "detail": "1900 - 2130, main hall" },
-    { "title": "Example Event", "date": "Edit me on /edit", "detail": "Add real events on the edit page" }
+    {
+      "title": "Parade Night",
+      "date": "Every Thursday",
+      "detail": "1900 - 2130, main hall"
+    },
+    {
+      "title": "Example Event",
+      "date": "Edit me on /edit",
+      "detail": "Add real events on the edit page"
+    }
   ]
 }
