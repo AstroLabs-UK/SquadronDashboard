@@ -123,9 +123,12 @@
   #eventsSeeMore { flex: 0 0 34%; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 16px; text-align: center; border-left: 1px solid var(--border); padding-left: 24px; }
   #eventsSeeMore .label { font-size: 15px; color: var(--muted); }
 
-  #socialsPane { position: relative; padding: 0; }
-  #socialsPane .insta-wrap { position: absolute; top: 0; left: 0; right: 0; bottom: 0; overflow: hidden; }
-  #socialsPane .insta-wrap iframe { display: block; width: 100%; height: 100%; border: none; }
+  /* Embed widgets (Instagram + any extra widgets added on /edit) fill their pane */
+  .embed-pane { position: relative; padding: 0; }
+  .embed-pane .insta-wrap { position: absolute; top: 0; left: 0; right: 0; bottom: 0; overflow: hidden; }
+  .embed-pane .insta-wrap iframe { display: block; width: 100%; height: 100%; border: none; }
+
+  #noWidgetsPane { align-items: center; justify-content: center; text-align: center; color: var(--muted); font-size: 16px; }
 
   /* Error fallback with QR */
   .error-box { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; text-align: center; }
@@ -160,6 +163,75 @@
   #infoBanner .group { display: inline-flex; flex-shrink: 0; }
   #infoBanner .message { font-size: 30px; font-weight: 600; color: var(--deep-navy); line-height: 1.3; padding-right: 80px; flex-shrink: 0; }
   @keyframes bannerScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+  /* ================= Small-screen layout =================
+     Used automatically on screens 800px wide or less / 500px tall or less (or when forced
+     on /edit). Designed for a 480 x 300 screen, and everything scales from there: --u is
+     "1px at 480x300" and grows/shrinks with the screen, so it also suits 320x240, 800x480
+     and anything in between. Weather becomes a slim strip, the rotating panel takes the
+     full width, and text/spacing are tightened. */
+  body.compact {
+    --u: min(0.2083vw, 0.3333vh);
+    --fxs: max(7px, calc(9 * var(--u)));
+    --fs: max(8px, calc(11 * var(--u)));
+    --fm: max(9px, calc(13 * var(--u)));
+    --fl: max(10px, calc(16 * var(--u)));
+    --fxl: max(13px, calc(26 * var(--u)));
+  }
+  body.compact header { padding: calc(4 * var(--u)) calc(10 * var(--u)); border-bottom-width: 2px; gap: calc(8 * var(--u)); }
+  body.compact .brand { gap: calc(8 * var(--u)); min-width: 0; }
+  body.compact .brand-text { min-width: 0; }
+  body.compact .roundel { width: calc(24 * var(--u)); height: calc(24 * var(--u)); }
+  body.compact .brand-text h1 { font-size: var(--fl); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  body.compact #clock { font-size: var(--fl); white-space: nowrap; }
+  body.compact #date { display: none; }
+
+  body.compact main {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: calc(5 * var(--u));
+    padding: calc(5 * var(--u)) calc(6 * var(--u));
+  }
+  body.compact .panel { padding: calc(5 * var(--u)) calc(8 * var(--u)); }
+  body.compact .panel h2 {
+    font-size: var(--fxs); margin: 0 0 calc(4 * var(--u)); padding-bottom: calc(3 * var(--u)); border-bottom-width: 1px;
+  }
+
+  /* Weather: one slim strip - temperature, feels-like and condition, place name on the right */
+  body.compact #weatherPanel { flex-direction: row; align-items: center; justify-content: flex-start; gap: calc(10 * var(--u)); padding: calc(3 * var(--u)) calc(8 * var(--u)); text-align: left; }
+  body.compact #weatherPanel h2 { order: 3; margin: 0 0 0 auto; padding: 0; border: 0; width: auto; align-self: center; text-align: right; }
+  body.compact #weatherPanel h2 .wlabel, body.compact #weatherPanel h2 br { display: none; }
+  body.compact #weatherContent { flex: 0 1 auto; flex-direction: row; align-items: baseline; gap: calc(10 * var(--u)); }
+  body.compact #weatherContent .temp { font-size: var(--fxl); }
+  body.compact #weatherContent .feels { font-size: var(--fs); }
+  body.compact #weatherContent .condition { font-size: var(--fm); }
+
+  /* Leaderboard: keep the two tables side by side, just smaller */
+  body.compact #lbPane { flex-direction: row; gap: calc(8 * var(--u)); }
+  body.compact .lb-col h3 { font-size: var(--fxs); margin-bottom: calc(3 * var(--u)); }
+  body.compact .lb-col table { font-size: var(--fs); }
+  body.compact .lb-col thead th { font-size: var(--fxs); padding: calc(2 * var(--u)) calc(5 * var(--u)); }
+  body.compact .lb-col td { padding: calc(2 * var(--u)) calc(5 * var(--u)); }
+  body.compact .lb-col td.rank, body.compact .lb-col th:first-child { width: calc(20 * var(--u)); }
+  body.compact .lb-col th:last-child, body.compact .lb-col td.points { width: max(38px, calc(46 * var(--u))); }
+  body.compact .lb-col thead th { letter-spacing: 0.02em; }
+  body.compact .lb-unavailable { font-size: var(--fs); padding: calc(4 * var(--u)) 0; }
+
+  body.compact #newsPane li { font-size: var(--fm); line-height: 1.3; margin-bottom: calc(5 * var(--u)); padding-bottom: calc(4 * var(--u)); }
+  body.compact #eventsPane li { font-size: var(--fm); margin-bottom: calc(5 * var(--u)); padding-bottom: calc(4 * var(--u)); }
+  body.compact #eventsPane li .meta { font-size: var(--fs); margin-top: 1px; }
+  body.compact #eventsLayout { gap: calc(8 * var(--u)); }
+  body.compact #eventsSeeMore { flex: 0 0 calc(100 * var(--u)); padding-left: calc(8 * var(--u)); gap: calc(4 * var(--u)); }
+  body.compact #eventsSeeMore .label { font-size: var(--fxs); }
+  body.compact .qr-holder { padding: calc(3 * var(--u)); }
+  body.compact .error-box { gap: calc(6 * var(--u)); }
+  body.compact .error-box p { font-size: var(--fs); max-width: none; }
+  body.compact #noWidgetsPane { font-size: var(--fm); }
+
+  body.compact #infoBanner { margin: 0 calc(6 * var(--u)) calc(6 * var(--u)); padding: calc(2 * var(--u)) calc(8 * var(--u)); gap: calc(8 * var(--u)); border-left-width: 4px; }
+  body.compact #infoBanner .icon { font-size: var(--fl); }
+  body.compact #infoBanner .title { font-size: var(--fs); padding-right: calc(8 * var(--u)); }
+  body.compact #infoBanner .message { font-size: max(11px, calc(18 * var(--u))); padding-right: calc(40 * var(--u)); }
 </style>
 </head>
 <body>
@@ -176,7 +248,7 @@
 
   <main>
     <div class="panel" id="weatherPanel">
-      <h2>Weather<br><span id="weatherLocationName">Your Town</span></h2>
+      <h2><span class="wlabel">Weather</span><br><span id="weatherLocationName">Your Town</span></h2>
       <div id="weatherContent"><p style="color:var(--muted)">Loading...</p></div>
       <div id="weatherWidgetWrap"></div>
     </div>
@@ -184,7 +256,7 @@
     <div class="panel" id="rotatingPanel">
       <h2 id="rotatingTitle">Leaderboard</h2>
 
-      <div class="rotate-pane active" id="lbPane">
+      <div class="rotate-pane" id="lbPane">
         <div class="lb-col">
           <h3>Individual</h3>
           <table><thead><tr><th>#</th><th>Cadet</th><th class="num">Points</th></tr></thead><tbody id="lbIndividualBody"></tbody></table>
@@ -210,8 +282,12 @@
         </div>
       </div>
 
-      <div class="rotate-pane" id="socialsPane">
+      <div class="rotate-pane embed-pane" id="socialsPane">
         <div class="insta-wrap" id="instaWrap"></div>
+      </div>
+
+      <div class="rotate-pane" id="noWidgetsPane">
+        <div>No widgets are switched on.<br>Tick some on the /edit page.</div>
       </div>
     </div>
   </main>
@@ -231,6 +307,13 @@ let latestEvents = [];
 let eventsSeeMoreUrl = '';
 let eventsPages = [];
 let eventsPageIndex = 0;
+let isCompact = false;               // small-screen layout active?
+let layoutSetting = 'auto';          // auto | full | compact (from /edit)
+let widgetFlags = { leaderboard: true, news: true, events: true, instagram: true };
+let customWidgets = [];              // extra embed widgets from /edit
+const customMounted = {};            // widget id -> embed code currently mounted
+let weatherEmbedCodeSetting = '';
+let currentBannerMessage = null;
 
 // Snapshot each rotating pane's original markup so it can be restored after an
 // error state (showError fully replaces a pane's contents with an error box).
@@ -248,7 +331,7 @@ function ensurePaneSkeleton(paneId) {
 // Events pane shows up to 3 events per page and cycles through them. The "see all
 // events" QR code sits permanently on the right-hand side of the pane.
 let eventsSignature = '';
-let renderedQrUrl = null;
+let renderedQrKey = null;
 let eventsTimer = null;
 
 function rebuildEventsPages() {
@@ -278,13 +361,16 @@ function renderEventsPage() {
 
   if (eventsSeeMoreUrl) {
     seeMore.style.display = 'flex';
-    if (renderedQrUrl !== eventsSeeMoreUrl) {
-      makeQr('eventsSeeMoreQr', eventsSeeMoreUrl, 240);
-      renderedQrUrl = eventsSeeMoreUrl;
+    // Big on a room-sized screen, small (and scaled with the screen) in compact layout
+    const size = isCompact ? Math.max(48, Math.round(84 * unitPx())) : 240;
+    const key = eventsSeeMoreUrl + '|' + size;
+    if (renderedQrKey !== key) {
+      makeQr('eventsSeeMoreQr', eventsSeeMoreUrl, size);
+      renderedQrKey = key;
     }
   } else {
     seeMore.style.display = 'none';
-    renderedQrUrl = null;
+    renderedQrKey = null;
   }
 }
 
@@ -329,6 +415,7 @@ function mountInstagramEmbed(embedCode) { mountEmbedCode('instaWrap', embedCode)
 // independent of how often the carousel happens to bring this pane into view.
 function refreshInstagramEmbed() {
   if (lastInstagramEmbedCode) mountInstagramEmbed(lastInstagramEmbedCode);
+  Object.keys(customMounted).forEach(id => mountEmbedCode('cw-' + id + '-wrap', customMounted[id]));
 }
 setInterval(refreshInstagramEmbed, 10 * 60 * 1000);
 
@@ -343,7 +430,10 @@ function makeQr(containerId, url, size) {
   const el = document.getElementById(containerId);
   if (!el) return;
   el.innerHTML = '';
-  new QRCode(el, { text: url, width: size || 120, height: size || 120 });
+  // The QR library comes from a CDN - if the Pi is offline it won't have loaded, and that
+  // must never stop the rest of the dashboard working.
+  if (typeof QRCode === 'undefined') return;
+  try { new QRCode(el, { text: url, width: size || 120, height: size || 120 }); } catch (e) { console.error('QR failed', e); }
 }
 
 function qrSizeFor(referenceEl) {
@@ -395,9 +485,113 @@ function updateBannerTicker(message) {
   track.appendChild(makeGroup(copies));
   track.appendChild(makeGroup(copies));
   const groupWidth = oneWidth * copies;
-  track.style.setProperty('--dur', Math.max(8, groupWidth / 90) + 's'); // ~90px per second
+  const speed = isCompact ? 55 * unitPx() : 90; // px per second (scales with the screen in compact layout)
+  track.style.setProperty('--dur', Math.max(8, groupWidth / speed) + 's');
   void track.offsetWidth; // restart the animation
   track.style.animation = '';
+}
+
+// 1px at 480x300 - the same scale unit the compact CSS uses (--u)
+function unitPx() { return Math.min(window.innerWidth * 0.002083, window.innerHeight * 0.003333); }
+
+// Picks the layout for this screen: automatic (small screens get the compact layout),
+// or forced either way from /edit.
+function applyLayout() {
+  const small = window.innerWidth <= 800 || window.innerHeight <= 500;
+  const compact = layoutSetting === 'compact' || (layoutSetting !== 'full' && small);
+  if (compact === isCompact) return;
+  isCompact = compact;
+  document.body.classList.toggle('compact', compact);
+  // things that depend on the layout: QR size, banner scroll, built-in vs embedded weather
+  renderedQrKey = null;
+  renderEventsPage();
+  lastBannerMessage = null;
+  if (currentBannerMessage) updateBannerTicker(currentBannerMessage);
+  applyWeatherMode();
+}
+window.addEventListener('resize', () => {
+  applyLayout();
+  if (currentBannerMessage) updateBannerTicker(currentBannerMessage);
+});
+
+// The pasted weather widget is sized for a big panel, so the compact layout always uses the
+// built-in text weather instead.
+function applyWeatherMode() {
+  const hasCode = !!(weatherEmbedCodeSetting && weatherEmbedCodeSetting.trim());
+  const wasActive = weatherEmbedActive;
+  weatherEmbedActive = hasCode && !isCompact;
+  document.getElementById('weatherWidgetWrap').style.display = weatherEmbedActive ? 'flex' : 'none';
+  document.getElementById('weatherContent').style.display = weatherEmbedActive ? 'none' : 'flex';
+  if (weatherEmbedActive && weatherEmbedCodeSetting !== lastWeatherEmbedCode) {
+    lastWeatherEmbedCode = weatherEmbedCodeSetting;
+    mountEmbedCode('weatherWidgetWrap', weatherEmbedCodeSetting);
+  }
+  if (wasActive && !weatherEmbedActive) loadWeather();
+}
+
+// Tick boxes, layout choice and the extra embed widgets from /edit
+function applyWidgetSettings(data) {
+  layoutSetting = ['auto', 'full', 'compact'].includes(data.layout) ? data.layout : 'auto';
+  applyLayout();
+
+  const f = data.widgets || {};
+  const prev = widgetFlags;
+  widgetFlags = {
+    leaderboard: f.leaderboard !== false,
+    news: f.news !== false,
+    events: f.events !== false,
+    instagram: f.instagram !== false
+  };
+  // a widget that was just ticked on needs its data straight away
+  if (widgetFlags.news && !prev.news) loadNews();
+  if (widgetFlags.leaderboard && !prev.leaderboard) loadLeaderboard();
+
+  // Instagram: only loaded while ticked (and it has an embed code)
+  const igCode = (data.instagramEmbedCode || '').trim();
+  if (widgetFlags.instagram && igCode) {
+    if (data.instagramEmbedCode !== lastInstagramEmbedCode) {
+      lastInstagramEmbedCode = data.instagramEmbedCode;
+      mountInstagramEmbed(data.instagramEmbedCode);
+    }
+  } else if (lastInstagramEmbedCode) {
+    lastInstagramEmbedCode = '';
+    document.getElementById('instaWrap').innerHTML = '';
+  }
+
+  syncCustomPanes(data.customWidgets);
+}
+
+// One pane per extra embed widget. Panes for deleted widgets are removed; an embed is only
+// loaded while its widget is ticked, and only re-mounted when its code changes.
+function syncCustomPanes(list) {
+  customWidgets = Array.isArray(list) ? list : [];
+  const panel = document.getElementById('rotatingPanel');
+  const wanted = new Set(customWidgets.map(w => w.id));
+  panel.querySelectorAll('.custom-pane').forEach(el => {
+    if (!wanted.has(el.dataset.wid)) { el.remove(); delete customMounted[el.dataset.wid]; }
+  });
+  customWidgets.forEach(w => {
+    const paneId = 'cw-' + w.id;
+    let pane = document.getElementById(paneId);
+    if (!pane) {
+      pane = document.createElement('div');
+      pane.id = paneId;
+      pane.className = 'rotate-pane embed-pane custom-pane';
+      pane.dataset.wid = w.id;
+      const wrap = document.createElement('div');
+      wrap.className = 'insta-wrap';
+      wrap.id = paneId + '-wrap';
+      pane.appendChild(wrap);
+      panel.appendChild(pane);
+    }
+    const code = (w.embedCode || '').trim();
+    if (w.enabled && code) {
+      if (customMounted[w.id] !== code) { customMounted[w.id] = code; mountEmbedCode(paneId + '-wrap', code); }
+    } else if (customMounted[w.id]) {
+      delete customMounted[w.id];
+      document.getElementById(paneId + '-wrap').innerHTML = '';
+    }
+  });
 }
 
 async function loadSettings() {
@@ -406,33 +600,29 @@ async function loadSettings() {
     errorReportUrl = data.errorReportUrl || '';
     document.getElementById('squadronName').textContent = data.squadronName;
     document.getElementById('weatherLocationName').textContent = data.location.name;
-    if (data.instagramEmbedCode && data.instagramEmbedCode !== lastInstagramEmbedCode) {
-      lastInstagramEmbedCode = data.instagramEmbedCode;
-      mountInstagramEmbed(data.instagramEmbedCode);
-    }
 
-    weatherEmbedActive = !!(data.weatherEmbedCode && data.weatherEmbedCode.trim());
-    document.getElementById('weatherWidgetWrap').style.display = weatherEmbedActive ? 'flex' : 'none';
-    document.getElementById('weatherContent').style.display = weatherEmbedActive ? 'none' : 'flex';
-    if (weatherEmbedActive && data.weatherEmbedCode !== lastWeatherEmbedCode) {
-      lastWeatherEmbedCode = data.weatherEmbedCode;
-      mountEmbedCode('weatherWidgetWrap', data.weatherEmbedCode);
-    }
+    applyWidgetSettings(data);
+
+    weatherEmbedCodeSetting = data.weatherEmbedCode || '';
+    applyWeatherMode();
 
     const info = data.importantInfo;
     const banner = document.getElementById('infoBanner');
     if (info && info.enabled && info.message && info.message.trim()) {
       document.getElementById('infoBannerTitle').textContent = (info.title && info.title.trim()) || 'IMPORTANT INFORMATION';
       banner.classList.add('visible');
-      updateBannerTicker(info.message.trim());
+      currentBannerMessage = info.message.trim();
+      updateBannerTicker(currentBannerMessage);
     } else {
       banner.classList.remove('visible');
+      currentBannerMessage = null;
       lastBannerMessage = null;
     }
 
     latestEvents = data.events || [];
     eventsSeeMoreUrl = data.eventsSeeMoreUrl || '';
     rebuildEventsPages();
+    updatePanes();
   } catch (e) { console.error('settings load failed', e); }
 }
 
@@ -452,6 +642,7 @@ async function loadWeather() {
 }
 
 async function loadNews() {
+  if (!widgetFlags.news) return;
   const pane = ensurePaneSkeleton('newsPane');
   const ul = pane.querySelector('ul');
   try {
@@ -464,6 +655,7 @@ async function loadNews() {
 }
 
 async function loadLeaderboard() {
+  if (!widgetFlags.leaderboard) return;
   const pane = ensurePaneSkeleton('lbPane');
   const indivBody = document.getElementById('lbIndividualBody');
   try {
@@ -512,33 +704,79 @@ async function checkForRestart() {
 checkForRestart();
 setInterval(checkForRestart, 10 * 1000);
 
-// ---- Carousel: Leaderboard -> News -> Events -> Socials, every 10s ----
-const panes = [
-  { id: 'lbPane', title: 'Leaderboard' },
-  { id: 'newsPane', title: 'News Headlines' },
-  { id: 'eventsPane', title: 'Upcoming Events' },
-  { id: 'socialsPane', title: 'Latest Posts' }
-];
+// ---- Carousel: rotates through the widgets that are ticked on /edit, every 10s ----
+// Order: Leaderboard, News, Events, Instagram, then the extra embed widgets in the order
+// they were added. Anything unticked (or an embed widget with no code) is skipped.
+let panes = [];
 let paneIndex = 0;
-function showPane(i) {
-  panes.forEach((p, idx) => {
-    document.getElementById(p.id).classList.toggle('active', idx === i);
+let paneTimer = null;
+let paneSignature = null;
+
+function computePanes() {
+  const list = [];
+  if (widgetFlags.leaderboard) list.push({ id: 'lbPane', title: 'Leaderboard' });
+  if (widgetFlags.news) list.push({ id: 'newsPane', title: 'News Headlines' });
+  if (widgetFlags.events) list.push({ id: 'eventsPane', title: 'Upcoming Events' });
+  if (widgetFlags.instagram && lastInstagramEmbedCode) list.push({ id: 'socialsPane', title: 'Follow Us' });
+  customWidgets.forEach(w => {
+    if (w.enabled && (w.embedCode || '').trim()) {
+      list.push({ id: 'cw-' + w.id, title: (w.title || '').trim() || (w.name || '').trim() || 'Widget' });
+    }
   });
-  document.getElementById('rotatingTitle').textContent = panes[i].title;
-  if (panes[i].id === 'eventsPane') startEventsRotation();
+  return list;
+}
+
+function showPane(i) {
+  document.querySelectorAll('#rotatingPanel .rotate-pane').forEach(el => el.classList.remove('active'));
+  const p = panes[i];
+  if (!p) {
+    document.getElementById('noWidgetsPane').classList.add('active');
+    document.getElementById('rotatingTitle').textContent = 'Widgets';
+    clearInterval(eventsTimer);
+    return;
+  }
+  document.getElementById(p.id).classList.add('active');
+  document.getElementById('rotatingTitle').textContent = p.title;
+  if (p.id === 'eventsPane') startEventsRotation();
   else clearInterval(eventsTimer);
 }
+
 // Every pane gets 10s, except events which gets 10s per page of events
 function paneDuration(i) {
-  return panes[i].id === 'eventsPane' ? Math.max(1, eventsPages.length) * 10000 : 10000;
+  return panes[i] && panes[i].id === 'eventsPane' ? Math.max(1, eventsPages.length) * 10000 : 10000;
+}
+function scheduleNext() {
+  clearTimeout(paneTimer);
+  if (panes.length > 1) paneTimer = setTimeout(nextPane, paneDuration(paneIndex));
 }
 function nextPane() {
   paneIndex = (paneIndex + 1) % panes.length;
   showPane(paneIndex);
-  setTimeout(nextPane, paneDuration(paneIndex));
+  scheduleNext();
 }
-showPane(0);
-setTimeout(nextPane, paneDuration(0));
+
+// Called after every settings load. Only does anything when the list of panes (or a
+// title) actually changed, so the rotation isn't disturbed every 10 seconds.
+function updatePanes() {
+  const next = computePanes();
+  const signature = JSON.stringify(next);
+  if (signature === paneSignature) return;
+  paneSignature = signature;
+
+  const currentId = panes[paneIndex] ? panes[paneIndex].id : null;
+  panes = next;
+  const keep = currentId ? panes.findIndex(p => p.id === currentId) : -1;
+  if (keep >= 0) {
+    paneIndex = keep;
+    document.getElementById('rotatingTitle').textContent = panes[keep].title; // in case it was renamed
+  } else {
+    paneIndex = 0;
+    showPane(0);
+  }
+  scheduleNext();
+}
+
+applyLayout();
 </script>
 </body>
 </html>
