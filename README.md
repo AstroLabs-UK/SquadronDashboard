@@ -58,8 +58,10 @@ Everything is done from `/edit` in a normal browser - no code editing needed. Go
 - **"See all events" QR link** — shown on the right-hand side of the events panel; defaults to the cadet portal events page
 - **Error report link** — shown as a QR code if a panel fails to load (e.g. a Google Form); leave blank to disable
 - **Auto shutdown after (minutes)** — how long after boot the device powers itself off, defaults to 165 (2h45m). Takes effect from the next boot onwards, since the timer reads this value fresh at boot time rather than while it's already counting down
-- **Instagram widget embed code** — paste a full embed snippet from a free widget service like [elfsight.com](https://elfsight.com) or [sociablekit.com](https://sociablekit.com); refreshes itself on screen every 10 minutes
-- **Weather widget embed code (optional)** — paste an embed snippet (e.g. from [weatherwidget.io](https://weatherwidget.io)) to replace the built-in weather display with a live widget; leave blank to keep the simple built-in one
+- **Screen layout** — Automatic (default), Always full size, or Always small screen. Automatic detects the screen size; see *Small screens* below
+- **Weather widget embed code (optional)** — paste an embed snippet (e.g. from [weatherwidget.io](https://weatherwidget.io)) to replace the built-in weather display with a live widget; leave blank to keep the simple built-in one. Full-size layout only - the small-screen layout always uses the built-in weather
+- **Carousel widgets** — a tick box for each rotating widget (Leaderboard, News, Events, Instagram). Unticked widgets aren't shown. Instagram also needs its embed code (from a free widget service like [elfsight.com](https://elfsight.com) or [sociablekit.com](https://sociablekit.com)) and is skipped while that is empty
+- **Extra embed widgets** — add as many as you like with **+ Add embed widget**. Each has a tick box, a *display name* (only shown on `/edit`, to tell them apart), the *title* shown above it on the carousel, and its embed code. They rotate after the built-in widgets, in the order listed, and refresh themselves every 10 minutes. Ticked widgets with no embed code are skipped
 - **Important Information banner** — an enable toggle, optional title, and message, shown as a banner at the bottom of the screen. Off and invisible unless you turn it on and give it a message
 - **Events list**
 
@@ -74,8 +76,18 @@ The dashboard expects a header row with a column containing "name" and a column 
 ## Layout
 
 - **Left quarter:** weather — temperature, feels-like, and condition (or your custom weather widget), always visible
-- **Right three-quarters:** rotates every 10 seconds through Leaderboard → News → Events → Instagram. The Leaderboard shows Individual and Flight side by side. Events show 3 at a time with their own internal rotation, with the "see all events" QR code fixed on the right. The Flight leaderboard shows the top 3 flights.
+- **Right three-quarters:** rotates every 10 seconds through whichever widgets are ticked: Leaderboard → News → Events → Instagram → your extra embed widgets. The Leaderboard shows Individual and Flight side by side. Events show 3 at a time with their own internal rotation, with the "see all events" QR code fixed on the right. The Flight leaderboard shows the top 3 flights.
 - **Bottom banner:** only appears when Important Information is enabled and has a message - otherwise takes up zero space
+
+### Small screens
+
+The dashboard detects the screen size itself. On screens 800 pixels wide or less, or 500 pixels tall or less (for example the official 7-inch Pi display at 800x480, or smaller 480x320 / 320x240 screens), it switches to a compact layout:
+
+- weather becomes a slim strip across the top (temperature, feels-like, condition, place name) and the rotating panel takes the full width and height
+- the header, tables, events, news and banner text are tightened and everything scales with the screen, so the same layout works from about 320x240 up to 800x480
+- the "see all events" QR code shrinks and the scrolling banner slows to match
+
+If the automatic choice is ever wrong for your screen, set **Screen layout** on `/edit` to *Always small screen* or *Always full size*. It switches live if the screen or browser window is resized.
 
 If weather, news, or the leaderboard fails to load, it shows a short message and, if you've set an error report link, a QR code linking to it.
 
