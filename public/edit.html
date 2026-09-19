@@ -188,6 +188,7 @@
 </div>
 <div id="status"></div>
 <p class="hint" id="forceHint">Force update checks GitHub right now and restarts the dashboard - use it if automatic updates ever stop working.</p>
+<p class="hint" id="versionInfo">Checking version…</p>
 <div id="updateStatus"></div>
 </div>
 
@@ -259,6 +260,7 @@ async function load() {
   data.events.forEach(e => ec.appendChild(eventRow(e)));
   savedSnapshot = JSON.stringify(collectPayload());
   updateForceButton();
+  loadVersionInfo();
 }
 
 // Everything on the page as the object that gets saved. Also used to spot unsaved changes.
@@ -346,9 +348,57 @@ function showUpdateStatus(text, isError) {
 }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+async function loadVersionInfo() {
+  const el = document.getElementById('versionInfo');
+  if (!el) return null;
+  try {
+    const v = await (await fetch('/api/version', { cache: 'no-store' })).json();
+    if (!v.ok && !v.local) {
+      el.textContent = 'Version: ' + (v.error || 'unavailable');
+      return v;
+    }
+    const loc = v.local ? (v.local.short + (v.local.message ? ' — ' + v.local.message : '')) : '?';
+    if (!v.remote) {
+      el.textContent = 'Local: ' + loc + '. ' + (v.error || 'Could not read GitHub version.');
+      return v;
+    }
+    const rem = v.remote.short + (v.remote.message ? ' — ' + v.remote.message : '');
+    if (v.upToDate) {
+      el.textContent = 'Up to date (local & GitHub: ' + loc + ')';
+    } else {
+      el.textContent = 'Local: ' + loc + '  |  GitHub: ' + rem +
+        (v.behind ? '  |  ' + v.behind + ' commit(s) behind' : '');
+    }
+    return v;
+  } catch (e) {
+    el.textContent = 'Version: could not check';
+    return null;
+  }
+}
+
 async function forceUpdate() {
   if (hasUnsavedChanges() || updateInProgress) return;
-  if (!confirm('Warning: Updating will replace locally edited files with the latest versions from GitHub. Any local changes will be lost. Continue?\n\nYour settings from /edit are kept. The dashboard will restart briefly.')) return;
+
+  showUpdateStatus('Comparing with GitHub…');
+  const v = await loadVersionInfo();
+  let detail = '';
+  if (v && v.local && v.remote) {
+    detail = '\n\nLocal:  ' + v.local.short + (v.local.message ? ' — ' + v.local.message : '') +
+      '\nGitHub: ' + v.remote.short + (v.remote.message ? ' — ' + v.remote.message : '');
+    if (v.upToDate) {
+      detail += '\n\nYou are already on the latest version. Update will re-apply it anyway.';
+    } else if (v.behind) {
+      detail += '\n\nYou are ' + v.behind + ' commit(s) behind GitHub.';
+    }
+  }
+  if (!confirm(
+    'Warning: Updating will replace locally edited files with the latest versions from GitHub. Any local changes will be lost. Continue?' +
+    detail +
+    '\n\nYour settings from /edit are kept. The dashboard will restart briefly.'
+  )) {
+    showUpdateStatus('');
+    return;
+  }
 
   updateInProgress = true; updateForceButton();
   try {

@@ -11,13 +11,54 @@ function Show-Usage {
   Write-Host @"
 Squadron Dashboard (Windows)
 
-  sqndash --update         update if newer on GitHub, then restart
-  sqndash --force-update   re-download even if up to date, then restart
-  sqndash --restart        restart only
-  sqndash --help           this help
+  sqndash --check            compare local version to GitHub (also: --version)
+  sqndash --update           update if newer on GitHub, then restart
+  sqndash --force-update     re-download even if up to date, then restart
+  sqndash --restart          restart only
+  sqndash --help             this help
 
 Settings from /edit (data\) are never changed by an update.
 "@
+}
+
+function Show-VersionCheck {
+  if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+    Write-Host 'git is not installed'
+    exit 2
+  }
+  if (-not (Test-Path (Join-Path $Dir '.git'))) {
+    Write-Host "Not a git repository: $Dir"
+    exit 3
+  }
+  Write-Host 'Fetching from GitHub...'
+  $f = Invoke-Git 'fetch origin'
+  if ($f.ExitCode -ne 0) { Invoke-Git 'fetch' | Out-Null }
+  $local = ((Invoke-Git 'rev-parse --short HEAD').Output | Out-String).Trim().Split("`n")[0].Trim()
+  $localFull = ((Invoke-Git 'rev-parse HEAD').Output | Out-String).Trim().Split("`n")[0].Trim()
+  $localMsg = ((Invoke-Git 'log -1 --pretty=%s').Output | Out-String).Trim().Split("`n")[0].Trim()
+  $remoteRef = $null
+  foreach ($ref in @('origin/main', 'origin/master', 'origin/HEAD')) {
+    $r = Invoke-Git "rev-parse --verify $ref"
+    if ($r.ExitCode -eq 0) { $remoteRef = $ref; break }
+  }
+  if (-not $remoteRef) {
+    Write-Host "Local:  $local  $localMsg"
+    Write-Host 'Remote: (could not resolve origin/main or origin/master)'
+    exit 3
+  }
+  $remote = ((Invoke-Git "rev-parse --short $remoteRef").Output | Out-String).Trim().Split("`n")[0].Trim()
+  $remoteFull = ((Invoke-Git "rev-parse $remoteRef").Output | Out-String).Trim().Split("`n")[0].Trim()
+  $remoteMsg = ((Invoke-Git "log -1 --pretty=%s $remoteRef").Output | Out-String).Trim().Split("`n")[0].Trim()
+  $behind = ((Invoke-Git "rev-list --count HEAD..$remoteRef").Output | Out-String).Trim().Split("`n")[0].Trim()
+  $ahead = ((Invoke-Git "rev-list --count $remoteRef..HEAD").Output | Out-String).Trim().Split("`n")[0].Trim()
+  Write-Host "Local:  $local  $localMsg"
+  Write-Host "GitHub: $remote  $remoteMsg  ($remoteRef)"
+  if ($localFull -eq $remoteFull) {
+    Write-Host 'Status: up to date'
+    exit 0
+  }
+  Write-Host "Status: local is behind by $behind commit(s), ahead by $ahead"
+  exit 10
 }
 
 function Write-UpdateStatus([string]$State, [string]$Message) {
@@ -242,10 +283,11 @@ function Do-Update {
 
 $arg = if ($args.Count -gt 0) { "$($args[0])" } else { '' }
 switch -Regex ($arg) {
-  '^(--update|-u)$'       { Do-Update; break }
-  '^(--force-update|-f)$' { Do-Update -Force; break }
-  '^(--restart|-r)$'      { exit (Restart-App) }
-  '^(--help|-h|)$'        { Show-Usage; break }
+  '^(--check|--version|-v)$' { Show-VersionCheck; break }
+  '^(--update|-u)$'          { Do-Update; break }
+  '^(--force-update|-f)$'    { Do-Update -Force; break }
+  '^(--restart|-r)$'         { exit (Restart-App) }
+  '^(--help|-h|)$'           { Show-Usage; break }
   default {
     Write-Host "Unknown option: $arg"
     Show-Usage

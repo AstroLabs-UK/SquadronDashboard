@@ -104,6 +104,63 @@ app.get('/api/update/status', (req, res) => {
   res.json(updater.getStatus(DATA_DIR));
 });
 
+// Compare local git checkout vs GitHub (for /edit confirmation and sqndash --check)
+function gitOut(args) {
+  return new Promise(resolve => {
+    exec('git ' + args, { cwd: __dirname, timeout: 20000 }, (err, stdout, stderr) => {
+      resolve({ ok: !err, out: (stdout || '').trim(), err: (stderr || '').trim() });
+    });
+  });
+}
+app.get('/api/version', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    const head = await gitOut('rev-parse HEAD');
+    if (!head.ok) {
+      return res.json({ ok: false, error: 'Not a git checkout or git is unavailable', local: null, remote: null });
+    }
+    const localFull = head.out;
+    const localShort = (await gitOut('rev-parse --short HEAD')).out || localFull.slice(0, 7);
+    const localMsg = (await gitOut('log -1 --pretty=%s')).out || '';
+
+    // Refresh remote refs (best effort)
+    await gitOut('fetch origin --quiet');
+
+    let remoteRef = null;
+    for (const ref of ['origin/main', 'origin/master', 'origin/HEAD']) {
+      const r = await gitOut('rev-parse --verify ' + ref);
+      if (r.ok && r.out) { remoteRef = ref; break; }
+    }
+    if (!remoteRef) {
+      return res.json({
+        ok: true,
+        local: { full: localFull, short: localShort, message: localMsg },
+        remote: null,
+        upToDate: null,
+        behind: null,
+        error: 'Could not resolve origin/main or origin/master — is origin configured?'
+      });
+    }
+    const remoteFull = (await gitOut('rev-parse ' + remoteRef)).out;
+    const remoteShort = (await gitOut('rev-parse --short ' + remoteRef)).out || remoteFull.slice(0, 7);
+    const remoteMsg = (await gitOut('log -1 --pretty=%s ' + remoteRef)).out || '';
+    const behind = await gitOut('rev-list --count HEAD..' + remoteRef);
+    const ahead = await gitOut('rev-list --count ' + remoteRef + '..HEAD');
+    const behindN = parseInt(behind.out, 10) || 0;
+    const aheadN = parseInt(ahead.out, 10) || 0;
+    res.json({
+      ok: true,
+      local: { full: localFull, short: localShort, message: localMsg },
+      remote: { full: remoteFull, short: remoteShort, message: remoteMsg, ref: remoteRef },
+      upToDate: localFull === remoteFull,
+      behind: behindN,
+      ahead: aheadN
+    });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e) });
+  }
+});
+
 // ---------- API: settings / events ----------
 app.get('/api/data', (req, res) => {
   res.json(loadData());
