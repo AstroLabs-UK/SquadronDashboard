@@ -112,16 +112,27 @@ async function checkAndUpdate({ cwd, dataDir, force = false }) {
 function restartProcess(cwd) {
   const node = process.execPath;
   const args = process.argv.slice(1);
-  const child = spawn(node, args, {
-    cwd,
-    detached: true,
-    stdio: 'ignore',
-    windowsHide: true,
-    env: process.env
-  });
-  child.unref();
-  // Give the child a moment to bind the port after we exit
-  setTimeout(() => process.exit(0), 500);
+  // Delay the new process so this one can release port 3000 first (critical on Windows)
+  if (process.platform === 'win32') {
+    const quotedArgs = args.map(a => '"' + String(a).replace(/"/g, '\\"') + '"').join(' ');
+    const cmdline = 'timeout /t 2 /nobreak >nul & "' + node + '" ' + quotedArgs;
+    spawn('cmd.exe', ['/c', cmdline], {
+      cwd,
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true,
+      env: process.env
+    }).unref();
+  } else {
+    const quotedArgs = args.map(a => JSON.stringify(String(a))).join(' ');
+    spawn('sh', ['-c', 'sleep 1; exec ' + JSON.stringify(node) + ' ' + quotedArgs], {
+      cwd,
+      detached: true,
+      stdio: 'ignore',
+      env: process.env
+    }).unref();
+  }
+  process.exit(0);
 }
 
 function startAutoUpdate({ cwd, dataDir, intervalMs }) {

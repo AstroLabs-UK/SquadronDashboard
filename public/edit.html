@@ -412,35 +412,48 @@ async function forceUpdate() {
     const res = await fetch('/api/update', { method: 'POST' });
     const body = await res.json().catch(() => ({}));
     if (!res.ok || !body.ok) { showUpdateStatus(body.error || 'Could not request an update.', true); return; }
-    const requestedAt = body.requestedAt;
+    const requestedAt = body.requestedAt || Date.now();
+    const inProcess = body.mode === 'in-process';
 
-    // Poll for the result (the server itself goes offline for a moment while it restarts)
+    showUpdateStatus(inProcess ? 'Updating from GitHub (this may take a minute)…' : 'Waiting for update…');
+
+    // Poll for the result (server may go offline briefly while restarting)
     const started = Date.now();
+    let sawOffline = false;
     while (Date.now() - started < 5 * 60 * 1000) {
-      await sleep(2000);
+      await sleep(inProcess ? 1500 : 2000);
       let st = null;
-      try { st = await (await fetch('/api/update/status', { cache: 'no-store' })).json(); }
-      catch (e) { showUpdateStatus('Restarting the dashboard...'); continue; }
+      try {
+        st = await (await fetch('/api/update/status', { cache: 'no-store' })).json();
+      } catch (e) {
+        sawOffline = true;
+        showUpdateStatus('Restarting the dashboard…');
+        continue;
+      }
+
+      // After a restart, server is back — reload once we were offline or status is done
+      if (sawOffline && st) {
+        showUpdateStatus((st.message || 'Update finished') + ' — reloading…');
+        await sleep(1500);
+        location.reload();
+        return;
+      }
 
       if (st.state === 'requested') {
         showUpdateStatus((Date.now() - started > 30000)
-          ? "Waiting for the Pi to pick this up... If nothing happens, run 'sqndash --force-update' on the Pi (re-running install.sh sets this button up)."
-          : 'Waiting for the Pi to pick up the request...');
-      } else if ((st.state === 'done' || st.state === 'error') && st.time * 1000 >= requestedAt - 5000) {
-        if (st.state === 'error') { showUpdateStatus(st.message, true); return; }
-        if (!hasUnsavedChanges()) {
-          showUpdateStatus(st.message + ' - reloading this page...');
-          await sleep(3000);
-          location.reload();
-        } else {
-          showUpdateStatus(st.message + ' - reload this page to load the new version.');
-        }
+          ? "Waiting for the host to pick this up… If nothing happens, run 'sqndash --force-update' in a terminal."
+          : 'Waiting for the update to start…');
+      } else if ((st.state === 'done' || st.state === 'error') && (!st.time || st.time * 1000 >= requestedAt - 15000)) {
+        if (st.state === 'error') { showUpdateStatus(st.message || 'Update failed', true); return; }
+        showUpdateStatus((st.message || 'Updated') + ' — reloading this page…');
+        await sleep(2000);
+        location.reload();
         return;
       } else if (st.state === 'running') {
-        showUpdateStatus(st.message || 'Updating...');
+        showUpdateStatus(st.message || 'Updating…');
       }
     }
-    showUpdateStatus("The update didn't report back in 5 minutes. Check the Pi, or run 'sqndash --force-update' on it.", true);
+    showUpdateStatus("The update didn't finish in 5 minutes. Check the terminal running npm start, or run: sqndash --force-update", true);
   } finally {
     updateInProgress = false; updateForceButton();
   }

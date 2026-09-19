@@ -101,10 +101,11 @@
     margin: 0 0 10px 0; font-size: 12px; font-weight: 700; text-transform: uppercase;
     letter-spacing: 0.06em; color: var(--raf-blue); flex-shrink: 0;
   }
-  .lb-col table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: clamp(13px, 2.6vh, 18px); flex: 1; }
-  .lb-col thead th { background: var(--raf-navy); color: var(--white); text-align: left; padding: clamp(8px, 1.4vh, 14px) 12px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+  /* Text fills the row height: more font, less empty padding (row size stays similar) */
+  .lb-col table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: clamp(15px, 3vh, 22px); flex: 1; }
+  .lb-col thead th { background: var(--raf-navy); color: var(--white); text-align: left; padding: clamp(5px, 0.9vh, 10px) 12px; font-size: 0.72em; text-transform: uppercase; letter-spacing: 0.06em; }
   .lb-col thead th.num { text-align: right; }
-  .lb-col td { padding: clamp(8px, 1.5vh, 16px) 12px; border-bottom: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lb-col td { padding: clamp(5px, 0.9vh, 10px) 12px; line-height: 1.2; border-bottom: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .lb-col tr:nth-child(even) td { background: var(--off-white); }
   .lb-col td.rank, .lb-col th:first-child { width: 48px; }
   .lb-col td.rank { color: var(--raf-blue); font-weight: 700; }
