@@ -85,6 +85,23 @@ app.get('/api/boot', (req, res) => {
   res.json({ id: BOOT_ID });
 });
 
+// ---------- API: force update (see updater.js) ----------
+const updater = require('./updater');
+app.post('/api/update', (req, res) => {
+  try {
+    const r = updater.requestUpdate(DATA_DIR);
+    if (!r.ok) return res.status(r.code).json({ ok: false, error: r.error });
+    res.json({ ok: true, requestedAt: r.requestedAt });
+  } catch (e) {
+    console.error('[update] could not write request', e);
+    res.status(500).json({ ok: false, error: 'could not request an update' });
+  }
+});
+app.get('/api/update/status', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json(updater.getStatus(DATA_DIR));
+});
+
 // ---------- API: settings / events ----------
 app.get('/api/data', (req, res) => {
   res.json(loadData());
