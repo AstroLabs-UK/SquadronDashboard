@@ -9,7 +9,8 @@ const guard = require('./lib/settingsGuard');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const HOST = process.env.HOST || '0.0.0.0';
+// Not called HOST on purpose: some shells export HOST=<computer name>, which would make the app bind to the wrong address
+const HOST = process.env.SQNDASH_HOST || '0.0.0.0';
 // Settings live in data/ (git-ignored, so updates never touch them). In Docker this
 // folder is a bind mount, so it also survives container rebuilds.
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');

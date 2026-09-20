@@ -14,7 +14,8 @@
 // Settings in data/ are git-ignored and are never touched.
 const fs = require('fs');
 const path = require('path');
-const { exec, spawn } = require('child_process');
+const { exec } = require('child_process');
+const { spawnReplacement } = require('./lib/restart');
 const { git, firstWord } = require('./lib/git');
 const release = require('./lib/release');
 const { runCanary } = require('./lib/canary');
@@ -144,18 +145,14 @@ async function checkAndUpdate({ cwd, dataDir, force = false, canary = runCanary,
 }
 
 function restartProcess(cwd) {
-  const node = process.execPath;
-  const args = process.argv.slice(1);
-  // Delay the new process so this one can release the port first (critical on Windows)
-  if (process.platform === 'win32') {
-    const quotedArgs = args.map(a => '"' + String(a).replace(/"/g, '\\"') + '"').join(' ');
-    const cmdline = 'timeout /t 2 /nobreak >nul & "' + node + '" ' + quotedArgs;
-    spawn('cmd.exe', ['/c', cmdline], { cwd, detached: true, stdio: 'ignore', windowsHide: true, env: process.env }).unref();
-  } else {
-    const quotedArgs = args.map(a => JSON.stringify(String(a))).join(' ');
-    spawn('sh', ['-c', 'sleep 1; exec ' + JSON.stringify(node) + ' ' + quotedArgs], {
-      cwd, detached: true, stdio: 'ignore', env: process.env
-    }).unref();
+  // Launch the replacement first (it waits ~2 s for this process to release the port), then exit.
+  // If it can't even be launched, stay running rather than leave the dashboard stopped.
+  try {
+    spawnReplacement({ cwd });
+  } catch (e) {
+    console.error('[auto-update] could not start the replacement process - staying on the current one', e);
+    writeStatus(process.env.DATA_DIR || path.join(cwd, 'data'), 'error', 'Updated, but the restart failed - restart the dashboard manually');
+    return;
   }
   process.exit(0);
 }

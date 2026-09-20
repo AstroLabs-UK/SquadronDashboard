@@ -9,7 +9,7 @@ const { execFileSync } = require('child_process');
 const { checkAndUpdate } = require('../autoUpdate');
 const release = require('../lib/release');
 
-const GOOD = v => `// ${v}\nrequire('http').createServer((q, r) => r.end('{"ok":true}')).listen(process.env.PORT, process.env.HOST);\n`;
+const GOOD = v => `// ${v}\nrequire('http').createServer((q, r) => r.end('{"ok":true}')).listen(process.env.PORT, process.env.SQNDASH_HOST);\n`;
 const BROKEN = `throw new Error('boom - broken release');\n`;
 const env = { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@t', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@t', GIT_CONFIG_GLOBAL: '/dev/null' };
 const git = (cwd, ...args) => execFileSync('git', args, { cwd, env, encoding: 'utf8' }).trim();

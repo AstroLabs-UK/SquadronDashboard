@@ -209,14 +209,40 @@ sync_code() {
   return $RC
 }
 
+uses_docker() {
+  command -v docker >/dev/null 2>&1 && $SUDO docker ps -a --format '{{.Names}}' 2>/dev/null | grep -qx 'squadron-dashboard'
+}
+
+# systemd installs only: the dashboard must never be left stopped.
+#  - Restart=always: if the app ever exits (even "cleanly", as an in-app update used to), systemd starts it again.
+#  - If it is stopped right now (e.g. a previous update left it down), start it.
+ensure_app_running() {
+  command -v systemctl >/dev/null 2>&1 || return 0
+  local unit=/etc/systemd/system/squadron-dashboard.service
+  [ -f "$unit" ] || return 0
+  uses_docker && return 0
+  if grep -q '^Restart=on-failure' "$unit" 2>/dev/null; then
+    { $SUDOQ sed -i 's/^Restart=on-failure/Restart=always/' "$unit" && $SUDOQ systemctl daemon-reload; } >/dev/null 2>&1 || true
+  fi
+  if ! systemctl is-active --quiet squadron-dashboard.service 2>/dev/null; then
+    echo "[update] the dashboard was not running - starting it"
+    $SUDO systemctl start squadron-dashboard.service || true
+  fi
+}
+
 # Step 2 - restart the app so the new code is running (needs root)
 restart_app() {
   echo "[update] restarting the dashboard..."
-  if command -v docker >/dev/null 2>&1 && $SUDO docker ps -a --format '{{.Names}}' 2>/dev/null | grep -qx 'squadron-dashboard'; then
+  if uses_docker; then
     $SUDO docker compose up -d --build
   else
     npm install --omit=dev --quiet
     $SUDO systemctl restart squadron-dashboard.service
+    # `restart` starts it even if it was stopped, but make sure - a stopped dashboard is the worst outcome
+    sleep 2
+    if command -v systemctl >/dev/null 2>&1 && ! systemctl is-active --quiet squadron-dashboard.service 2>/dev/null; then
+      $SUDO systemctl start squadron-dashboard.service || true
+    fi
   fi
 }
 
@@ -261,6 +287,7 @@ if [ -f "$REQUEST_FILE" ]; then FORCE=1; rm -f "$REQUEST_FILE"; fi
 
 install_command
 ensure_watcher
+ensure_app_running
 write_status running "Checking GitHub..."
 
 if [ "$FORCE" -eq 1 ]; then owner_run bash "$DIR/update.sh" --sync force; else owner_run bash "$DIR/update.sh" --sync; fi

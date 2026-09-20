@@ -187,7 +187,7 @@ Type=simple
 User=$SERVICE_USER
 WorkingDirectory=$DIR
 ExecStart=$(command -v node) $DIR/server.js
-Restart=on-failure
+Restart=always
 RestartSec=5
 
 [Install]
