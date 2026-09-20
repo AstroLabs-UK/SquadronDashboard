@@ -18,6 +18,7 @@ const { exec, spawn } = require('child_process');
 const { git, firstWord } = require('./lib/git');
 const release = require('./lib/release');
 const { runCanary } = require('./lib/canary');
+const guard = require('./lib/settingsGuard');
 
 const DEFAULT_INTERVAL_MS = 5 * 60 * 1000;
 
@@ -66,7 +67,7 @@ async function npmInstallIfNeeded(cwd, depsChanged) {
  * @returns {Promise<{ updated: boolean, reason: string, rolledBack?: boolean, local?: string,
  *                     remote?: string, short?: string, label?: string }>}
  */
-async function checkAndUpdate({ cwd, dataDir, force = false, canary = runCanary }) {
+async function checkAndUpdate({ cwd, dataDir, force = false, canary = runCanary, snapDir = guard.defaultSnapshotDir(cwd) }) {
   if (!fs.existsSync(path.join(cwd, '.git'))) {
     return { updated: false, reason: 'not a git repository' };
   }
@@ -110,12 +111,17 @@ async function checkAndUpdate({ cwd, dataDir, force = false, canary = runCanary 
   writeStatus(dataDir, 'running', 'Downloading ' + target.label + '…');
   const depsChanged = await release.dependenciesChanged(cwd, localSha, target.sha);
 
+  // Settings are snapshotted outside the app folder and put back after every code swap, so
+  // they survive even a release with a broken/missing .gitignore (see lib/settingsGuard.js)
+  const snapped = guard.snapshot(dataDir, snapDir);
   const reset = await git(['reset', '--hard', target.sha], { cwd, timeout: 30000 });
   if (!reset.ok) {
+    if (snapped) guard.restore(dataDir, snapDir);
     writeStatus(dataDir, 'error', 'git reset failed: ' + (reset.err || reset.out || 'unknown'));
     return { updated: false, reason: 'reset failed' };
   }
-  await git(['clean', '-fd'], { cwd, timeout: 15000 }); // data/ is git-ignored, so settings are kept
+  await git(['clean', '-fd', ...guard.CLEAN_KEEP], { cwd, timeout: 15000 });
+  if (snapped) guard.restore(dataDir, snapDir);
 
   const inst = await npmInstallIfNeeded(cwd, depsChanged);
   writeStatus(dataDir, 'running', 'Testing ' + target.label + ' before switching to it…');
@@ -124,7 +130,8 @@ async function checkAndUpdate({ cwd, dataDir, force = false, canary = runCanary 
   if (!check.ok) {
     // Roll back so the running dashboard (and the next restart) keep using the last good version
     await git(['reset', '--hard', localSha], { cwd, timeout: 30000 });
-    await git(['clean', '-fd'], { cwd, timeout: 15000 });
+    await git(['clean', '-fd', ...guard.CLEAN_KEEP], { cwd, timeout: 15000 });
+    if (snapped) guard.restore(dataDir, snapDir);
     if (depsChanged) await npmInstallIfNeeded(cwd, true);
     release.writeSkip(dataDir, target.sha, check.reason);
     writeStatus(dataDir, 'error',

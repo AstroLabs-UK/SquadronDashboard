@@ -131,6 +131,12 @@ sync_code() {
   for f in data.json data.backup.json; do
     if [ -f "$f" ] && [ ! -f "data/$f" ]; then cp -p "$f" "data/$f"; fi
   done
+  # Settings safety copy lives OUTSIDE the app folder, so even a wiped data/ can be recovered
+  SNAP="${DATA_BACKUP_DIR:-$(dirname "$DIR")/.squadron-dashboard-backup}"
+  if [ ! -f data/data.json ] && [ -f "$SNAP/data.json" ]; then
+    echo "[update] settings were missing - restoring them from $SNAP"
+    cp -a "$SNAP/." data/
+  fi
   [ -f data/data.json ] || cp data.example.json data/data.json
   [ -f data/data.backup.json ] || cp data/data.json data/data.backup.json
 
@@ -182,18 +188,22 @@ sync_code() {
   local KEEP
   KEEP="$(mktemp -d)"
   cp -a data "$KEEP/data"           # safety copy of the settings
+  if [ -f data/data.json ]; then    # ...and a lasting one outside the app folder
+    mkdir -p "$SNAP" 2>/dev/null && chmod 700 "$SNAP" 2>/dev/null; cp -a data/. "$SNAP/" 2>/dev/null || true
+  fi
 
   # Force the working tree to match the target exactly. Do not stop for a dirty tree;
   # any local edits to tracked files are discarded (settings live in data/ and are kept).
   git reset --hard --quiet "$TARGET_SHA" 2>/dev/null || { rm -rf "$KEEP"; echo "[update] git reset failed"; return 4; }
   # Remove untracked files/dirs that are not settings (data/ is gitignored and preserved)
-  git clean -fd --quiet 2>/dev/null || true
+  # (-e keeps settings and installer-made files even if this release's .gitignore is missing)
+  git clean -fd --quiet -e /data -e /data.json -e /data.backup.json -e /node_modules \
+    -e /shutdown-timer.sh -e /npm-update.sh -e /docker-update.sh 2>/dev/null || true
 
-  # Belt and braces: if anything about data/ went missing, put the safety copy back
+  # Put the settings back exactly as they were - overwriting anything the release put there
+  # (covers a release that is missing .gitignore, or that accidentally tracks data/)
   mkdir -p data
-  for f in data.json data.backup.json; do
-    [ -f "data/$f" ] || { [ -f "$KEEP/data/$f" ] && cp -p "$KEEP/data/$f" "data/$f"; }
-  done
+  cp -a "$KEEP/data/." data/
   rm -rf "$KEEP"
   echo "[update] downloaded $(git rev-parse --short HEAD)"
   return $RC

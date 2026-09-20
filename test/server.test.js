@@ -8,6 +8,7 @@ const path = require('path');
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sqn-srv-'));
 process.env.DATA_DIR = dataDir;
 process.env.AUTO_UPDATE = '0';
+process.env.DATA_BACKUP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'sqn-snap-'));
 delete process.env.EDIT_PIN;
 
 const app = require('../server');

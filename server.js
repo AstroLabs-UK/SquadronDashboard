@@ -1,9 +1,11 @@
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const { createStore } = require('./storage');
 const { securityHeaders, rateLimit } = require('./lib/security');
 const { createEditorAuth } = require('./lib/auth');
 const autoUpdate = require('./autoUpdate');
+const guard = require('./lib/settingsGuard');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -42,7 +44,17 @@ const DEFAULT_DATA = {
 // Settings are NEVER kept only in memory - every read goes to disk, and every
 // write hits disk immediately (fsync'd + atomic), so a power cut can never lose or
 // diverge from what's actually saved. See storage.js for the details.
+// Safety copy of the settings, kept outside the app folder (see lib/settingsGuard.js).
+// If data/ was ever wiped (for example by a bad update), the settings come back on start-up.
+const SNAP_DIR = guard.defaultSnapshotDir(__dirname);
+const guardActive = !process.env.CANARY;
+if (guardActive) {
+  if (!fs.existsSync(path.join(DATA_DIR, 'data.json')) && guard.restore(DATA_DIR, SNAP_DIR, { onlyMissing: true })) {
+    console.warn('[storage] settings were missing - restored them from ' + SNAP_DIR);
+  }
+}
 const store = createStore({ dir: DATA_DIR, defaults: DEFAULT_DATA, legacyDir: __dirname });
+if (guardActive) guard.snapshot(DATA_DIR, SNAP_DIR);
 
 // ---------- protection ----------
 // General limit for the API (the kiosk polls a few times a minute, so this is generous),
@@ -81,6 +93,7 @@ app.post('/api/data', requireEditor, sensitiveLimiter, (req, res) => {
   try {
     const updated = store.sanitize(store.load(), req.body);
     store.save(updated);
+    guard.snapshot(DATA_DIR, SNAP_DIR);
     res.json({ ok: true, data: updated });
   } catch (e) {
     console.error('[storage] save failed', e);

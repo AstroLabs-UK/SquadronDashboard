@@ -133,3 +133,59 @@ test('settings in data/ survive an update and a rollback', async () => {
   await checkAndUpdate({ cwd: w.device, dataDir: w.dataDir });
   assert.equal(fs.readFileSync(path.join(w.dataDir, 'data.json'), 'utf8'), '{"squadronName":"Keep me"}');
 });
+
+// ---- settings must survive every kind of release ----
+const SETTINGS = '{"squadronName":"Test Squadron","events":[{"title":"Keep me"}]}';
+function putSettings(w) {
+  fs.mkdirSync(w.dataDir, { recursive: true });
+  fs.writeFileSync(path.join(w.dataDir, 'data.json'), SETTINGS);
+  fs.writeFileSync(path.join(w.dataDir, 'data.backup.json'), SETTINGS);
+  fs.writeFileSync(path.join(w.dataDir, 'edit-pin'), '1234\n');
+}
+const settingsIntact = w =>
+  fs.readFileSync(path.join(w.dataDir, 'data.json'), 'utf8') === SETTINGS &&
+  fs.readFileSync(path.join(w.dataDir, 'data.backup.json'), 'utf8') === SETTINGS &&
+  fs.readFileSync(path.join(w.dataDir, 'edit-pin'), 'utf8') === '1234\n';
+
+test('settings survive a release that forgot to include .gitignore (data/ no longer ignored)', async () => {
+  const w = makeWorld();
+  putSettings(w);
+  git(w.dev, 'rm', '-q', '.gitignore');
+  w.publish('v1.1.0');
+  const r = await checkAndUpdate({ cwd: w.device, dataDir: w.dataDir });
+  assert.equal(r.updated, true, JSON.stringify(r));
+  assert.ok(!fs.existsSync(path.join(w.device, '.gitignore')), 'the release really has no .gitignore');
+  assert.ok(settingsIntact(w), 'data/ was wiped by the update');
+});
+
+test('settings survive a release that accidentally tracks data/data.json', async () => {
+  const w = makeWorld();
+  putSettings(w);
+  fs.mkdirSync(path.join(w.dev, 'data'), { recursive: true });
+  fs.writeFileSync(path.join(w.dev, 'data', 'data.json'), '{"squadronName":"Repo copy"}');
+  fs.writeFileSync(path.join(w.dev, '.gitignore'), '');
+  git(w.dev, 'add', '-Af');
+  w.publish('v1.1.0');
+  const r = await checkAndUpdate({ cwd: w.device, dataDir: w.dataDir });
+  assert.equal(r.updated, true, JSON.stringify(r));
+  assert.ok(settingsIntact(w), 'the repo copy overwrote this device\'s settings');
+});
+
+test('settings survive a rolled-back release with no .gitignore too', async () => {
+  const w = makeWorld();
+  putSettings(w);
+  git(w.dev, 'rm', '-q', '.gitignore');
+  w.publish('v1.1.0', { broken: true });
+  const r = await checkAndUpdate({ cwd: w.device, dataDir: w.dataDir });
+  assert.equal(r.rolledBack, true, JSON.stringify(r));
+  assert.ok(settingsIntact(w));
+});
+
+test('the settings snapshot is kept outside the app folder', async () => {
+  const w = makeWorld();
+  putSettings(w);
+  const snap = path.join(w.root, 'snap');
+  w.publish('v1.1.0');
+  await checkAndUpdate({ cwd: w.device, dataDir: w.dataDir, snapDir: snap });
+  assert.equal(fs.readFileSync(path.join(snap, 'data.json'), 'utf8'), SETTINGS);
+});

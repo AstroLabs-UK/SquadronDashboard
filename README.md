@@ -1,6 +1,6 @@
 # Squadron Dashboard
 
-**Release 1.5**
+**Release 1.5.1**
 
 A self-hosted room display for RAF Air Cadets (and similar organisations): clock, weather, news, individual + flight leaderboard, events, Instagram, and custom embed widgets — plus a phone-friendly **edit** page and a **status** page.
 
@@ -27,6 +27,7 @@ Release 1.5 is a **hardening and tidy-up patch**. There are no new panels: the g
 - **Updates test themselves and roll back.** On Windows/bare Node the new code is started on a spare port and must answer `/healthz` *before* the live dashboard switches to it. On the Pi the restarted dashboard must answer `/healthz` within about 90 seconds. If it doesn't, the device goes back to the previous version and remembers the bad release so it isn't retried every 30 minutes. See [Updating](#updating).
 - **`npm install` only when dependencies changed**, so updates are quicker and work with a flaky connection.
 - **Docker image fixed.** `autoUpdate.js` was missing from the image, so a container built from the old Dockerfile could not start. The image now copies every module, has a health check, and uses the lockfile when there is one.
+- **Settings can no longer be wiped by an update (1.5.1).** Two ways it could happen are closed: a release that is missing `.gitignore` (easy to do when uploading files by hand, because dotfiles are hidden) made the update's `git clean` delete `data/`, and a release that accidentally tracked `data/data.json` overwrote it. Updates now keep a snapshot of `data/` in a hidden folder *outside* the app folder (`.squadron-dashboard-backup`, next to it), put it back straight after the code is swapped, and `git clean` is told never to touch `data/`. The server also restores any missing settings from that snapshot when it starts, and refreshes the snapshot after every save.
 - **Panels survive a wifi wobble.** Weather, news headlines and the leaderboard are cached, and if the source is unreachable the last good data is shown for up to six hours (`"stale": true` in the API) instead of a blank panel. All outgoing requests have timeouts.
 - **Large settings save.** The request size limit is raised so a squadron with many big embed widgets can save.
 - **Leaderboard re-renders when names change**, not only when the number of rows changes.
@@ -40,7 +41,7 @@ Release 1.5 is a **hardening and tidy-up patch**. There are no new panels: the g
 - The unneeded `node-fetch` dependency is gone (Node 18+ has `fetch` built in), and `package.json` now declares `"node": ">=18"`.
 - New `GET /healthz` endpoint and a Docker `HEALTHCHECK`.
 - News uses the HTTPS BBC feed. The FeedGrabbr embed that used to ship as the default is no longer baked into the repo — see [Carousel widgets](#carousel-widgets-tick-to-show).
-- Automated tests (`npm test`, 48 checks covering the CSV parser, leaderboard maths, settings storage, PIN protection, rate limiting, the cache and the whole update/rollback flow) and a GitHub Actions workflow that runs them, plus a Docker build check.
+- Automated tests (`npm test`, 56 checks covering the CSV parser, leaderboard maths, settings storage, PIN protection, rate limiting, the cache and the whole update/rollback flow) and a GitHub Actions workflow that runs them, plus a Docker build check.
 - Installer uses Node 22 LTS.
 
 ### Upgrading from 1.2 – 1.4
@@ -250,6 +251,7 @@ Change it with `sqndash --channel main` / `sqndash --channel release` (or the `U
 
 ### The safety net
 
+0. **Your settings are snapshotted first** to `.squadron-dashboard-backup` (next to the app folder) and restored over `data/` as soon as the new code is in place.
 1. New code is downloaded and `npm install` runs only if `package.json` changed.
 2. **Windows / bare Node:** a throw-away copy of the new version is started on a spare port with a scratch copy of your settings. It must answer `/healthz` before the live dashboard is restarted onto it.
 3. **Raspberry Pi:** after the restart the script waits up to about 90 seconds for `/healthz`.
@@ -378,6 +380,7 @@ SquadronDashboard/
     git.js           Run git without a shell
     release.js       Which version to follow (release tag vs main), skip list
     canary.js        Start-and-check a new version before switching
+    settingsGuard.js Settings snapshot/restore around updates
   storage.js         Atomic settings load/save/validate under data/
   updater.js         Force-update request/status files (Pi watcher hand-off)
   autoUpdate.js      In-process update engine (Windows / bare Node)
@@ -398,7 +401,7 @@ SquadronDashboard/
     roundel.png
 ```
 
-**Settings path:** `data/data.json` (+ `data.backup.json`). Do not commit `data/`. Other files in `data/`: `edit-pin`, `update-status.json`, `update-channel`, `skip-release.json`, `last-good-commit`.
+**Settings path:** `data/data.json` (+ `data.backup.json`). Do not commit `data/`. Other files in `data/`: `edit-pin`, `update-status.json`, `update-channel`, `skip-release.json`, `last-good-commit`. A safety copy of the whole folder is kept in `.squadron-dashboard-backup` beside the app folder (override with `DATA_BACKUP_DIR`).
 
 **Run the tests:** `npm install` then `npm test`.
 
@@ -445,7 +448,7 @@ Outbound HTTPS is required for weather, sheet CSV, and most embed widgets.
 | Force update “could not determine remote” | `git remote -v`, then `git fetch --tags origin`; ensure `origin/main` exists |
 | Leaderboard empty | Publish sheet as CSV; check Name/Points headers; open `/api/leaderboard` |
 | News empty | On `/edit`, ensure News is ticked and an embed code is pasted (there is no default any more); Save |
-| Settings lost after update | They should not be — confirm files are under `data/`, not next to `server.js` only |
+| Settings lost after update | They restore themselves from `.squadron-dashboard-backup` (next to the app folder) when the dashboard starts or the next update runs. To do it by hand: `cp -a ../.squadron-dashboard-backup/. data/` then `sqndash --restart`. Make sure `.gitignore` is in the repo — it's a hidden file that's easy to miss when uploading |
 | Pi Force update button waits forever | Re-run `install.sh`, or SSH and run `sqndash --force-update` |
 
 ---
@@ -486,4 +489,4 @@ See [LICENSE](LICENSE) in the repository.
 
 ---
 
-**Squadron Dashboard 1.5** — self-hosted, settings-safe updates, room-ready display for your unit.
+**Squadron Dashboard 1.5.1** — self-hosted, settings-safe updates, room-ready display for your unit.
