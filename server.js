@@ -6,6 +6,7 @@ const { securityHeaders, rateLimit } = require('./lib/security');
 const { createEditorAuth } = require('./lib/auth');
 const autoUpdate = require('./autoUpdate');
 const guard = require('./lib/settingsGuard');
+const { removeTempFiles } = require('./lib/cleanup');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -111,6 +112,7 @@ app.use(require('./routes/status')({ store, cwd: __dirname, requireEditor }));
 app.use(require('./routes/update')({ cwd: __dirname, dataDir: DATA_DIR, requireEditor, limiter: sensitiveLimiter }));
 
 if (require.main === module) {
+  if (!process.env.CANARY) removeTempFiles(__dirname); // silent start-up housekeeping
   app.listen(PORT, HOST, () => {
     console.log(`Squadron dashboard running:`);
     console.log(`  Display:  http://localhost:${PORT}`);

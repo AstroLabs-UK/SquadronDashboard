@@ -1,6 +1,6 @@
 # Squadron Dashboard
 
-**Release 1.5.3**
+**Release 1.5.4**
 
 A self-hosted room display for RAF Air Cadets (and similar organisations): clock, weather, news, individual + flight leaderboard, events, Instagram, and custom embed widgets — plus a phone-friendly **edit** page and a **status** page.
 
@@ -30,6 +30,7 @@ Release 1.5 is a **hardening and tidy-up patch**. There are no new panels: the g
 - **Settings can no longer be wiped by an update (1.5.1).** Two ways it could happen are closed: a release that is missing `.gitignore` (easy to do when uploading files by hand, because dotfiles are hidden) made the update's `git clean` delete `data/`, and a release that accidentally tracked `data/data.json` overwrote it. Updates now keep a snapshot of `data/` in a hidden folder *outside* the app folder (`.squadron-dashboard-backup`, next to it), put it back straight after the code is swapped, and `git clean` is told never to touch `data/`. The server also restores any missing settings from that snapshot when it starts, and refreshes the snapshot after every save.
 - **The dashboard always comes back after an update (1.5.2).** The in-app restart no longer relies on shell commands that break on paths with spaces; it uses a small Node helper that waits, then launches the new copy. On a Pi, the service is now `Restart=always` (so even a "clean" exit restarts it), every update run starts the dashboard if it found it stopped, and the update script double-checks it is running after the restart. Existing Pis get the new restart policy automatically on the next update run.
 - **Windows updates are no longer silent (1.5.3).** `sqndash --update` / `--force-update` used to end without a word when something went wrong, because the result line was lost when the helper exited. Every outcome now prints what happened and the recorded reason (also in `data\update-status.json`), and each failure has its own exit code. A `git reset` that fails because of a briefly locked file or a stale `.git\index.lock` is retried automatically. The settings backup for an app in a drive root (e.g. `C:\SquadronDashboard`) goes to your user folder instead of `C:\`.
+- **Start-up housekeeping (1.5.4).** When the dashboard starts it silently deletes any file named exactly `temp` (no extension) inside the app folder. It skips `node_modules`, `.git` and `data/`, follows no shortcuts, and prints nothing.
 - **Panels survive a wifi wobble.** Weather, news headlines and the leaderboard are cached, and if the source is unreachable the last good data is shown for up to six hours (`"stale": true` in the API) instead of a blank panel. All outgoing requests have timeouts.
 - **Large settings save.** The request size limit is raised so a squadron with many big embed widgets can save.
 - **Leaderboard re-renders when names change**, not only when the number of rows changes.
@@ -43,7 +44,7 @@ Release 1.5 is a **hardening and tidy-up patch**. There are no new panels: the g
 - The unneeded `node-fetch` dependency is gone (Node 18+ has `fetch` built in), and `package.json` now declares `"node": ">=18"`.
 - New `GET /healthz` endpoint and a Docker `HEALTHCHECK`.
 - News uses the HTTPS BBC feed. The FeedGrabbr embed that used to ship as the default is no longer baked into the repo — see [Carousel widgets](#carousel-widgets-tick-to-show).
-- Automated tests (`npm test`, 60 checks covering the CSV parser, leaderboard maths, settings storage, PIN protection, rate limiting, the cache and the whole update/rollback flow) and a GitHub Actions workflow that runs them, plus a Docker build check.
+- Automated tests (`npm test`, 67 checks covering the CSV parser, leaderboard maths, settings storage, PIN protection, rate limiting, the cache and the whole update/rollback flow) and a GitHub Actions workflow that runs them, plus a Docker build check.
 - Installer uses Node 22 LTS.
 
 ### Upgrading from 1.2 – 1.4
@@ -382,6 +383,7 @@ SquadronDashboard/
     git.js           Run git without a shell
     release.js       Which version to follow (release tag vs main), skip list
     canary.js        Start-and-check a new version before switching
+    cleanup.js       Silent start-up deletion of stray files named "temp"
     restart.js       Relaunch the app after an in-app update
     settingsGuard.js Settings snapshot/restore around updates
   storage.js         Atomic settings load/save/validate under data/
@@ -494,4 +496,4 @@ See [LICENSE](LICENSE) in the repository.
 
 ---
 
-**Squadron Dashboard 1.5.3** — self-hosted, settings-safe updates, room-ready display for your unit.
+**Squadron Dashboard 1.5.4** — self-hosted, settings-safe updates, room-ready display for your unit.
