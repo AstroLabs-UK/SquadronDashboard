@@ -36,6 +36,22 @@ function run(cmd, opts = {}) {
   });
 }
 
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// `git reset --hard` can fail on Windows for a moment (a file briefly locked by antivirus or an
+// editor) or because a crashed git left .git/index.lock behind. Clear a stale lock and try once more.
+async function resetHard(cwd, sha) {
+  let r = await git(['reset', '--hard', sha], { cwd, timeout: 30000 });
+  if (r.ok) return r;
+  try {
+    const lock = path.join(cwd, '.git', 'index.lock');
+    if (Date.now() - fs.statSync(lock).mtimeMs > 30000) fs.unlinkSync(lock);
+  } catch (e) { /* no lock */ }
+  await sleep(1500);
+  r = await git(['reset', '--hard', sha], { cwd, timeout: 30000 });
+  return r;
+}
+
 function writeStatus(dataDir, state, message) {
   try {
     if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
@@ -115,11 +131,12 @@ async function checkAndUpdate({ cwd, dataDir, force = false, canary = runCanary,
   // Settings are snapshotted outside the app folder and put back after every code swap, so
   // they survive even a release with a broken/missing .gitignore (see lib/settingsGuard.js)
   const snapped = guard.snapshot(dataDir, snapDir);
-  const reset = await git(['reset', '--hard', target.sha], { cwd, timeout: 30000 });
+  const reset = await resetHard(cwd, target.sha);
   if (!reset.ok) {
     if (snapped) guard.restore(dataDir, snapDir);
-    writeStatus(dataDir, 'error', 'git reset failed: ' + (reset.err || reset.out || 'unknown'));
-    return { updated: false, reason: 'reset failed' };
+    const detail = (reset.err || reset.out || 'unknown').split('\n').slice(0, 3).join(' ');
+    writeStatus(dataDir, 'error', 'git reset failed: ' + detail);
+    return { updated: false, reason: 'reset failed', detail };
   }
   await git(['clean', '-fd', ...guard.CLEAN_KEEP], { cwd, timeout: 15000 });
   if (snapped) guard.restore(dataDir, snapDir);
@@ -130,7 +147,7 @@ async function checkAndUpdate({ cwd, dataDir, force = false, canary = runCanary,
 
   if (!check.ok) {
     // Roll back so the running dashboard (and the next restart) keep using the last good version
-    await git(['reset', '--hard', localSha], { cwd, timeout: 30000 });
+    await resetHard(cwd, localSha);
     await git(['clean', '-fd', ...guard.CLEAN_KEEP], { cwd, timeout: 15000 });
     if (snapped) guard.restore(dataDir, snapDir);
     if (depsChanged) await npmInstallIfNeeded(cwd, true);

@@ -1,13 +1,14 @@
 # Squadron Dashboard - Windows helper
 #   sqndash.cmd --check | --update | --force-update | --restart | --set-pin | --channel | --help
 # Settings in data\ are kept. Updates and version checks are done by scripts\update.js (Node),
-# the same engine the dashboard itself uses: it follows the newest release tag, tests the new
-# version before switching to it, and rolls back if that test fails.
+# the same engine the dashboard itself uses: it follows the newest release tag (or main if there
+# are no tags yet), tests the new version before switching to it, and rolls back if that test fails.
 
 $ErrorActionPreference = 'Continue'
 $Dir = $PSScriptRoot
 if (-not $Dir) { $Dir = Split-Path -Parent $MyInvocation.MyCommand.Path }
 Set-Location -LiteralPath $Dir
+$script:RestartResult = 1
 
 function Show-Usage {
   Write-Host @"
@@ -32,9 +33,20 @@ function Write-UpdateStatus([string]$State, [string]$Message) {
   $dataDir = Join-Path $Dir 'data'
   if (-not (Test-Path $dataDir)) { return }
   try {
-    $t = [int][double]::Parse((Get-Date -UFormat %s))
+    $t = [int64][DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
     $json = "{`"state`":`"$State`",`"message`":`"$($Message -replace '"','')`",`"time`":$t}"
     [System.IO.File]::WriteAllText((Join-Path $dataDir 'update-status.json'), $json)
+  } catch { }
+}
+
+# Print the result the update engine recorded, so a failure is never silent
+function Show-LastStatus {
+  try {
+    $file = Join-Path $Dir 'data\update-status.json'
+    if (Test-Path $file) {
+      $j = Get-Content $file -Raw | ConvertFrom-Json
+      if ($j.message) { Write-Host "Result: $($j.message)" }
+    }
   } catch { }
 }
 
@@ -58,28 +70,32 @@ function Test-Prereqs {
   return $true
 }
 
+# Sets $script:RestartResult (0 = ok). Everything it runs is sent to the screen with Out-Host so
+# it can't leak into a return value - that was the classic PowerShell trap here.
 function Restart-App {
+  $script:RestartResult = 1
   Write-Host '[update] restarting the dashboard...'
 
   if (Get-Command docker -ErrorAction SilentlyContinue) {
     $names = cmd /c "docker ps -a --format {{.Names}} 2>nul"
     if ("$names" -match 'squadron-dashboard') {
-      cmd /c "docker compose up -d --build"
+      cmd /c "docker compose up -d --build" | Out-Host
       if ($LASTEXITCODE -eq 0) {
         Write-Host '[update] done - Docker container restarted'
-        return 0
+        $script:RestartResult = 0
+        return
       }
     }
   }
 
   if (Get-Command npm -ErrorAction SilentlyContinue) {
     Write-Host '[update] npm install...'
-    cmd /c "npm install --omit=dev --quiet"
+    cmd /c "npm install --omit=dev --quiet" | Out-Host
   }
 
   $serverJs = Join-Path $Dir 'server.js'
   Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue |
-    Where-Object { $_.CommandLine -and $_.CommandLine -like "*$Dir*" } |
+    Where-Object { $_.CommandLine -and $_.CommandLine -like "*$Dir*" -and $_.ProcessId -ne $PID } |
     ForEach-Object {
       Write-Host "[update] stopping node PID $($_.ProcessId)"
       Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
@@ -89,11 +105,11 @@ function Restart-App {
   if (Test-Path $serverJs) {
     Start-Process -FilePath 'node' -ArgumentList 'server.js' -WorkingDirectory $Dir -WindowStyle Hidden
     Write-Host '[update] done - started node (http://localhost:3000)'
-    return 0
+    $script:RestartResult = 0
+    return
   }
 
   Write-Host '[update] could not auto-restart - run: npm start'
-  return 1
 }
 
 function Do-Update {
@@ -113,35 +129,42 @@ function Do-Update {
   Ensure-DataFolder
   Write-UpdateStatus 'running' 'Checking GitHub...'
   $mode = if ($Force) { '--force' } else { '--update' }
-  & node (Join-Path $Dir 'scripts\update.js') $mode
+  & node (Join-Path $Dir 'scripts\update.js') $mode | Out-Host
   $rc = $LASTEXITCODE
   $short = ''
   try { $short = ((cmd /c "git rev-parse --short HEAD 2>&1") | Out-String).Trim() } catch { }
 
   switch ($rc) {
     0 {
-      # update.js has already written the status message (up to date / skipped)
+      Show-LastStatus
       exit 0
     }
     10 {
       Write-UpdateStatus 'running' "Downloaded $short - restarting..."
-      if ((Restart-App) -eq 0) {
+      Restart-App
+      if ($script:RestartResult -eq 0) {
         Write-UpdateStatus 'done' "Updated to $short and restarted"
+        Write-Host "Updated to $short and restarted."
         exit 0
       }
       Write-UpdateStatus 'error' "Downloaded $short but restart failed - run npm start"
+      Write-Host "Downloaded $short but the restart failed - run: npm start"
       exit 1
     }
     20 {
+      Show-LastStatus
       Write-Host 'The new version failed its safety check, so it was rolled back. The dashboard was not restarted.'
       exit 20
     }
     1 {
       Write-UpdateStatus 'error' 'Could not reach GitHub'
+      Write-Host 'Could not reach GitHub - check the internet connection.'
       exit 1
     }
     default {
-      Write-UpdateStatus 'error' "Update failed (code $rc)"
+      Show-LastStatus
+      Write-Host "The update did not complete (code $rc). Full details: type data\update-status.json"
+      Write-Host 'If it says git reset failed, close anything using files in this folder (editors, other terminals) and try again.'
       exit $rc
     }
   }
@@ -181,12 +204,12 @@ $arg2 = if ($args.Count -gt 1) { "$($args[1])" } else { '' }
 switch -Regex ($arg) {
   '^(--check|--version|-v)$' {
     if (-not (Test-Prereqs)) { exit 2 }
-    & node (Join-Path $Dir 'scripts\update.js') --check
+    & node (Join-Path $Dir 'scripts\update.js') --check | Out-Host
     exit $LASTEXITCODE
   }
   '^(--update|-u)$'          { Do-Update; break }
   '^(--force-update|-f)$'    { Do-Update -Force; break }
-  '^(--restart|-r)$'         { exit (Restart-App) }
+  '^(--restart|-r)$'         { Restart-App; exit $script:RestartResult }
   '^--set-pin$'              { Set-Pin $arg2; break }
   '^--clear-pin$'            {
     Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path $Dir 'data\edit-pin')

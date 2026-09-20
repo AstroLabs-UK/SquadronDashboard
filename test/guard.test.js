@@ -36,3 +36,14 @@ test('onlyMissing restore never overwrites files that exist', () => {
 test('restore does nothing when there is no snapshot', () => {
   assert.equal(guard.restore(tmp(), tmp()), false);
 });
+
+test('a backup for an app in a drive/filesystem root goes to the home folder, not the root', () => {
+  const saved = process.env.DATA_BACKUP_DIR;
+  delete process.env.DATA_BACKUP_DIR;
+  try {
+    const rootApp = path.parse(os.tmpdir()).root + 'SquadronDashboard';
+    assert.equal(guard.defaultSnapshotDir(rootApp), path.join(os.homedir(), '.squadron-dashboard-backup'));
+    const nested = path.join(os.tmpdir(), 'x', 'SquadronDashboard');
+    assert.equal(guard.defaultSnapshotDir(nested), path.join(path.dirname(nested), '.squadron-dashboard-backup'));
+  } finally { if (saved !== undefined) process.env.DATA_BACKUP_DIR = saved; }
+});

@@ -132,7 +132,8 @@ sync_code() {
     if [ -f "$f" ] && [ ! -f "data/$f" ]; then cp -p "$f" "data/$f"; fi
   done
   # Settings safety copy lives OUTSIDE the app folder, so even a wiped data/ can be recovered
-  SNAP="${DATA_BACKUP_DIR:-$(dirname "$DIR")/.squadron-dashboard-backup}"
+  SNAP_BASE="$(dirname "$DIR")"; [ "$SNAP_BASE" = "/" ] && SNAP_BASE="$HOME"
+  SNAP="${DATA_BACKUP_DIR:-$SNAP_BASE/.squadron-dashboard-backup}"
   if [ ! -f data/data.json ] && [ -f "$SNAP/data.json" ]; then
     echo "[update] settings were missing - restoring them from $SNAP"
     cp -a "$SNAP/." data/

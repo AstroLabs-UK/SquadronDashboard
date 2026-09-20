@@ -189,3 +189,25 @@ test('the settings snapshot is kept outside the app folder', async () => {
   await checkAndUpdate({ cwd: w.device, dataDir: w.dataDir, snapDir: snap });
   assert.equal(fs.readFileSync(path.join(snap, 'data.json'), 'utf8'), SETTINGS);
 });
+
+// ---- update.js exit codes (the Windows helper decides what to tell the user from these) ----
+const { codeForResult } = require('../scripts/update');
+test('every outcome maps to a distinct, non-silent exit code', () => {
+  assert.equal(codeForResult({ updated: true }), 10);
+  assert.equal(codeForResult({ updated: false, rolledBack: true }), 20);
+  assert.equal(codeForResult({ updated: false, reason: 'fetch failed' }), 1);
+  assert.equal(codeForResult({ updated: false, reason: 'reset failed' }), 4);
+  assert.equal(codeForResult({ updated: false, reason: 'no remote ref' }), 3);
+  assert.equal(codeForResult({ updated: false, reason: 'up to date' }), 0);
+});
+
+test('a stale .git/index.lock no longer blocks an update', async () => {
+  const w = makeWorld();
+  w.publish('v1.1.0');
+  const lock = path.join(w.device, '.git', 'index.lock');
+  fs.writeFileSync(lock, '');
+  const old = new Date(Date.now() - 5 * 60 * 1000);
+  fs.utimesSync(lock, old, old);
+  const r = await checkAndUpdate({ cwd: w.device, dataDir: w.dataDir });
+  assert.equal(r.updated, true, JSON.stringify(r));
+});
