@@ -166,8 +166,8 @@ app.get('/api/data', apiLimiter, (req, res) => {
   const body = { ...visible, icsUrlSet: !!data.icsUrl };
   const etag = '"' + crypto.createHash('sha1').update(JSON.stringify(body)).digest('hex') + '"';
   res.set('ETag', etag);
-  res.set('Cache-Control', 'private, no-cache');
-  if (req.headers['if-none-match'] === etag) return res.status(304).end();
+  // Always send the body. A bare 304 with no body breaks dashboard/edit fetch().json().
+  res.set('Cache-Control', 'no-store');
   res.json(body);
 });
 

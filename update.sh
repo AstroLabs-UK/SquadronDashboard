@@ -268,9 +268,18 @@ start_app() {
     fi
     echo "[start] systemd start failed - falling back to node"
   fi
-  # Bare-metal fallback: run node in the background if nothing is listening yet
+  # Bare-metal fallback: ensure no duplicate node instances, then start one
   if command -v node >/dev/null 2>&1; then
     mkdir -p "$DIR/data"
+    # Stop any previous node server.js for this app so settings stay consistent
+    pids="$(pgrep -f "node ([^ ]*/)?server\.js" 2>/dev/null || true)"
+    for pid in $pids; do
+      kill "$pid" 2>/dev/null || true
+    done
+    sleep 0.5
+    for pid in $pids; do
+      kill -9 "$pid" 2>/dev/null || true
+    done
     npm install --omit=dev --quiet 2>/dev/null || true
     nohup node "$DIR/server.js" >>"$DIR/data/sqndash.log" 2>&1 &
     echo "[start] started node in the background (http://localhost:3000) - log: data/sqndash.log"

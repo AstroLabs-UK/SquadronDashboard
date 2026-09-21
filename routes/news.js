@@ -25,7 +25,7 @@ module.exports = function newsRoutes({ cacheDir } = {}) {
             throw new Error('news feed returned no articles');
           }
           return items;
-        }, { retries: 2, label: 'news' });
+        }, { retries: 1, delaysMs: [600], label: 'news' });
       });
       res.set('Cache-Control', 'public, max-age=60');
       res.json({ items: value, stale, updatedAt, source: 'bbc' });

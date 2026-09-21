@@ -51,9 +51,10 @@ function createStore({ dir, defaults, legacyDir, snapDir }) {
   const dataFile = path.join(dir, 'data.json');
   const backupFile = path.join(dir, 'data.backup.json');
   fs.mkdirSync(dir, { recursive: true });
-  // In-memory cache: every /api/* path used to re-read data.json from the SD card.
-  // Cache is invalidated on save; a single process never serves a stale copy of its own writes.
+  // In-memory cache with mtime check: avoids constant SD reads, but still picks up
+  // changes written by another process (or a second instance) when data.json changes.
   let mem = null;
+  let memMtime = null;
 
   function withDefaults(d) {
     return {
@@ -84,20 +85,24 @@ function createStore({ dir, defaults, legacyDir, snapDir }) {
     if (!fs.existsSync(backupFile)) {
       try { writeFileDurable(backupFile, json); } catch (e) { /* best effort */ }
     }
-    mem = withDefaults(data); // keep RAM in sync so the next load() skips disk
+    mem = withDefaults(data);
+    try { memMtime = fs.statSync(dataFile).mtimeMs; } catch (e) { memMtime = null; }
   }
 
   function tryLoadFile(file, label) {
     const parsed = readJsonObject(file);
     console.warn('[storage] restored data.json from ' + label);
     try { writeFileDurable(dataFile, JSON.stringify(parsed, null, 2)); } catch (e3) { /* best effort */ }
+    try { memMtime = fs.statSync(dataFile).mtimeMs; } catch (e) { memMtime = null; }
     return withDefaults(parsed);
   }
 
   function load() {
-    if (mem) return mem;
     try {
+      const st = fs.statSync(dataFile);
+      if (mem && memMtime === st.mtimeMs) return mem;
       mem = withDefaults(readJsonObject(dataFile));
+      memMtime = st.mtimeMs;
       return mem;
     } catch (e) {
       console.warn('[storage] data.json missing or corrupt (' + e.message + ') - trying previous settings backup');
