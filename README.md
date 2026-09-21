@@ -1,6 +1,6 @@
 # Squadron Dashboard
 
-**Release 1.5.4**
+**Release 1.6**
 
 A self-hosted room display for RAF Air Cadets (and similar organisations): clock, weather, news, individual + flight leaderboard, events, Instagram, and custom embed widgets — plus a phone-friendly **edit** page and a **status** page.
 
@@ -8,9 +8,9 @@ A self-hosted room display for RAF Air Cadets (and similar organisations): clock
 
 ---
 
-## What's new in 1.5
+## What's new in 1.6
 
-Release 1.5 is a **hardening and tidy-up patch**. There are no new panels: the goal is a dashboard that is safer to leave running on a shared network, harder to break with a bad update, and easier to keep working on. The features planned for after it are listed under [Future updates](#future-updates).
+Release 1.6 is a **hardening and tidy-up patch**. There are no new panels: the goal is a dashboard that is safer to leave running on a shared network, harder to break with a bad update, and easier to keep working on. The features planned for after it are listed under [Future updates](#future-updates).
 
 ### Security fixes
 
@@ -23,14 +23,14 @@ Release 1.5 is a **hardening and tidy-up patch**. There are no new panels: the g
 ### Reliability fixes
 
 - **Proper CSV parsing.** The old parser dropped every quote character, so escaped quotes and line breaks inside a cell scrambled the leaderboard. It now follows the CSV standard (quoted commas, `""`, multi-line cells, BOM, any line ending).
-- **Updates follow releases, not `main`.** Devices update to the newest tagged release (`v1.5.0`, `v1.6.0`…). A half-finished commit on `main` can no longer reach a room screen. A test device can still follow `main` with `sqndash --channel main`. A device that is already ahead of the target is never downgraded.
+- **Updates follow releases, not `main`.** Devices update to the newest tagged release (`v1.6.0`, `v1.6.0`…). A half-finished commit on `main` can no longer reach a room screen. A test device can still follow `main` with `sqndash --channel main`. A device that is already ahead of the target is never downgraded.
 - **Updates test themselves and roll back.** On Windows/bare Node the new code is started on a spare port and must answer `/healthz` *before* the live dashboard switches to it. On the Pi the restarted dashboard must answer `/healthz` within about 90 seconds. If it doesn't, the device goes back to the previous version and remembers the bad release so it isn't retried every 30 minutes. See [Updating](#updating).
 - **`npm install` only when dependencies changed**, so updates are quicker and work with a flaky connection.
 - **Docker image fixed.** `autoUpdate.js` was missing from the image, so a container built from the old Dockerfile could not start. The image now copies every module, has a health check, and uses the lockfile when there is one.
-- **Settings can no longer be wiped by an update (1.5.1).** Two ways it could happen are closed: a release that is missing `.gitignore` (easy to do when uploading files by hand, because dotfiles are hidden) made the update's `git clean` delete `data/`, and a release that accidentally tracked `data/data.json` overwrote it. Updates now keep a snapshot of `data/` in a hidden folder *outside* the app folder (`.squadron-dashboard-backup`, next to it), put it back straight after the code is swapped, and `git clean` is told never to touch `data/`. The server also restores any missing settings from that snapshot when it starts, and refreshes the snapshot after every save.
-- **The dashboard always comes back after an update (1.5.2).** The in-app restart no longer relies on shell commands that break on paths with spaces; it uses a small Node helper that waits, then launches the new copy. On a Pi, the service is now `Restart=always` (so even a "clean" exit restarts it), every update run starts the dashboard if it found it stopped, and the update script double-checks it is running after the restart. Existing Pis get the new restart policy automatically on the next update run.
-- **Windows updates are no longer silent (1.5.3).** `sqndash --update` / `--force-update` used to end without a word when something went wrong, because the result line was lost when the helper exited. Every outcome now prints what happened and the recorded reason (also in `data\update-status.json`), and each failure has its own exit code. A `git reset` that fails because of a briefly locked file or a stale `.git\index.lock` is retried automatically. The settings backup for an app in a drive root (e.g. `C:\SquadronDashboard`) goes to your user folder instead of `C:\`.
-- **Start-up housekeeping (1.5.4).** When the dashboard starts it silently deletes any file named exactly `temp` (no extension) inside the app folder. It skips `node_modules`, `.git` and `data/`, follows no shortcuts, and prints nothing.
+- **Settings can no longer be wiped by an update (1.6.1).** Two ways it could happen are closed: a release that is missing `.gitignore` (easy to do when uploading files by hand, because dotfiles are hidden) made the update's `git clean` delete `data/`, and a release that accidentally tracked `data/data.json` overwrote it. Updates now keep a snapshot of `data/` in a hidden folder *outside* the app folder (`.squadron-dashboard-backup`, next to it), put it back straight after the code is swapped, and `git clean` is told never to touch `data/`. The server also restores any missing settings from that snapshot when it starts, and refreshes the snapshot after every save.
+- **The dashboard always comes back after an update (1.6.2).** The in-app restart no longer relies on shell commands that break on paths with spaces; it uses a small Node helper that waits, then launches the new copy. On a Pi, the service is now `Restart=always` (so even a "clean" exit restarts it), every update run starts the dashboard if it found it stopped, and the update script double-checks it is running after the restart. Existing Pis get the new restart policy automatically on the next update run.
+- **Windows updates are no longer silent (1.6.3).** `sqndash --update` / `--force-update` used to end without a word when something went wrong, because the result line was lost when the helper exited. Every outcome now prints what happened and the recorded reason (also in `data\update-status.json`), and each failure has its own exit code. A `git reset` that fails because of a briefly locked file or a stale `.git\index.lock` is retried automatically. The settings backup for an app in a drive root (e.g. `C:\SquadronDashboard`) goes to your user folder instead of `C:\`.
+- **Start-up housekeeping (1.6).** When the dashboard starts it silently deletes any file named exactly `temp` (no extension) inside the app folder. It skips `node_modules`, `.git` and `data/`, follows no shortcuts, and prints nothing.
 - **Panels survive a wifi wobble.** Weather, news headlines and the leaderboard are cached, and if the source is unreachable the last good data is shown for up to six hours (`"stale": true` in the API) instead of a blank panel. All outgoing requests have timeouts.
 - **Large settings save.** The request size limit is raised so a squadron with many big embed widgets can save.
 - **Leaderboard re-renders when names change**, not only when the number of rows changes.
@@ -247,7 +247,7 @@ Your settings live in the **`data/`** folder (git-ignored). Updates **never** ov
 
 | Channel | Follows | Use for |
 |---------|---------|---------|
-| **release** (default) | The newest tag like `v1.5.0` | Room screens |
+| **release** (default) | The newest tag like `v1.6.0` | Room screens |
 | **main** | The tip of the `main` branch | A test device that should always be latest |
 
 Change it with `sqndash --channel main` / `sqndash --channel release` (or the `UPDATE_CHANNEL` environment variable). A device that is already at or ahead of its target is left alone rather than downgraded. If the repository has no release tags yet, the release channel falls back to `main`.
@@ -266,11 +266,11 @@ Change it with `sqndash --channel main` / `sqndash --channel release` (or the `U
 ```bash
 git checkout main && git pull
 # bump "version" in package.json, update this README, merge, then:
-git tag v1.5.0
-git push origin v1.5.0
+git tag v1.6.0
+git push origin v1.6.0
 ```
 
-Devices on the release channel pick the tag up within about 30 minutes (Pi) or 5 minutes (Windows). Tags must look like `vMAJOR.MINOR.PATCH`; other tags such as `v1.5.0-beta` are ignored.
+Devices on the release channel pick the tag up within about 30 minutes (Pi) or 5 minutes (Windows). Tags must look like `vMAJOR.MINOR.PATCH`; other tags such as `v1.6.0-beta` are ignored.
 
 ### Check local vs GitHub
 
@@ -307,7 +307,7 @@ You will be asked to confirm before it runs on Windows.
 ```bash
 cd /path/to/SquadronDashboard
 git fetch --tags origin
-git reset --hard v1.5.0        # or origin/main
+git reset --hard v1.6.0        # or origin/main
 git clean -fd
 npm install --omit=dev
 # restart: npm start   or   docker compose up -d --build
@@ -462,13 +462,13 @@ Outbound HTTPS is required for weather, sheet CSV, and most embed widgets.
 
 ## Future updates
 
-Ideas queued for releases after 1.5. Nothing here is built yet.
+Ideas queued for releases after 1.6. Nothing here is built yet.
 
 ### Dashboard features
 
 - **Live events feed:** pull events from an `.ics` calendar (Google Calendar) so they don't need retyping on `/edit`, with real dates so recurring "Every Thursday" entries can be generated.
 - **Auto-hide expired events** once dates are real dates instead of free text.
-- **Offline mode:** a small "last updated 14:32" stamp per panel, on top of the stale-data caching that arrives in 1.5.
+- **Offline mode:** a small "last updated 14:32" stamp per panel, on top of the stale-data caching that arrives in 1.6.
 - **Themes:** a dark mode for evening parade nights, plus a "parade night" view showing tonight's programme.
 - **Birthday and promotion shout-outs, and "cadet of the month"** panels, driven from the sheet.
 - **Uniform and dress-of-the-day panel.**
@@ -483,7 +483,7 @@ Ideas queued for releases after 1.5. Nothing here is built yet.
 - **Award and badge tracker:** DOJO-style gamification for cadet proficiency levels, with photo or instructor sign-off.
 - **Multi-squadron version:** configurable enough that another unit can install it with one command and its own theme.
 
-### Follow-ups from 1.5
+### Follow-ups from 1.6
 
 - Commit a `package-lock.json` (generate it with `npm install`, then commit it) so Pi installs are reproducible; the Dockerfile and CI will then use it automatically.
 - Run the Docker image as a non-root user.
@@ -496,4 +496,4 @@ See [LICENSE](LICENSE) in the repository.
 
 ---
 
-**Squadron Dashboard 1.5.4** — self-hosted, settings-safe updates, room-ready display for your unit.
+**Squadron Dashboard 1.6** — self-hosted, settings-safe updates, room-ready display for your unit.
