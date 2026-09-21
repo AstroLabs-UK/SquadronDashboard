@@ -19,6 +19,7 @@ Squadron Dashboard
 
   sqndash                  start the dashboard service
   sqndash --start          same as above
+  sqndash --stop           stop all running dashboard instances
   sqndash --check          compare local version to the update target (also: --version)
   sqndash --update         update if there's a newer release, then restart
   sqndash --force-update   re-download even if already up to date, then restart
@@ -52,6 +53,7 @@ set_pin() {
 
 case "${1:-}" in
   ""|--start)   exec bash "$DIR/update.sh" --start ;;
+  --stop)       exec bash "$DIR/update.sh" --stop ;;
   --check|--version|-v) exec bash "$DIR/update.sh" --check ;;
   --update|-u)  exec bash "$DIR/update.sh" ;;
   --force-update|-f) exec bash "$DIR/update.sh" --force ;;

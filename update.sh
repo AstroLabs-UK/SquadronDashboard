@@ -282,6 +282,80 @@ start_app() {
 
 # Step 3 - wait for the restarted app to answer /healthz (up to ~90 s).
 # If this Pi has neither curl nor wget the check is skipped rather than failing every update.
+
+# Stop every running instance of the dashboard (systemd, Docker, and stray node processes).
+stop_app() {
+  echo "[stop] stopping the dashboard..."
+  local stopped=0
+
+  if uses_docker; then
+    if $SUDO docker compose down 2>/dev/null; then
+      echo "[stop] Docker container stopped"
+      stopped=1
+    fi
+  fi
+
+  if command -v systemctl >/dev/null 2>&1 && [ -f /etc/systemd/system/squadron-dashboard.service ]; then
+    if systemctl is-active --quiet squadron-dashboard.service 2>/dev/null \
+       || systemctl is-active --quiet squadron-dashboard.service 2>/dev/null; then
+      $SUDO systemctl stop squadron-dashboard.service 2>/dev/null || true
+      echo "[stop] systemd service stopped"
+      stopped=1
+    else
+      $SUDO systemctl stop squadron-dashboard.service 2>/dev/null || true
+    fi
+  fi
+
+  # Kill any node process serving this app (covers bare `npm start` / nohup fallbacks and duplicates)
+  local pids
+  pids="$(pgrep -f "node ([^ ]*/)?server\.js" 2>/dev/null || true)"
+  if [ -n "$pids" ]; then
+    # Prefer processes whose cwd or command line includes this install directory
+    local pid cmd killed_any=0
+    for pid in $pids; do
+      cmd="$(ps -p "$pid" -o args= 2>/dev/null || true)"
+      case "$cmd" in
+        *"$DIR"*|*server.js*)
+          kill "$pid" 2>/dev/null || true
+          sleep 0.2
+          kill -9 "$pid" 2>/dev/null || true
+          killed_any=1
+          ;;
+      esac
+    done
+    # If none matched the path (e.g. `node server.js` from inside DIR), stop all server.js node processes
+    if [ "$killed_any" -eq 0 ]; then
+      for pid in $pids; do
+        kill "$pid" 2>/dev/null || true
+        sleep 0.2
+        kill -9 "$pid" 2>/dev/null || true
+      done
+      killed_any=1
+    fi
+    if [ "$killed_any" -eq 1 ]; then
+      echo "[stop] stopped node server process(es)"
+      stopped=1
+    fi
+  fi
+
+  # Also free the configured port if something is still bound to it
+  local port="${PORT:-3000}"
+  if command -v fuser >/dev/null 2>&1; then
+    if fuser "${port}/tcp" >/dev/null 2>&1; then
+      $SUDO fuser -k "${port}/tcp" >/dev/null 2>&1 || fuser -k "${port}/tcp" >/dev/null 2>&1 || true
+      echo "[stop] cleared port ${port}"
+      stopped=1
+    fi
+  fi
+
+  if [ "$stopped" -eq 0 ]; then
+    echo "[stop] no running dashboard instance found"
+  else
+    echo "[stop] done"
+  fi
+  return 0
+}
+
 wait_healthy() {
   local probe=""
   if command -v curl >/dev/null 2>&1; then probe="curl -fsS -m 3 -o /dev/null"
@@ -314,6 +388,7 @@ case "${1:-}" in
   --sync)    [ "${2:-}" = "force" ] && FORCE=1; sync_code; exit $? ;;
   --restart) restart_app; rc=$?; [ $rc -eq 0 ] && echo "[update] done - the screen reloads itself within about 10 seconds"; exit $rc ;;
   --start) start_app; exit $? ;;
+  --stop) stop_app; exit $? ;;
   --force)   FORCE=1 ;;
 esac
 

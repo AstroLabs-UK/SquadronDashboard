@@ -70,24 +70,49 @@ const DEFAULT_DATA = {
 const SNAP_DIR = guard.defaultSnapshotDir(__dirname);
 const guardActive = !process.env.CANARY;
 if (guardActive) {
-  // Prefer the external current-settings snapshot over empty/missing data/.
+  // Recover settings carefully: never replace a good in-app file with an older/empty snapshot.
   const main = path.join(DATA_DIR, 'data.json');
-  let mainOk = false;
-  try {
-    if (fs.existsSync(main)) {
-      const o = JSON.parse(fs.readFileSync(main, 'utf8'));
-      mainOk = o && typeof o === 'object' && !Array.isArray(o);
+  const backup = path.join(DATA_DIR, 'data.backup.json');
+  const readable = (file) => {
+    try {
+      if (!fs.existsSync(file)) return false;
+      const o = JSON.parse(fs.readFileSync(file, 'utf8'));
+      return !!(o && typeof o === 'object' && !Array.isArray(o));
+    } catch (e) { return false; }
+  };
+  const mainOk = readable(main);
+  const backupOk = readable(backup);
+  if (!mainOk && backupOk) {
+    try {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+      fs.copyFileSync(backup, main);
+      console.warn('[storage] restored data.json from data.backup.json (previous settings)');
+    } catch (e) {
+      console.warn('[storage] could not restore from data.backup.json:', e && e.message ? e.message : e);
     }
-  } catch (e) { mainOk = false; }
-  if (!mainOk && guard.restore(DATA_DIR, SNAP_DIR, { onlyMissing: false })) {
-    console.warn('[storage] restored current settings from ' + SNAP_DIR);
-  } else if (!fs.existsSync(main) && guard.restore(DATA_DIR, SNAP_DIR, { onlyMissing: true })) {
-    console.warn('[storage] settings were missing - restored them from ' + SNAP_DIR);
+  } else if (!mainOk && !backupOk) {
+    // Only then fall back to the external sqndash-data-backup snapshot.
+    if (guard.restore(DATA_DIR, SNAP_DIR, { onlyMissing: false })) {
+      console.warn('[storage] restored current settings from ' + SNAP_DIR);
+    } else if (guard.restore(DATA_DIR, SNAP_DIR, { onlyMissing: true })) {
+      console.warn('[storage] settings were missing - restored them from ' + SNAP_DIR);
+    }
   }
 }
 try { fs.mkdirSync(CACHE_DIR, { recursive: true }); } catch (e) { /* best effort */ }
 const store = createStore({ dir: DATA_DIR, defaults: DEFAULT_DATA, legacyDir: __dirname, snapDir: guardActive ? SNAP_DIR : null });
-if (guardActive) guard.snapshot(DATA_DIR, SNAP_DIR);
+if (guardActive) {
+  try {
+    const main = path.join(DATA_DIR, 'data.json');
+    if (fs.existsSync(main)) {
+      const o = JSON.parse(fs.readFileSync(main, 'utf8'));
+      // Snapshot only when we have real saved settings (not a missing/empty bootstrap).
+      if (o && typeof o === 'object' && (o.squadronName || o.location || o.widgets)) {
+        guard.snapshot(DATA_DIR, SNAP_DIR);
+      }
+    }
+  } catch (e) { /* skip startup snapshot if unreadable */ }
+}
 
 // ---------- protection ----------
 // General limit for the API (the kiosk polls a few times a minute, so this is generous),

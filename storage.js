@@ -115,9 +115,14 @@ function createStore({ dir, defaults, legacyDir, snapDir }) {
             console.warn('[storage] external snapshot also unusable (' + eSnap.message + ')');
           }
         }
-        console.warn('[storage] no usable settings backup - using built-in defaults');
+        console.warn('[storage] no usable settings backup - using built-in defaults (not writing over existing files)');
         const fresh = withDefaults({});
-        try { save(fresh); } catch (e4) { /* still serve defaults */ }
+        // Only seed disk when there is nothing to protect. Never clobber a file that exists
+        // (even if unreadable) with factory defaults — that is how real /edit settings get wiped.
+        const hadAny = fs.existsSync(dataFile) || fs.existsSync(backupFile);
+        if (!hadAny) {
+          try { save(fresh); } catch (e4) { /* still serve defaults */ }
+        }
         mem = fresh;
         return fresh;
       }

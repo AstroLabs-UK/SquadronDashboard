@@ -480,6 +480,7 @@ let data = null;
 let statusTimer = null;
 let savedSnapshot = null;
 let updateInProgress = false;
+let loadOk = false;
 
 function todayLocal() { return new Date().toLocaleDateString('en-CA'); }
 
@@ -652,6 +653,7 @@ function updateForceButton() {
   }, 0)));
 
 async function load() {
+  loadOk = false;
   data = await (await fetch('/api/data')).json();
   document.getElementById('squadronName').value = data.squadronName;
   document.getElementById('locName').value = data.location.name;
@@ -687,6 +689,7 @@ async function load() {
   updateForceButton();
   euVisibleLimit = EU_DEFAULT;
   applyEuLimit();
+  loadOk = true;
   loadVersionInfo();
 }
 
@@ -697,6 +700,7 @@ const AUTO_SAVE_MS = 30 * 1000;
 function scheduleAutoSave() {
   clearTimeout(autoSaveTimer);
   autoSaveTimer = null;
+  if (!loadOk) return;
   if (!hasUnsavedChanges()) return;
   autoSaveTimer = setTimeout(() => {
     autoSaveTimer = null;
