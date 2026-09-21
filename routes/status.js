@@ -2,6 +2,7 @@ const fs = require('fs');
 const express = require('express');
 const { git } = require('../lib/git');
 const sysinfo = require('../lib/sysinfo');
+const { getRegisteredStats } = require('../lib/cache');
 
 // Diagnostic info only - never exposes secrets, tokens, or raw config values,
 // just reachability / configured-or-not indicators.
@@ -10,6 +11,26 @@ async function probe(url, ms = 5000) {
     const r = await fetch(url, { signal: AbortSignal.timeout(ms) });
     return r.ok ? 'ONLINE' : 'WARNING';
   } catch (e) { return 'OFFLINE'; }
+}
+
+function sourceStatus(stats, probeResult) {
+  if (!stats) return probeResult || 'WARNING';
+  if (stats.usingStale) return 'WARNING';
+  if (stats.consecutiveFailures > 0 && !stats.hasCache) return 'OFFLINE';
+  if (probeResult === 'OFFLINE' && stats.hasCache) return 'WARNING';
+  return probeResult || (stats.hasCache ? 'ONLINE' : 'WARNING');
+}
+
+function fmtSource(stats) {
+  if (!stats) return null;
+  return {
+    lastSuccessAt: stats.lastSuccessAt || null,
+    lastErrorAt: stats.lastErrorAt || null,
+    lastError: stats.lastError || null,
+    consecutiveFailures: stats.consecutiveFailures || 0,
+    usingCachedData: !!stats.usingStale,
+    hasCache: !!stats.hasCache
+  };
 }
 
 module.exports = function statusRoutes({ store, cwd, requireEditor, calendar }) {
@@ -24,6 +45,7 @@ module.exports = function statusRoutes({ store, cwd, requireEditor, calendar }) 
 
   router.get('/api/status', async (req, res) => {
     const data = store.load();
+    const caches = getRegisteredStats();
     const status = {
       serverStatus: 'ONLINE',
       uptimeSeconds: Math.floor(process.uptime()),
@@ -40,28 +62,37 @@ module.exports = function statusRoutes({ store, cwd, requireEditor, calendar }) 
 
     const [weather, sheet] = await Promise.all([
       probe(`https://api.open-meteo.com/v1/forecast?latitude=${data.location.lat}&longitude=${data.location.lon}&current=temperature_2m`),
-      data.leaderboardCsvUrl ? probe(data.leaderboardCsvUrl) : Promise.resolve('WARNING') // WARNING = not configured
+      data.leaderboardCsvUrl ? probe(data.leaderboardCsvUrl) : Promise.resolve('WARNING')
     ]);
-    status.weatherApi = weather;
-    status.leaderboardCsv = sheet;
-    // Calendar feed (cached - this doesn't add extra requests to Google)
+    status.weatherApi = sourceStatus(caches.weather, weather);
+    status.leaderboardCsv = data.leaderboardCsvUrl
+      ? sourceStatus(caches.leaderboard, sheet)
+      : 'WARNING';
+    status.newsWidget = sourceStatus(caches.news, caches.news && caches.news.hasCache ? 'ONLINE' : 'WARNING');
+
+    status.sources = {
+      weather: fmtSource(caches.weather),
+      news: fmtSource(caches.news),
+      leaderboard: fmtSource(caches.leaderboard)
+    };
+
+    // Calendar feed (cached - this doesn't add extra requests to Google beyond calendar service)
     const cal = calendar ? await calendar.get() : { configured: false };
     status.calendar = !cal.configured ? 'WARNING' : !cal.ok ? 'OFFLINE' : cal.stale ? 'WARNING' : 'ONLINE';
     status.calendarInfo = {
       configured: !!cal.configured,
       events: cal.configured && cal.ok ? cal.events.length : null,
       updatedAt: cal.updatedAt || null,
-      error: cal.error || undefined
+      error: cal.error || undefined,
+      usingCachedData: !!cal.stale
     };
     status.system = sysinfo.collect({ dir: cwd });
-    status.newsWidget = 'ONLINE'; // built-in BBC scrape – always available
     status.instagramWidget = (data.instagramEmbedCode && data.instagramEmbedCode.trim()) ? 'ONLINE' : 'WARNING';
 
     const head = await git(['rev-parse', '--short', 'HEAD'], { cwd });
     if (!head.ok) {
       status.git = { checkout: false, status: 'WARNING', reason: 'Not a git checkout or git is not available on this system' };
     } else {
-      // Tracked changes only; ignore untracked noise. Skip data/ (gitignored settings).
       const st = await git(['status', '--porcelain', '--untracked-files=no'], { cwd });
       const meaningful = st.out.split('\n').filter(line => {
         if (!line) return false;

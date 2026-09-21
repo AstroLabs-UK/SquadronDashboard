@@ -839,9 +839,14 @@ async function loadNews() {
     }
     setStamp('newsPane', r.updatedAt, r.stale);
   } catch (e) {
-    list.innerHTML = '';
-    if (stamp) { stamp.textContent = ''; stamp.classList.remove('stale'); }
-    showError(list.parentElement || list, 'news', e.message || String(e));
+    // Do not erase headlines that were already showing.
+    if (list && list.querySelector('.news-card')) {
+      if (stamp) { stamp.textContent = 'Offline – last headlines kept'; stamp.classList.add('stale'); }
+    } else {
+      list.innerHTML = '';
+      if (stamp) { stamp.textContent = ''; stamp.classList.remove('stale'); }
+      showError(list.parentElement || list, 'news', e.message || String(e));
+    }
   }
 }
 
@@ -856,9 +861,15 @@ async function loadLeaderboard() {
     setStamp('lbPane', lb.updatedAt, lb.stale);
     renderLeaderboardFromCache();
   } catch (e) {
-    cachedLb = null;
-    lastLbKey = '';
-    showError(pane, 'leaderboard', e.message || String(e));
+    // Keep last good table; only show error if we never had data.
+    if (cachedLb && cachedLb.rows && cachedLb.rows.length) {
+      setStamp('lbPane', cachedLb.updatedAt, true);
+      renderLeaderboardFromCache();
+    } else {
+      cachedLb = null;
+      lastLbKey = '';
+      showError(pane, 'leaderboard', e.message || String(e));
+    }
   }
 }
 

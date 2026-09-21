@@ -17,6 +17,8 @@ const HOST = process.env.SQNDASH_HOST || '0.0.0.0';
 // Settings live in data/ (git-ignored, so updates never touch them). In Docker this
 // folder is a bind mount, so it also survives container rebuilds.
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
+// Last-good upstream payloads (weather/news/leaderboard) survive restarts here.
+const CACHE_DIR = process.env.CACHE_DIR || path.join(DATA_DIR, 'cache');
 
 app.disable('x-powered-by');
 app.use(securityHeaders);
@@ -83,6 +85,7 @@ if (guardActive) {
     console.warn('[storage] settings were missing - restored them from ' + SNAP_DIR);
   }
 }
+try { fs.mkdirSync(CACHE_DIR, { recursive: true }); } catch (e) { /* best effort */ }
 const store = createStore({ dir: DATA_DIR, defaults: DEFAULT_DATA, legacyDir: __dirname, snapDir: guardActive ? SNAP_DIR : null });
 if (guardActive) guard.snapshot(DATA_DIR, SNAP_DIR);
 
@@ -145,26 +148,47 @@ app.get('/api/data', apiLimiter, (req, res) => {
 
 app.post('/api/data', requireEditor, sensitiveLimiter, (req, res) => {
   try {
-    const updated = store.sanitize(store.load(), req.body);
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      return res.status(400).json({ ok: false, error: 'Invalid settings payload' });
+    }
+    const previous = store.load();
+    const updated = store.sanitize(previous, req.body);
     store.save(updated);
-    guard.snapshot(DATA_DIR, SNAP_DIR);
+    try { guard.snapshot(DATA_DIR, SNAP_DIR); } catch (snapErr) {
+      console.warn('[storage] external snapshot failed after save', snapErr && snapErr.message ? snapErr.message : snapErr);
+    }
     res.json({ ok: true, data: updated });
   } catch (e) {
     console.error('[storage] save failed', e);
+    // Previous valid configuration remains on disk; do not wipe it.
     res.status(500).json({ ok: false, error: 'save failed' });
   }
 });
 
 // ---------- API: weather / news / leaderboard / status / update ----------
 app.use(apiLimiter);
-app.use(require('./routes/weather')({ store }));
-app.use(require('./routes/news')());
-app.use(require('./routes/leaderboard')({ store }));
+app.use(require('./routes/weather')({ store, cacheDir: CACHE_DIR }));
+app.use(require('./routes/news')({ cacheDir: CACHE_DIR }));
+app.use(require('./routes/leaderboard')({ store, cacheDir: CACHE_DIR }));
 app.use(require('./routes/status')({ store, cwd: __dirname, requireEditor, calendar }));
 app.use(require('./routes/schedule')({ store, calendar }));
 app.use(control.router);
 app.use(require('./routes/config')({ store, dataDir: DATA_DIR, snapDir: SNAP_DIR, requireEditor, limiter: sensitiveLimiter }));
 app.use(require('./routes/update')({ cwd: __dirname, dataDir: DATA_DIR, requireEditor, limiter: sensitiveLimiter }));
+
+// Never let an unexpected handler crash the process; log and return a safe response.
+app.use((err, req, res, next) => {
+  console.error('[server] unhandled route error', req.method, req.path, err && err.stack ? err.stack : err);
+  if (res.headersSent) return next(err);
+  res.status(500).json({ ok: false, error: 'internal error' });
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[server] uncaughtException', err && err.stack ? err.stack : err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[server] unhandledRejection', reason && reason.stack ? reason.stack : reason);
+});
 
 if (require.main === module) {
   if (!process.env.CANARY) removeTempFiles(__dirname); // silent start-up housekeeping
