@@ -114,16 +114,91 @@
       align-items: start;
     }
   }
+  .event-row.is-hidden, .uniform-row.is-hidden { display: none; }
+
+  /* Expand / collapse bar (bottom of Events + Uniform) */
   .eu-toolbar {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 10px;
     align-items: center;
-    margin-top: 18px;
+    justify-content: center;
+    margin: 14px 0 4px;
+    padding: 12px 10px;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(7, 21, 37, 0.05);
   }
-  .eu-toolbar .hint { margin: 0; flex: 1 1 auto; }
-  .eu-toolbar button { margin-top: 0; }
-  .event-row.is-hidden, .uniform-row.is-hidden { display: none; }
+  .eu-toolbar .hint {
+    margin: 0;
+    flex: 1 1 100%;
+    text-align: center;
+    order: 3;
+  }
+  @media (min-width: 480px) {
+    .eu-toolbar .hint {
+      flex: 1 1 auto;
+      text-align: left;
+      order: 0;
+    }
+  }
+  .eu-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 0;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 10px 16px;
+    background: var(--white);
+    color: var(--raf-navy);
+    border: 1.5px solid var(--raf-navy);
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    font-family: inherit;
+    touch-action: manipulation;
+    transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
+  }
+  .eu-icon-btn svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2.25;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .eu-icon-btn:hover:not(:disabled) {
+    background: var(--raf-navy);
+    color: var(--white);
+    box-shadow: 0 2px 10px rgba(0, 32, 91, 0.25);
+  }
+  .eu-icon-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 102, 161, 0.35);
+  }
+  .eu-icon-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    border-color: var(--border);
+    color: var(--muted);
+  }
+  .eu-icon-btn.collapse {
+    border-color: var(--raf-blue);
+    color: var(--raf-blue);
+  }
+  .eu-icon-btn.collapse:hover:not(:disabled) {
+    background: var(--raf-blue);
+    color: var(--white);
+    border-color: var(--raf-blue);
+  }
 
   .checks {
     display: grid;
@@ -343,11 +418,6 @@
 <label for="importantInfoMessage">Message</label>
 <textarea id="importantInfoMessage" rows="2" placeholder="Banner text"></textarea>
 
-<div class="eu-toolbar">
-  <button class="add" type="button" id="euExpandBtn" onclick="expandEu()">Expand</button>
-  <button class="add" type="button" id="euCollapseBtn" onclick="collapseEu()">Collapse</button>
-  <span class="hint" id="euLimitHint"></span>
-</div>
 <div class="split-eu">
   <section>
     <h2>Events</h2>
@@ -359,6 +429,15 @@
     <div id="uniformContainer"></div>
     <button class="add" type="button" onclick="addUniform()">+ Add day</button>
   </section>
+</div>
+<div class="eu-toolbar" role="group" aria-label="Show more or fewer events and uniform days">
+  <span class="hint" id="euLimitHint"></span>
+  <button type="button" class="eu-icon-btn" id="euExpandBtn" onclick="expandEu()" title="Show 5 more">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Expand</span>
+  </button>
+  <button type="button" class="eu-icon-btn collapse" id="euCollapseBtn" onclick="collapseEu()" title="Show only 3">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg><span>Collapse</span>
+  </button>
 </div>
 
 <h2>Screens</h2>
