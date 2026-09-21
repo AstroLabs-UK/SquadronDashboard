@@ -1,5 +1,5 @@
 # Squadron Dashboard - Windows helper
-#   sqndash.cmd [--start] | --check | --update | --force-update | --restart | --set-pin | --channel | --help
+#   sqndash.cmd [--start] | --stop | --check | --update | --force-update | --restart | --set-pin | --channel | --help
 # Settings in data\ are kept. Updates and version checks are done by scripts\update.js (Node),
 # the same engine the dashboard itself uses: it follows the newest release tag (or main if there
 # are no tags yet), tests the new version before switching to it, and rolls back if that test fails.
@@ -20,6 +20,7 @@ Squadron Dashboard (Windows)
   sqndash --update           update if there's a newer release, then restart
   sqndash --force-update     re-download even if up to date, then restart
   sqndash --restart          restart only
+  sqndash --stop             stop ALL running dashboard instances (node + Docker)
   sqndash --set-pin [PIN]    set the PIN that protects the /edit page (4+ characters)
   sqndash --clear-pin        remove the PIN (anyone on the network can then edit)
   sqndash --channel [name]   show, or set, the update channel:
@@ -57,7 +58,14 @@ function Ensure-DataFolder {
   if (-not (Test-Path $dataDir)) { New-Item -ItemType Directory -Path $dataDir | Out-Null }
   $example = Join-Path $Dir 'data.example.json'
   $dataJson = Join-Path $dataDir 'data.json'
-  if (-not (Test-Path $dataJson) -and (Test-Path $example)) { Copy-Item $example $dataJson }
+  $backup = Join-Path $dataDir 'data.backup.json'
+  # Only seed factory defaults when there is no live file and no previous backup
+  if (-not (Test-Path $dataJson) -and -not (Test-Path $backup) -and (Test-Path $example)) {
+    Copy-Item $example $dataJson
+  } elseif (-not (Test-Path $dataJson) -and (Test-Path $backup)) {
+    Copy-Item $backup $dataJson
+    Write-Host '[storage] restored data.json from data.backup.json'
+  }
 }
 
 function Test-Prereqs {
@@ -70,6 +78,78 @@ function Test-Prereqs {
     return $false
   }
   return $true
+}
+
+
+# Stop every dashboard instance: Docker container, every node running server.js for this
+# install (and any other server.js node process as a fallback), and anything on port 3000.
+function Stop-App {
+  Write-Host '[stop] stopping all dashboard instances...'
+  $stopped = 0
+
+  if (Get-Command docker -ErrorAction SilentlyContinue) {
+    $names = cmd /c "docker ps -a --format {{.Names}} 2>nul"
+    if ("$names" -match 'squadron-dashboard') {
+      cmd /c "docker compose down" 2>$null | Out-Host
+      Write-Host '[stop] Docker container stopped'
+      $stopped = 1
+    }
+  }
+
+  $serverJs = Join-Path $Dir 'server.js'
+  $dirNorm = $Dir.TrimEnd('\', '/').ToLowerInvariant()
+  $nodeProcs = @(Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue)
+  foreach ($proc in $nodeProcs) {
+    $cmd = [string]$proc.CommandLine
+    if (-not $cmd) { continue }
+    $cmdLower = $cmd.ToLowerInvariant()
+    $match = $false
+    if ($cmdLower -like '*server.js*') {
+      # Prefer processes whose command line mentions this install directory
+      if ($cmdLower.Contains($dirNorm) -or $cmdLower -like '*server.js*') {
+        $match = $true
+      }
+    }
+    if ($match) {
+      Write-Host "[stop] killing node PID $($proc.ProcessId) — $cmd"
+      Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue
+      $stopped = 1
+    }
+  }
+
+  # Free port 3000 (and PORT env if set) if something is still listening
+  $port = if ($env:PORT) { $env:PORT } else { '3000' }
+  try {
+    $conns = Get-NetTCPConnection -LocalPort ([int]$port) -State Listen -ErrorAction SilentlyContinue
+    foreach ($c in $conns) {
+      if ($c.OwningProcess -and $c.OwningProcess -ne 0) {
+        Write-Host "[stop] killing PID $($c.OwningProcess) listening on port $port"
+        Stop-Process -Id $c.OwningProcess -Force -ErrorAction SilentlyContinue
+        $stopped = 1
+      }
+    }
+  } catch {
+    # Older Windows without Get-NetTCPConnection: try netstat
+    try {
+      $lines = netstat -ano | Select-String ":$port\s+.*LISTENING"
+      foreach ($line in $lines) {
+        $procId = ($line.ToString().Trim() -split '\s+')[-1]
+        if ($procId -match '^\d+$' -and [int]$procId -gt 0) {
+          Write-Host "[stop] killing PID $procId (netstat port $port)"
+          Stop-Process -Id ([int]$procId) -Force -ErrorAction SilentlyContinue
+          $stopped = 1
+        }
+      }
+    } catch { }
+  }
+
+  Start-Sleep -Seconds 1
+  if ($stopped -eq 0) {
+    Write-Host '[stop] no running dashboard instance found'
+  } else {
+    Write-Host '[stop] done — all matching instances stopped'
+  }
+  return 0
 }
 
 # Sets $script:RestartResult (0 = ok). Everything it runs is sent to the screen with Out-Host so
@@ -96,12 +176,8 @@ function Restart-App {
   }
 
   $serverJs = Join-Path $Dir 'server.js'
-  Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue |
-    Where-Object { $_.CommandLine -and $_.CommandLine -like "*$Dir*" -and $_.ProcessId -ne $PID } |
-    ForEach-Object {
-      Write-Host "[update] stopping node PID $($_.ProcessId)"
-      Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
-    }
+  # Stop every instance first (avoids two node processes serving different settings)
+  Stop-App | Out-Null
 
   Start-Sleep -Seconds 1
   if (Test-Path $serverJs) {
@@ -216,6 +292,7 @@ switch -Regex ($arg) {
   '^(--update|-u)$'          { Do-Update; break }
   '^(--force-update|-f)$'    { Do-Update -Force; break }
   '^(--restart|-r)$'         { Restart-App; exit $script:RestartResult }
+  '^(--stop)$'               { Stop-App; exit 0 }
   '^--set-pin$'              { Set-Pin $arg2; break }
   '^--clear-pin$'            {
     Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path $Dir 'data\edit-pin')
