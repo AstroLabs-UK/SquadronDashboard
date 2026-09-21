@@ -58,8 +58,11 @@ test('corrupt data.json is restored from the backup', () => {
   const dir = tmp();
   const store = createStore({ dir, defaults });
   store.save({ ...defaults, squadronName: 'Saved' });
+  // Corrupt the main file on disk, then load via a fresh store (as after a restart).
+  // The live process keeps an in-memory copy so it would not re-read disk every request.
   fs.writeFileSync(path.join(dir, 'data.json'), '{ half a fi');
-  assert.equal(store.load().squadronName, 'Saved');
+  const store2 = createStore({ dir, defaults });
+  assert.equal(store2.load().squadronName, 'Saved');
   assert.equal(JSON.parse(fs.readFileSync(path.join(dir, 'data.json'), 'utf8')).squadronName, 'Saved');
 });
 

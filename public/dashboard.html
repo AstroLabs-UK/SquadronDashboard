@@ -431,7 +431,7 @@ let renderedQrKey = null;
 let eventsTimer = null;
 
 function rebuildEventsPages() {
-  // loadSettings() runs every 10 seconds - only rebuild when events or the QR link
+  // loadSettings() runs every 15 seconds - only rebuild when events or the QR link
   // actually changed, otherwise the page index gets reset every time.
   const signature = JSON.stringify([latestEvents, eventsSeeMoreUrl]);
   if (signature === eventsSignature) return;
@@ -821,7 +821,9 @@ async function loadNews() {
     list.innerHTML = items.map(item => {
       const title = esc(item.title || '');
       const desc = esc(item.description || '');
-      const thumb = item.thumbnail ? '<img class="thumb" src="' + esc(item.thumbnail) + '" alt="" loading="lazy" referrerpolicy="no-referrer">' : '<div class="thumb placeholder">BBC</div>';
+      const thumb = item.thumbnail
+        ? '<img class="thumb" src="' + esc(item.thumbnail) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.outerHTML=\'<div class=\\'thumb placeholder\\'>BBC</div>\'">'
+        : '<div class="thumb placeholder">BBC</div>';
       return '<article class="news-card">' +
         thumb +
         '<div class="body">' +
@@ -928,7 +930,7 @@ refreshAll();
 setInterval(loadWeather, 10 * 60 * 1000);
 setInterval(loadLeaderboard, 5 * 60 * 1000);
 setInterval(loadNews, 10 * 60 * 1000);
-setInterval(loadSettings, 10 * 1000); // checks for edits made on /edit every 10 seconds
+setInterval(loadSettings, 15 * 1000); // checks for edits made on /edit every 15 seconds
 
 // ---- Reload when the server restarts (e.g. after an auto-update) ----
 let bootId = null;
@@ -955,7 +957,7 @@ async function checkForRestart() {
   } catch (e) { /* server is restarting - try again next time */ }
 }
 checkForRestart();
-setInterval(checkForRestart, 10 * 1000);
+setInterval(checkForRestart, 15 * 1000);
 
 // ---- Carousel: rotates through the widgets that are ticked on /edit, every 10s ----
 // Order: Leaderboard, News, Events, Uniform, Instagram, then the extra embed widgets in the order

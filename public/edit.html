@@ -17,101 +17,220 @@
     --border: #D5DDE5;
   }
   * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
   body {
-    font-family: "Inter", Arial, Helvetica, sans-serif;
-    max-width: 640px;
+    font-family: "Inter", system-ui, -apple-system, Arial, Helvetica, sans-serif;
     margin: 0 auto;
-    padding: 0 0 40px 0;
+    max-width: 720px;
+    padding: 0 0 calc(76px + env(safe-area-inset-bottom, 0px));
     background: var(--off-white);
     color: var(--deep-navy);
   }
   header {
     background: var(--raf-navy);
     color: var(--white);
-    padding: 18px 20px;
+    padding: 14px max(16px, env(safe-area-inset-right)) 14px max(16px, env(safe-area-inset-left));
     border-bottom: 3px solid var(--raf-blue);
   }
   header .eyebrow {
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
     color: var(--light-blue);
   }
-  header h1 { margin: 4px 0 0 0; font-size: 20px; font-weight: 700; }
-  .content { padding: 0 20px; }
+  header h1 { margin: 2px 0 0; font-size: clamp(17px, 4vw, 20px); font-weight: 700; }
+  .content {
+    padding: 12px max(16px, env(safe-area-inset-right)) 8px max(16px, env(safe-area-inset-left));
+  }
   h2 {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    margin-top: 28px;
+    margin: 22px 0 8px;
     color: var(--raf-navy);
     border-bottom: 2px solid var(--raf-navy);
-    padding-bottom: 8px;
+    padding-bottom: 6px;
   }
+  h2:first-of-type { margin-top: 4px; }
   label {
     display: block;
-    margin-top: 12px;
+    margin-top: 10px;
     font-weight: 700;
-    font-size: 12px;
+    font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--muted);
   }
   input, textarea, select {
     width: 100%;
-    padding: 9px 10px;
+    max-width: 100%;
+    padding: 10px 12px;
     margin-top: 4px;
-    font-size: 15px;
+    font-size: 16px; /* avoids iOS zoom on focus */
     font-family: inherit;
     background: var(--white);
     border: 1px solid var(--border);
-    border-radius: 3px;
+    border-radius: 4px;
     color: var(--deep-navy);
+    -webkit-appearance: none;
+    appearance: none;
   }
-  input:focus, textarea:focus, select:focus { border-color: var(--raf-blue); outline: none; }
-  /* tick-box rows */
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23667788' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+  }
+  input:focus, textarea:focus, select:focus {
+    border-color: var(--raf-blue);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 102, 161, 0.15);
+  }
+  textarea { min-height: 2.75em; resize: vertical; }
+
+  .grid {
+    display: grid;
+    gap: 0 12px;
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 520px) {
+    .grid.cols-2 { grid-template-columns: 1fr 1fr; }
+  }
+
+  .checks {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 12px;
+    margin-top: 8px;
+  }
+  @media (min-width: 520px) {
+    .checks { grid-template-columns: repeat(3, 1fr); }
+  }
   label.check {
-    display: flex; align-items: center; gap: 10px; margin-top: 12px;
-    font-size: 15px; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--deep-navy);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 0;
+    min-height: 40px;
+    font-size: 15px;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--deep-navy);
     cursor: pointer;
+    user-select: none;
   }
-  label.check input { width: 20px; height: 20px; margin: 0; flex-shrink: 0; cursor: pointer; }
-  .hint { color: var(--muted); font-size: 13px; }
-  h3 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--raf-blue); margin: 24px 0 0 0; }
+  label.check input {
+    width: 20px;
+    height: 20px;
+    margin: 0;
+    flex-shrink: 0;
+    cursor: pointer;
+    accent-color: var(--raf-navy);
+    -webkit-appearance: checkbox;
+    appearance: auto;
+  }
+
+  .hint { color: var(--muted); font-size: 13px; margin: 6px 0 0; line-height: 1.35; }
+
   .event-row, .widget-row {
     border: 1px solid var(--border);
-    border-radius: 3px;
+    border-radius: 4px;
     padding: 12px;
-    margin-top: 12px;
+    margin-top: 10px;
     background: var(--white);
-    box-shadow: 0 2px 8px rgba(7, 21, 37, 0.06);
   }
+
   button {
-    margin-top: 14px;
-    padding: 10px 18px;
-    font-size: 14px;
+    margin-top: 10px;
+    padding: 11px 16px;
+    font-size: 13px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     border: 1px solid transparent;
-    border-radius: 3px;
+    border-radius: 4px;
     cursor: pointer;
+    font-family: inherit;
+    min-height: 44px;
+    touch-action: manipulation;
   }
   .primary { background: var(--raf-navy); color: var(--white); }
   .primary:hover { background: var(--raf-blue); }
-  .danger { background: var(--white); color: var(--raf-red); border-color: var(--raf-red); }
+  .danger {
+    background: var(--white);
+    color: var(--raf-red);
+    border-color: var(--raf-red);
+    margin-top: 10px;
+    width: 100%;
+  }
+  @media (min-width: 400px) {
+    .danger { width: auto; }
+  }
   .danger:hover { background: var(--raf-red); color: var(--white); }
   .force { background: #E8710A; color: var(--white); }
   .force:hover:not(:disabled) { background: #C55F05; }
   .force:disabled { background: #C9D1D9; color: #8A96A3; cursor: not-allowed; }
-  .actions { display: flex; gap: 12px; flex-wrap: wrap; }
-  #updateStatus { margin-top: 8px; font-weight: 700; color: var(--raf-navy); }
-  #updateStatus.error { color: var(--raf-red); }
   .add { background: var(--white); color: var(--raf-navy); border-color: var(--raf-navy); }
   .add:hover { background: var(--raf-navy); color: var(--white); }
-  #status { margin-top: 14px; font-weight: 700; color: var(--raf-navy); }
+
+  .actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: stretch;
+    margin-top: 4px;
+  }
+  .actions button { flex: 1 1 auto; min-width: calc(50% - 8px); }
+  @media (min-width: 480px) {
+    .actions button { flex: 0 1 auto; min-width: 0; }
+  }
+
+  #status, #updateStatus {
+    margin-top: 8px;
+    font-weight: 700;
+    color: var(--raf-navy);
+    font-size: 13px;
+  }
+  #updateStatus.error { color: var(--raf-red); }
+
+  .save-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--white);
+    border-top: 1px solid var(--border);
+    padding: 10px max(16px, env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left));
+    box-shadow: 0 -4px 16px rgba(7, 21, 37, 0.08);
+    z-index: 20;
+  }
+  .save-bar-inner {
+    max-width: 720px;
+    margin: 0 auto;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .save-bar button {
+    margin-top: 0;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  @media (min-width: 480px) {
+    .save-bar button { flex: 0 0 auto; }
+  }
+  .save-bar #status {
+    margin: 0;
+    flex: 1 1 100%;
+    min-height: 1.2em;
+  }
+  @media (min-width: 480px) {
+    .save-bar #status { flex: 1 1 auto; text-align: right; }
+  }
 </style>
 </head>
 <body>
@@ -120,131 +239,143 @@
   <h1>Edit Squadron Dashboard</h1>
 </header>
 <div class="content">
-<p style="color:var(--muted); font-size:14px;">Changes appear on the squadron screen within about 10 seconds.</p>
 
 <h2>General</h2>
-<label>Squadron name</label>
-<input id="squadronName">
-<label>Weather location name</label>
+<label for="squadronName">Squadron name</label>
+<input id="squadronName" autocomplete="organization">
+<label for="locName">Location name</label>
 <input id="locName">
-<label>Latitude</label>
-<input id="lat" type="number" step="0.0001">
-<label>Longitude</label>
-<input id="lon" type="number" step="0.0001">
-<label>Leaderboard Google Sheets CSV link</label>
-<input id="leaderboardCsvUrl" placeholder="File > Share > Publish to web > CSV in Google Sheets">
-<label>"See all events" QR link (shown beside the events list)</label>
-<input id="eventsSeeMoreUrl" placeholder="e.g. your cadet portal's events page">
-<label>Error report link (shown as a QR code if a panel fails to load)</label>
-<input id="errorReportUrl" placeholder="e.g. a Google Form link for reporting issues — leave blank to disable">
-<label>Auto shutdown after (minutes)</label>
-<input id="autoShutdownMinutes" type="number" min="1" placeholder="e.g. 165 for 2h 45m">
-<p style="color:var(--muted); font-size:13px;">How long after boot the device powers itself off. Takes effect from the next boot onwards, not immediately.</p>
-<label>Screen layout</label>
-<select id="layout">
-  <option value="auto">Automatic - detect the screen size</option>
-  <option value="full">Always full size</option>
-  <option value="compact">Always small screen</option>
-</select>
-<p class="hint">Automatic switches to the compact small-screen layout on screens 800 pixels wide or less, or 500 pixels tall or less (like the official 7-inch Pi display and smaller). Use the other two options to force one or the other.</p>
-<label>Weather widget embed code (optional, full-size layout only)</label>
-<textarea id="weatherEmbedCode" rows="4" placeholder="Paste a full embed snippet (e.g. from weatherwidget.io) to replace the built-in weather display - leave blank to use the default"></textarea>
-<p class="hint">The small-screen layout always uses the built-in weather display, so a weather widget is only used on larger screens.</p>
+<div class="grid cols-2">
+  <div>
+    <label for="lat">Latitude</label>
+    <input id="lat" type="number" step="0.0001" inputmode="decimal">
+  </div>
+  <div>
+    <label for="lon">Longitude</label>
+    <input id="lon" type="number" step="0.0001" inputmode="decimal">
+  </div>
+</div>
+<label for="leaderboardCsvUrl">Leaderboard CSV</label>
+<input id="leaderboardCsvUrl" placeholder="Google Sheets → Publish to web → CSV" inputmode="url">
+<label for="eventsSeeMoreUrl">Events QR link</label>
+<input id="eventsSeeMoreUrl" placeholder="Portal events page" inputmode="url">
+<label for="errorReportUrl">Error report link</label>
+<input id="errorReportUrl" placeholder="Optional form URL" inputmode="url">
+<div class="grid cols-2">
+  <div>
+    <label for="autoShutdownMinutes">Shutdown (minutes)</label>
+    <input id="autoShutdownMinutes" type="number" min="1" placeholder="165" inputmode="numeric">
+  </div>
+  <div>
+    <label for="layout">Layout</label>
+    <select id="layout">
+      <option value="auto">Auto</option>
+      <option value="full">Full</option>
+      <option value="compact">Compact</option>
+    </select>
+  </div>
+</div>
+<label for="weatherEmbedCode">Weather embed</label>
+<textarea id="weatherEmbedCode" rows="2" placeholder="Optional — blank uses built-in weather"></textarea>
 
 <h2>Calendar</h2>
-<p class="hint">Shows your calendar's upcoming events on the display and reads next week's uniform from it. In Google Calendar: <b>Settings &rarr; click your calendar &rarr; Integrate calendar &rarr; "Secret address in iCal format"</b>. Copy that link and paste it below &ndash; there is nothing to sign in to. Google can take a few hours to show changes in that feed. Anyone with the link can read the calendar, so keep it private.</p>
-<label>Calendar link (.ics)</label>
-<input id="icsUrl" autocomplete="off" placeholder="https://calendar.google.com/calendar/ical/.../private-.../basic.ics">
-<label>Calendar time zone</label>
-<input id="calendarTimezone" placeholder="Europe/London">
-<label>How far ahead to look (days)</label>
-<input id="calendarDays" type="number" min="14" max="365" placeholder="60">
-<div class="actions"><button class="add" onclick="testCalendar()">Test calendar link</button></div>
+<label for="icsUrl">Secret iCal link</label>
+<input id="icsUrl" autocomplete="off" placeholder="Google Calendar secret address" inputmode="url">
+<div class="grid cols-2">
+  <div>
+    <label for="calendarTimezone">Time zone</label>
+    <input id="calendarTimezone" placeholder="Europe/London">
+  </div>
+  <div>
+    <label for="calendarDays">Days ahead</label>
+    <input id="calendarDays" type="number" min="14" max="365" placeholder="60" inputmode="numeric">
+  </div>
+</div>
+<div class="actions">
+  <button class="add" type="button" onclick="testCalendar()">Test calendar</button>
+</div>
 <div id="calendarTestResult" class="hint"></div>
 
-<h2>Carousel widgets</h2>
-<p class="hint">Tick the widgets you want in the rotating panel. Anything unticked isn't shown, and each ticked widget gets 10 seconds on screen.</p>
-<label class="check"><input type="checkbox" id="w-leaderboard"> Leaderboard</label>
-<label class="check"><input type="checkbox" id="w-news"> News (BBC)</label>
-<label class="check"><input type="checkbox" id="w-events"> Upcoming events</label>
-<label class="check"><input type="checkbox" id="w-uniform"> Uniform (this week and next week)</label>
-<label class="check"><input type="checkbox" id="w-instagram"> Instagram / social feed</label>
-<p class="hint">News shows the latest BBC News headlines (title, short description and thumbnail) scraped from the BBC homepage. There is nothing to configure.</p>
-<label>Instagram widget embed code</label>
-<textarea id="instagramEmbedCode" rows="4" placeholder="Paste the full embed snippet from a free Instagram-feed widget service (e.g. Elfsight or SociableKit) - the script tag and div, exactly as they give it to you"></textarea>
-<p class="hint">The Instagram widget is skipped while this is empty.</p>
-
-<h3>Extra embed widgets</h3>
-<p class="hint">Add as many as you like - a weather radar, a countdown, a map, another social feed. Paste the embed code from the service, choose a display name (only shown on this page, to tell them apart) and the title that appears above it on the screen. They rotate after the built-in widgets, in the order listed here. Get free embed snippets from services like elfsight.com or sociablekit.com; they refresh on the screen automatically every 10 minutes.</p>
+<h2>Widgets</h2>
+<div class="checks">
+  <label class="check"><input type="checkbox" id="w-leaderboard"> Leaderboard</label>
+  <label class="check"><input type="checkbox" id="w-news"> News (BBC)</label>
+  <label class="check"><input type="checkbox" id="w-events"> Events</label>
+  <label class="check"><input type="checkbox" id="w-uniform"> Uniform</label>
+  <label class="check"><input type="checkbox" id="w-instagram"> Instagram</label>
+</div>
+<label for="instagramEmbedCode">Instagram embed</label>
+<textarea id="instagramEmbedCode" rows="2" placeholder="Script + div, or blank to hide"></textarea>
+<label>Extra embeds</label>
 <div id="customWidgets"></div>
-<button class="add" onclick="addWidget()">+ Add embed widget</button>
+<button class="add" type="button" onclick="addWidget()">+ Add embed</button>
 
-<h2>Important Information</h2>
-<label><input type="checkbox" id="importantInfoEnabled" style="width:auto; margin-right:8px; vertical-align:middle;"> Show a banner on the dashboard</label>
-<label>Title (optional)</label>
+<h2>Banner</h2>
+<label class="check"><input type="checkbox" id="importantInfoEnabled"> Show banner on display</label>
+<label for="importantInfoTitle">Title</label>
 <input id="importantInfoTitle" placeholder="IMPORTANT INFORMATION">
-<label>Message</label>
-<textarea id="importantInfoMessage" rows="3" placeholder="e.g. Parade has been cancelled tonight. Please check SPOND."></textarea>
-<p style="color:var(--muted); font-size:13px;">Shown as a banner at the bottom of the dashboard. Leave the message empty or the checkbox unticked to hide it completely.</p>
+<label for="importantInfoMessage">Message</label>
+<textarea id="importantInfoMessage" rows="2" placeholder="Banner text"></textarea>
 
 <h2>Events</h2>
-<p class="hint">Events typed here are shown first, followed by the next events from your calendar (if you set a link above). Use "Hide after" to make a typed event disappear by itself.</p>
 <div id="eventsContainer"></div>
-<button class="add" onclick="addEvent()">+ Add event</button>
+<button class="add" type="button" onclick="addEvent()">+ Add event</button>
 
 <h2>Uniform</h2>
-<p class="hint">Shown on the display as "This week" and "Next week". With a calendar link, just put a line like <b>Uniform: Working blues</b> in the event's description (or <b>[Uniform: Working blues]</b> in its title) and it appears by itself. Days added here are shown as well &ndash; handy if you don't use a calendar.</p>
 <div id="uniformContainer"></div>
-<button class="add" onclick="addUniform()">+ Add uniform day</button>
+<button class="add" type="button" onclick="addUniform()">+ Add day</button>
 
-<h2>Screen controls</h2>
-<p class="hint">Reaches every display within about 10 seconds. A message covers the whole screen until its time runs out or you clear it (a restart also clears it).</p>
-<label>Message to show on the screens</label>
-<input id="noticeText" maxlength="300" placeholder="e.g. Parade has moved to the hall tonight">
-<label>Show it for (minutes)</label>
-<input id="noticeMinutes" type="number" min="1" max="720" value="30">
+<h2>Screens</h2>
+<label for="noticeText">Message</label>
+<input id="noticeText" maxlength="300" placeholder="Shown on all displays">
+<label for="noticeMinutes">Minutes</label>
+<input id="noticeMinutes" type="number" min="1" max="720" value="30" inputmode="numeric">
 <div class="actions">
-  <button class="primary" onclick="sendNotice()">Show message</button>
-  <button class="add" onclick="controlAction('clear-notice')">Clear message</button>
-  <button class="add" onclick="controlAction('reload')">Reload screens</button>
+  <button class="primary" type="button" onclick="sendNotice()">Show</button>
+  <button class="add" type="button" onclick="controlAction('clear-notice')">Clear</button>
+  <button class="add" type="button" onclick="controlAction('reload')">Reload</button>
 </div>
 <div id="controlStatus" class="hint"></div>
 
-<h2>Backup &amp; restore</h2>
-<p class="hint">Download every setting as one file, or restore from one &ndash; handy when replacing a Pi. The file contains your private calendar link, so keep it safe. The editor PIN is not included. Restoring keeps a copy of the current settings on the device first.</p>
+<h2>Backup</h2>
 <div class="actions">
-  <button class="add" onclick="location.href='/api/config/export'">Download settings file</button>
-  <button class="add" onclick="document.getElementById('importFile').click()">Restore from file&hellip;</button>
+  <button class="add" type="button" onclick="location.href='/api/config/export'">Download</button>
+  <button class="add" type="button" onclick="document.getElementById('importFile').click()">Restore…</button>
 </div>
 <input type="file" id="importFile" accept="application/json,.json" style="display:none" onchange="importConfig(this)">
 <div id="backupStatus" class="hint"></div>
 
-<h2>&nbsp;</h2>
-<div class="actions">
-  <button class="primary" onclick="save()">Save changes</button>
-  <button class="force" id="forceBtn" onclick="forceUpdate()" disabled>Force update</button>
-</div>
-<div id="status"></div>
-<p class="hint" id="forceHint">Force update checks GitHub right now and restarts the dashboard - use it if automatic updates ever stop working.</p>
-<p class="hint" id="versionInfo">Checking version…</p>
+<p class="hint" id="versionInfo" style="margin-top:18px;">Checking version…</p>
 <div id="updateStatus"></div>
 </div>
+
+<div class="save-bar">
+  <div class="save-bar-inner">
+    <button class="primary" type="button" onclick="save()">Save</button>
+    <button class="force" type="button" id="forceBtn" onclick="forceUpdate()" disabled>Force update</button>
+    <div id="status"></div>
+  </div>
+</div>
+<span id="forceHint" hidden></span>
 
 <script>
 let data = null;
 let statusTimer = null;
+let savedSnapshot = null;
+let updateInProgress = false;
 
-function eventRow(e = {title:'', date:'', detail:''}) {
+function todayLocal() { return new Date().toLocaleDateString('en-CA'); }
+
+function eventRow(e = {}) {
   const div = document.createElement('div');
   div.className = 'event-row';
-  div.innerHTML = `
-    <label>Title</label><input class="ev-title">
-    <label>Date / recurrence</label><input class="ev-date">
-    <label>Detail</label><input class="ev-detail">
-    <label>Hide after (optional)</label><input type="date" class="ev-hide">
-    <div class="hint ev-note">The event disappears from the screen the day after this date.</div>
-    <button class="danger" onclick="this.parentElement.remove()">Remove</button>`;
-  // set values as text (not into the HTML) so quotes etc. in an event can't break the page
+  div.innerHTML =
+    '<label>Title</label><input class="ev-title">' +
+    '<label>When</label><input class="ev-date" placeholder="Date or e.g. Every Thursday">' +
+    '<label>Detail</label><input class="ev-detail">' +
+    '<label>Hide after</label><input type="date" class="ev-hide">' +
+    '<div class="hint ev-note"></div>' +
+    '<button type="button" class="danger" onclick="this.parentElement.remove()">Remove</button>';
   div.querySelector('.ev-title').value = e.title || '';
   div.querySelector('.ev-date').value = e.date || '';
   div.querySelector('.ev-detail').value = e.detail || '';
@@ -253,99 +384,50 @@ function eventRow(e = {title:'', date:'', detail:''}) {
   const note = div.querySelector('.ev-note');
   const refreshNote = () => {
     const expired = hide.value && hide.value < todayLocal();
-    note.textContent = expired ? 'Expired - this event is no longer shown on the screen.' : 'The event disappears from the screen the day after this date.';
+    note.textContent = expired ? 'Expired — hidden on display.' : (hide.value ? 'Hidden the day after this date.' : '');
     note.style.color = expired ? 'var(--raf-red)' : '';
   };
   hide.addEventListener('input', refreshNote); refreshNote();
   return div;
 }
-function todayLocal() { return new Date().toLocaleDateString('en-CA'); } // YYYY-MM-DD in this device's time zone
 
-// One row per typed uniform day
 function uniformRow(u = {}) {
   const div = document.createElement('div');
   div.className = 'event-row uniform-row';
-  div.innerHTML = `
-    <label>Date</label><input type="date" class="un-date">
-    <label>What's on (optional)</label><input class="un-title" placeholder="e.g. Parade night">
-    <label>Uniform</label><input class="un-uniform" placeholder="e.g. Working blues">
-    <button class="danger" onclick="this.parentElement.remove()">Remove</button>`;
+  div.innerHTML =
+    '<label>Date</label><input type="date" class="un-date">' +
+    '<label>Title</label><input class="un-title" placeholder="Optional">' +
+    '<label>Uniform</label><input class="un-uniform" placeholder="e.g. Working blues">' +
+    '<button type="button" class="danger" onclick="this.parentElement.remove()">Remove</button>';
   div.querySelector('.un-date').value = u.date || '';
   div.querySelector('.un-title').value = u.title || '';
   div.querySelector('.un-uniform').value = u.uniform || '';
   return div;
 }
-function addUniform() { document.getElementById('uniformContainer').appendChild(uniformRow()); }
-function addEvent() { document.getElementById('eventsContainer').appendChild(eventRow()); }
 
-// One row per extra embed widget
 function newWidgetId() { return 'w' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 function widgetRow(w = {}) {
   const div = document.createElement('div');
   div.className = 'widget-row';
   div.dataset.id = w.id || newWidgetId();
-  div.innerHTML = `
-    <label class="check"><input type="checkbox" class="cw-enabled"> Show on the dashboard</label>
-    <label>Display name (only shown here)</label><input class="cw-name" placeholder="e.g. Rain radar">
-    <label>Title shown on the carousel</label><input class="cw-title" placeholder="e.g. Rain Radar">
-    <label>Embed code</label><textarea class="cw-code" rows="4" placeholder="Paste the full embed snippet - the script tag and div, exactly as the service gives it to you"></textarea>
-    <button class="danger" onclick="this.parentElement.remove()">Remove</button>`;
+  div.innerHTML =
+    '<label class="check"><input type="checkbox" class="cw-enabled"> Show on display</label>' +
+    '<label>Name</label><input class="cw-name" placeholder="For this page only">' +
+    '<label>Title</label><input class="cw-title" placeholder="On display">' +
+    '<label>Code</label><textarea class="cw-code" rows="2" placeholder="Embed snippet"></textarea>' +
+    '<button type="button" class="danger" onclick="this.parentElement.remove()">Remove</button>';
   div.querySelector('.cw-enabled').checked = w.enabled !== false;
   div.querySelector('.cw-name').value = w.name || '';
   div.querySelector('.cw-title').value = w.title || '';
   div.querySelector('.cw-code').value = w.embedCode || '';
   return div;
 }
+
+function addUniform() { document.getElementById('uniformContainer').appendChild(uniformRow()); }
+function addEvent() { document.getElementById('eventsContainer').appendChild(eventRow()); }
 function addWidget() { document.getElementById('customWidgets').appendChild(widgetRow()); }
 
-async function load() {
-  data = await (await fetch('/api/data')).json();
-  document.getElementById('squadronName').value = data.squadronName;
-  document.getElementById('locName').value = data.location.name;
-  document.getElementById('lat').value = data.location.lat;
-  document.getElementById('lon').value = data.location.lon;
-  document.getElementById('leaderboardCsvUrl').value = data.leaderboardCsvUrl || '';
-  document.getElementById('eventsSeeMoreUrl').value = data.eventsSeeMoreUrl || '';
-  document.getElementById('errorReportUrl').value = data.errorReportUrl || '';
-  document.getElementById('icsUrl').value = data.icsUrl || '';
-  document.getElementById('calendarTimezone').value = data.calendarTimezone || 'Europe/London';
-  document.getElementById('calendarDays').value = data.calendarDays || 60;
-  document.getElementById('autoShutdownMinutes').value = data.autoShutdownMinutes || 165;
-  document.getElementById('instagramEmbedCode').value = data.instagramEmbedCode || '';
-  document.getElementById('weatherEmbedCode').value = data.weatherEmbedCode || '';
-  document.getElementById('layout').value = data.layout || 'auto';
-  const wf = data.widgets || {};
-  ['leaderboard', 'news', 'events', 'instagram', 'uniform'].forEach(k => {
-    document.getElementById('w-' + k).checked = wf[k] !== false;
-  });
-  const cw = document.getElementById('customWidgets'); cw.innerHTML = '';
-  (data.customWidgets || []).forEach(w => cw.appendChild(widgetRow(w)));
-  const info = data.importantInfo || {};
-  document.getElementById('importantInfoEnabled').checked = !!info.enabled;
-  document.getElementById('importantInfoTitle').value = info.title || '';
-  document.getElementById('importantInfoMessage').value = info.message || '';
-  const ec = document.getElementById('eventsContainer'); ec.innerHTML = '';
-  data.events.forEach(e => ec.appendChild(eventRow(e)));
-  const uc = document.getElementById('uniformContainer'); uc.innerHTML = '';
-  ((data.uniform && data.uniform.items) || []).slice().sort((a, b) => String(a.date).localeCompare(String(b.date))).forEach(u => uc.appendChild(uniformRow(u)));
-  savedSnapshot = JSON.stringify(collectPayload());
-  updateForceButton();
-  loadVersionInfo();
-}
-
-// Everything on the page as the object that gets saved. Also used to spot unsaved changes.
 function collectPayload() {
-  const events = [...document.querySelectorAll('#eventsContainer .event-row')].map(r => ({
-    title: r.querySelector('.ev-title').value,
-    date: r.querySelector('.ev-date').value,
-    detail: r.querySelector('.ev-detail').value,
-    hideAfter: r.querySelector('.ev-hide').value
-  }));
-  const uniformItems = [...document.querySelectorAll('#uniformContainer .uniform-row')].map(r => ({
-    date: r.querySelector('.un-date').value,
-    title: r.querySelector('.un-title').value,
-    uniform: r.querySelector('.un-uniform').value
-  }));
   return {
     squadronName: document.getElementById('squadronName').value,
     location: {
@@ -382,79 +464,135 @@ function collectPayload() {
       title: document.getElementById('importantInfoTitle').value,
       message: document.getElementById('importantInfoMessage').value
     },
-    events,
-    uniform: { items: uniformItems }
+    events: [...document.querySelectorAll('#eventsContainer .event-row')].map(r => ({
+      title: r.querySelector('.ev-title').value,
+      date: r.querySelector('.ev-date').value,
+      detail: r.querySelector('.ev-detail').value,
+      hideAfter: r.querySelector('.ev-hide').value
+    })),
+    uniform: {
+      items: [...document.querySelectorAll('#uniformContainer .uniform-row')].map(r => ({
+        date: r.querySelector('.un-date').value,
+        title: r.querySelector('.un-title').value,
+        uniform: r.querySelector('.un-uniform').value
+      }))
+    }
   };
 }
 
-// ---- Unsaved changes: the Force update button is only usable when everything is saved ----
-let savedSnapshot = null;   // what the page looked like when it was last loaded / saved
-let updateInProgress = false;
 function hasUnsavedChanges() {
   return savedSnapshot === null || JSON.stringify(collectPayload()) !== savedSnapshot;
 }
 function updateForceButton() {
   const btn = document.getElementById('forceBtn');
-  const hint = document.getElementById('forceHint');
   const dirty = hasUnsavedChanges();
   btn.disabled = dirty || updateInProgress;
-  btn.title = dirty ? 'Save your changes first' : '';
-  hint.textContent = dirty
-    ? 'You have unsaved changes - save them first, then Force update becomes available.'
-    : 'Force update checks GitHub right now and restarts the dashboard - use it if automatic updates ever stop working.';
+  btn.title = dirty ? 'Save first' : '';
 }
 ['input', 'change', 'click'].forEach(ev =>
   document.addEventListener(ev, () => setTimeout(updateForceButton, 0)));
+
+async function load() {
+  data = await (await fetch('/api/data')).json();
+  document.getElementById('squadronName').value = data.squadronName;
+  document.getElementById('locName').value = data.location.name;
+  document.getElementById('lat').value = data.location.lat;
+  document.getElementById('lon').value = data.location.lon;
+  document.getElementById('leaderboardCsvUrl').value = data.leaderboardCsvUrl || '';
+  document.getElementById('eventsSeeMoreUrl').value = data.eventsSeeMoreUrl || '';
+  document.getElementById('errorReportUrl').value = data.errorReportUrl || '';
+  document.getElementById('icsUrl').value = data.icsUrl || '';
+  document.getElementById('calendarTimezone').value = data.calendarTimezone || 'Europe/London';
+  document.getElementById('calendarDays').value = data.calendarDays || 60;
+  document.getElementById('autoShutdownMinutes').value = data.autoShutdownMinutes || 165;
+  document.getElementById('instagramEmbedCode').value = data.instagramEmbedCode || '';
+  document.getElementById('weatherEmbedCode').value = data.weatherEmbedCode || '';
+  document.getElementById('layout').value = data.layout || 'auto';
+  const wf = data.widgets || {};
+  ['leaderboard', 'news', 'events', 'instagram', 'uniform'].forEach(k => {
+    document.getElementById('w-' + k).checked = wf[k] !== false;
+  });
+  const cw = document.getElementById('customWidgets'); cw.innerHTML = '';
+  (data.customWidgets || []).forEach(w => cw.appendChild(widgetRow(w)));
+  const info = data.importantInfo || {};
+  document.getElementById('importantInfoEnabled').checked = !!info.enabled;
+  document.getElementById('importantInfoTitle').value = info.title || '';
+  document.getElementById('importantInfoMessage').value = info.message || '';
+  const ec = document.getElementById('eventsContainer'); ec.innerHTML = '';
+  (data.events || []).forEach(e => ec.appendChild(eventRow(e)));
+  const uc = document.getElementById('uniformContainer'); uc.innerHTML = '';
+  ((data.uniform && data.uniform.items) || []).slice()
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)))
+    .forEach(u => uc.appendChild(uniformRow(u)));
+  savedSnapshot = JSON.stringify(collectPayload());
+  updateForceButton();
+  loadVersionInfo();
+}
 
 async function save() {
   const payload = collectPayload();
   const res = await fetch('/api/data', {
     method: 'POST',
-    headers: {'Content-Type': 'application/json'},
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   });
   const statusEl = document.getElementById('status');
-  statusEl.textContent = res.ok ? 'Saved!' : 'Something went wrong.';
+  statusEl.textContent = res.ok ? 'Saved' : 'Failed';
   clearTimeout(statusTimer);
-  statusTimer = setTimeout(() => { statusEl.textContent = ''; }, 3000);
+  statusTimer = setTimeout(() => { statusEl.textContent = ''; }, 2500);
   if (res.ok) { savedSnapshot = JSON.stringify(payload); updateForceButton(); }
 }
 
-// ---- Calendar test ----
 async function testCalendar() {
   const el = document.getElementById('calendarTestResult');
-  if (hasUnsavedChanges()) { el.style.color = 'var(--raf-red)'; el.textContent = 'Save your changes first - the test uses the saved link.'; return; }
-  el.style.color = ''; el.textContent = 'Checking…';
+  if (hasUnsavedChanges()) {
+    el.style.color = 'var(--raf-red)';
+    el.textContent = 'Save first.';
+    return;
+  }
+  el.style.color = '';
+  el.textContent = 'Checking…';
   try {
     const r = await (await fetch('/api/events', { cache: 'no-store' })).json();
     const c = r.calendar || {};
-    if (!c.configured) { el.textContent = 'No calendar link saved yet.'; return; }
-    if (!c.ok) { el.style.color = 'var(--raf-red)'; el.textContent = 'Could not read the calendar: ' + (c.error || 'unknown problem'); return; }
+    if (!c.configured) { el.textContent = 'No link saved.'; return; }
+    if (!c.ok) { el.style.color = 'var(--raf-red)'; el.textContent = c.error || 'Failed'; return; }
     const next = (r.events || []).find(e => e.source === 'calendar');
     el.style.color = 'var(--raf-navy)';
-    el.textContent = 'Connected. ' + (next ? 'Next event: ' + next.title + ' (' + next.date + ').' : 'No upcoming events found in the next ' + (data.calendarDays || 60) + ' days.');
-  } catch (e) { el.style.color = 'var(--raf-red)'; el.textContent = 'Could not check: ' + e.message; }
+    el.textContent = next ? ('OK — next: ' + next.title) : 'OK — no upcoming events';
+  } catch (e) {
+    el.style.color = 'var(--raf-red)';
+    el.textContent = e.message;
+  }
 }
 
-// ---- Screen controls ----
 function controlStatus(text, isError) {
   const el = document.getElementById('controlStatus');
-  el.style.color = isError ? 'var(--raf-red)' : 'var(--raf-navy)'; el.textContent = text;
-  setTimeout(() => { el.textContent = ''; }, 6000);
+  el.style.color = isError ? 'var(--raf-red)' : 'var(--raf-navy)';
+  el.textContent = text;
+  setTimeout(() => { el.textContent = ''; }, 5000);
 }
 async function controlAction(action, extra) {
   try {
-    const res = await fetch('/api/control', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action, ...extra }) });
+    const res = await fetch('/api/control', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, ...extra })
+    });
     const body = await res.json().catch(() => ({}));
-    if (!res.ok) return controlStatus(body.error || 'Something went wrong.', true);
-    controlStatus(action === 'reload' ? 'Screens will reload within about 10 seconds.' : action === 'clear-notice' ? 'Message cleared.' : 'Message sent - it appears within about 10 seconds.');
-  } catch (e) { controlStatus('Could not reach the dashboard: ' + e.message, true); }
+    if (!res.ok) return controlStatus(body.error || 'Failed', true);
+    controlStatus(action === 'reload' ? 'Reloading…' : action === 'clear-notice' ? 'Cleared' : 'Sent');
+  } catch (e) {
+    controlStatus(e.message, true);
+  }
 }
 function sendNotice() {
-  controlAction('notice', { text: document.getElementById('noticeText').value, minutes: parseInt(document.getElementById('noticeMinutes').value, 10) || 30 });
+  controlAction('notice', {
+    text: document.getElementById('noticeText').value,
+    minutes: parseInt(document.getElementById('noticeMinutes').value, 10) || 30
+  });
 }
 
-// ---- Backup & restore ----
 async function importConfig(input) {
   const status = document.getElementById('backupStatus');
   const file = input.files && input.files[0];
@@ -462,16 +600,27 @@ async function importConfig(input) {
   if (!file) return;
   try {
     const parsed = JSON.parse(await file.text());
-    if (!confirm('Replace ALL current settings with the ones in "' + file.name + '"?\n\nA copy of the current settings is kept on the device (data/data.before-import.json).')) return;
-    const res = await fetch('/api/config/import', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(parsed) });
+    if (!confirm('Replace all settings with "' + file.name + '"?')) return;
+    const res = await fetch('/api/config/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(parsed)
+    });
     const body = await res.json().catch(() => ({}));
-    if (!res.ok) { status.style.color = 'var(--raf-red)'; status.textContent = body.error || 'Something went wrong.'; return; }
+    if (!res.ok) {
+      status.style.color = 'var(--raf-red)';
+      status.textContent = body.error || 'Failed';
+      return;
+    }
     await load();
-    status.style.color = 'var(--raf-navy)'; status.textContent = 'Settings restored from ' + file.name + '.';
-  } catch (e) { status.style.color = 'var(--raf-red)'; status.textContent = 'That file could not be read: ' + e.message; }
+    status.style.color = 'var(--raf-navy)';
+    status.textContent = 'Restored';
+  } catch (e) {
+    status.style.color = 'var(--raf-red)';
+    status.textContent = e.message;
+  }
 }
 
-// ---- Force update ----
 function showUpdateStatus(text, isError) {
   const el = document.getElementById('updateStatus');
   el.textContent = text;
@@ -484,71 +633,45 @@ async function loadVersionInfo() {
   if (!el) return null;
   try {
     const res = await fetch('/api/version', { cache: 'no-store' });
-    if (!res.ok) {
-      el.textContent = 'Version: server returned ' + res.status +
-        (res.status === 404 ? ' — restart the app (npm start) so /api/version is available' : '');
-      return null;
-    }
+    if (!res.ok) { el.textContent = 'Version unavailable'; return null; }
     const v = await res.json();
-    if (!v.ok && !v.local) {
-      el.textContent = 'Version: ' + (v.error || 'unavailable');
-      return v;
-    }
-    const loc = v.local ? (v.local.short + (v.local.message ? ' — ' + v.local.message : '')) : '?';
-    if (!v.remote) {
-      el.textContent = 'Local: ' + loc + '. ' + (v.error || 'Could not read GitHub version.');
-      return v;
-    }
-    const rem = v.remote.short + (v.remote.message ? ' — ' + v.remote.message : '');
-    if (v.upToDate) {
-      el.textContent = 'Up to date (local & GitHub: ' + loc + ')';
-    } else {
-      el.textContent = 'Local: ' + loc + '  |  GitHub (' + (v.remote.ref || 'latest') + '): ' + rem +
-        (v.behind ? '  |  ' + v.behind + ' commit(s) behind' : '');
-    }
+    if (!v.ok && !v.local) { el.textContent = v.error || 'Version unavailable'; return v; }
+    const loc = v.local ? v.local.short : '?';
+    if (v.upToDate) el.textContent = 'Up to date · ' + loc;
+    else if (v.remote) el.textContent = 'Local ' + loc + ' · GitHub ' + v.remote.short + (v.behind ? ' (' + v.behind + ' behind)' : '');
+    else el.textContent = 'Local ' + loc;
     return v;
   } catch (e) {
-    el.textContent = 'Version: could not check (' + (e.message || 'network error') + '). Restart npm start if you just updated files.';
+    el.textContent = 'Version check failed';
     return null;
   }
 }
 
 async function forceUpdate() {
   if (hasUnsavedChanges() || updateInProgress) return;
-
-  showUpdateStatus('Comparing with GitHub…');
+  showUpdateStatus('Checking…');
   const v = await loadVersionInfo();
   let detail = '';
   if (v && v.local && v.remote) {
-    detail = '\n\nLocal:  ' + v.local.short + (v.local.message ? ' — ' + v.local.message : '') +
-      '\nGitHub (' + (v.remote.ref || 'latest') + '): ' + v.remote.short + (v.remote.message ? ' — ' + v.remote.message : '');
-    if (v.upToDate) {
-      detail += '\n\nYou are already on the latest version. Update will re-apply it anyway.';
-    } else if (v.behind) {
-      detail += '\n\nYou are ' + v.behind + ' commit(s) behind GitHub.';
-    }
+    detail = '\n\nLocal: ' + v.local.short + '\nGitHub: ' + v.remote.short;
+    if (v.upToDate) detail += '\n\nAlready up to date — will re-apply.';
   }
-  if (!confirm(
-    'Warning: Updating will replace locally edited files with the latest versions from GitHub. Any local changes will be lost. Continue?' +
-    detail +
-    '\n\nYour settings from /edit are kept. The dashboard will restart briefly.'
-  )) {
+  if (!confirm('Update from GitHub? Settings are kept. Dashboard restarts briefly.' + detail)) {
     showUpdateStatus('');
     return;
   }
-
-  updateInProgress = true; updateForceButton();
+  updateInProgress = true;
+  updateForceButton();
   try {
-    showUpdateStatus('Requesting update...');
+    showUpdateStatus('Updating…');
     const res = await fetch('/api/update', { method: 'POST' });
     const body = await res.json().catch(() => ({}));
-    if (!res.ok || !body.ok) { showUpdateStatus(body.error || 'Could not request an update.', true); return; }
+    if (!res.ok || !body.ok) {
+      showUpdateStatus(body.error || 'Update failed', true);
+      return;
+    }
     const requestedAt = body.requestedAt || Date.now();
     const inProcess = body.mode === 'in-process';
-
-    showUpdateStatus(inProcess ? 'Updating from GitHub (this may take a minute)…' : 'Waiting for update…');
-
-    // Poll for the result (server may go offline briefly while restarting)
     const started = Date.now();
     let sawOffline = false;
     while (Date.now() - started < 5 * 60 * 1000) {
@@ -558,25 +681,20 @@ async function forceUpdate() {
         st = await (await fetch('/api/update/status', { cache: 'no-store' })).json();
       } catch (e) {
         sawOffline = true;
-        showUpdateStatus('Restarting the dashboard…');
+        showUpdateStatus('Restarting…');
         continue;
       }
-
-      // After a restart, server is back — reload once we were offline or status is done
       if (sawOffline && st) {
-        showUpdateStatus((st.message || 'Update finished') + ' — reloading…');
+        showUpdateStatus((st.message || 'Done') + ' — reloading…');
         await sleep(1500);
         location.reload();
         return;
       }
-
       if (st.state === 'requested') {
-        showUpdateStatus((Date.now() - started > 30000)
-          ? "Waiting for the host to pick this up… If nothing happens, run 'sqndash --force-update' in a terminal."
-          : 'Waiting for the update to start…');
+        showUpdateStatus(Date.now() - started > 30000 ? 'Waiting for host…' : 'Starting…');
       } else if ((st.state === 'done' || st.state === 'error') && (!st.time || st.time * 1000 >= requestedAt - 15000)) {
-        if (st.state === 'error') { showUpdateStatus(st.message || 'Update failed', true); return; }
-        showUpdateStatus((st.message || 'Updated') + ' — reloading this page…');
+        if (st.state === 'error') { showUpdateStatus(st.message || 'Failed', true); return; }
+        showUpdateStatus((st.message || 'Updated') + ' — reloading…');
         await sleep(2000);
         location.reload();
         return;
@@ -584,9 +702,10 @@ async function forceUpdate() {
         showUpdateStatus(st.message || 'Updating…');
       }
     }
-    showUpdateStatus("The update didn't finish in 5 minutes. Check the terminal running npm start, or run: sqndash --force-update", true);
+    showUpdateStatus('Timed out — try: sqndash --force-update', true);
   } finally {
-    updateInProgress = false; updateForceButton();
+    updateInProgress = false;
+    updateForceButton();
   }
 }
 
