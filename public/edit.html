@@ -793,18 +793,31 @@ async function backupNow() {
   status.style.color = '';
   status.textContent = 'Backing up…';
   try {
-    const res = await fetch('/api/config/backup', { method: 'POST' });
+    // Ensure latest form values are on disk first
+    if (typeof hasUnsavedChanges === 'function' && hasUnsavedChanges()) {
+      await save({ silent: true, reason: 'pre-backup' });
+    }
+    const res = await fetch('/api/config/backup', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json' }
+    });
     const body = await res.json().catch(() => ({}));
-    if (!res.ok) {
+    if (res.status === 401 || res.status === 403) {
       status.style.color = 'var(--raf-red)';
-      status.textContent = body.error || 'Backup failed';
+      status.textContent = 'Please unlock with your PIN and try again';
+      return;
+    }
+    if (!res.ok || body.ok === false) {
+      status.style.color = 'var(--raf-red)';
+      status.textContent = body.error || ('Backup failed (' + res.status + ')');
       return;
     }
     status.style.color = 'var(--raf-navy)';
     status.textContent = 'Backed up to ' + (body.path || 'sqndash-data-backup');
   } catch (e) {
     status.style.color = 'var(--raf-red)';
-    status.textContent = e.message;
+    status.textContent = 'Backup failed: ' + (e.message || e);
   }
 }
 

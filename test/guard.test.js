@@ -11,7 +11,7 @@ test('snapshot then restore brings back wiped settings', () => {
   const data = tmp(), snap = tmp();
   fs.writeFileSync(path.join(data, 'data.json'), '{"a":1}');
   fs.writeFileSync(path.join(data, 'edit-pin'), '9999\n');
-  assert.equal(guard.snapshot(data, snap), true);
+  assert.equal(guard.snapshot(data, snap).ok, true);
   fs.rmSync(data, { recursive: true });
   assert.equal(guard.restore(data, snap, { onlyMissing: true }), true);
   assert.equal(fs.readFileSync(path.join(data, 'data.json'), 'utf8'), '{"a":1}');
@@ -21,7 +21,7 @@ test('snapshot then restore brings back wiped settings', () => {
 test('an empty data/ never overwrites a good snapshot', () => {
   const data = tmp(), snap = tmp();
   fs.writeFileSync(path.join(snap, 'data.json'), '{"good":true}');
-  assert.equal(guard.snapshot(data, snap), false);
+  assert.equal(guard.snapshot(data, snap).ok, false);
   assert.equal(fs.readFileSync(path.join(snap, 'data.json'), 'utf8'), '{"good":true}');
 });
 
