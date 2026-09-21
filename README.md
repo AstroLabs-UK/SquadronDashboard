@@ -1,6 +1,6 @@
 # Squadron Dashboard
 
-**Release 1.6**
+**Release 1.6.0**
 
 A self-hosted room display for RAF Air Cadets (and similar organisations): clock, weather, news, individual + flight leaderboard, events, Instagram, and custom embed widgets — plus a phone-friendly **edit** page and a **status** page.
 
@@ -10,7 +10,23 @@ A self-hosted room display for RAF Air Cadets (and similar organisations): clock
 
 ## What's new in 1.6
 
-Release 1.6 is a **hardening and tidy-up patch**. There are no new panels: the goal is a dashboard that is safer to leave running on a shared network, harder to break with a bad update, and easier to keep working on. The features planned for after it are listed under [Future updates](#future-updates).
+Release 1.6 makes the content look after itself: connect a calendar once and events and next week's uniform appear on their own.
+
+- **Calendar feed (live link).** Paste a calendar's `.ics` link on `/edit` and its upcoming events show on the display, after any events you typed by hand. Works with Google Calendar's "Secret address in iCal format" (and Outlook, iCloud, anything that gives an `.ics` link). Repeating events, single moved or cancelled dates, all-day and multi-day events and time zones (including the clocks changing) are handled. Read at most every 10 minutes; if the calendar can't be reached the last copy is used for up to 24 hours. See [Calendar](#calendar-live-link).
+- **Uniform panel.** A new carousel panel shows what to wear **this week** and **next week**. It reads a `Uniform: Working blues` line from the calendar event, and/or a list you type on `/edit`. See [Uniform](#uniform-this-week--next-week).
+- **Auto-hide expired events.** Calendar events disappear when they finish. Typed events get an optional "Hide after" date.
+- **"Last updated" stamps.** Each data panel shows when it was last refreshed, and turns amber with "Offline – showing data from 14:32" when the source is down and old data is being kept.
+- **Screen controls on `/edit`.** Show a full-screen message on every display for a set time, clear it, or reload all screens.
+- **Backup & restore.** Download every setting as one file and restore it on another device (a copy of the previous settings is kept first).
+- **Richer `/status`.** CPU temperature, memory, storage free, Wi-Fi signal, load and device uptime, plus calendar health.
+- **Docker runs as a normal user, not root** (details under [Docker](#docker)).
+- **The calendar's private link stays private:** when an editor PIN is set, the public display page never receives it.
+
+Upgrading from 1.5.x needs nothing: settings are untouched and every new option starts switched off or empty.
+
+## What was new in 1.5 (and its 1.5.x patches)
+
+Release 1.5 is a **hardening and tidy-up patch**. There are no new panels: the goal is a dashboard that is safer to leave running on a shared network, harder to break with a bad update, and easier to keep working on. The features planned for after it are listed under [Future updates](#future-updates).
 
 ### Security fixes
 
@@ -23,14 +39,14 @@ Release 1.6 is a **hardening and tidy-up patch**. There are no new panels: the g
 ### Reliability fixes
 
 - **Proper CSV parsing.** The old parser dropped every quote character, so escaped quotes and line breaks inside a cell scrambled the leaderboard. It now follows the CSV standard (quoted commas, `""`, multi-line cells, BOM, any line ending).
-- **Updates follow releases, not `main`.** Devices update to the newest tagged release (`v1.6.0`, `v1.6.0`…). A half-finished commit on `main` can no longer reach a room screen. A test device can still follow `main` with `sqndash --channel main`. A device that is already ahead of the target is never downgraded.
+- **Updates follow releases, not `main`.** Devices update to the newest tagged release (`v1.5.0`, `v1.6.0`…). A half-finished commit on `main` can no longer reach a room screen. A test device can still follow `main` with `sqndash --channel main`. A device that is already ahead of the target is never downgraded.
 - **Updates test themselves and roll back.** On Windows/bare Node the new code is started on a spare port and must answer `/healthz` *before* the live dashboard switches to it. On the Pi the restarted dashboard must answer `/healthz` within about 90 seconds. If it doesn't, the device goes back to the previous version and remembers the bad release so it isn't retried every 30 minutes. See [Updating](#updating).
 - **`npm install` only when dependencies changed**, so updates are quicker and work with a flaky connection.
 - **Docker image fixed.** `autoUpdate.js` was missing from the image, so a container built from the old Dockerfile could not start. The image now copies every module, has a health check, and uses the lockfile when there is one.
-- **Settings can no longer be wiped by an update (1.6.1).** Two ways it could happen are closed: a release that is missing `.gitignore` (easy to do when uploading files by hand, because dotfiles are hidden) made the update's `git clean` delete `data/`, and a release that accidentally tracked `data/data.json` overwrote it. Updates now keep a snapshot of `data/` in a hidden folder *outside* the app folder (`.squadron-dashboard-backup`, next to it), put it back straight after the code is swapped, and `git clean` is told never to touch `data/`. The server also restores any missing settings from that snapshot when it starts, and refreshes the snapshot after every save.
-- **The dashboard always comes back after an update (1.6.2).** The in-app restart no longer relies on shell commands that break on paths with spaces; it uses a small Node helper that waits, then launches the new copy. On a Pi, the service is now `Restart=always` (so even a "clean" exit restarts it), every update run starts the dashboard if it found it stopped, and the update script double-checks it is running after the restart. Existing Pis get the new restart policy automatically on the next update run.
-- **Windows updates are no longer silent (1.6.3).** `sqndash --update` / `--force-update` used to end without a word when something went wrong, because the result line was lost when the helper exited. Every outcome now prints what happened and the recorded reason (also in `data\update-status.json`), and each failure has its own exit code. A `git reset` that fails because of a briefly locked file or a stale `.git\index.lock` is retried automatically. The settings backup for an app in a drive root (e.g. `C:\SquadronDashboard`) goes to your user folder instead of `C:\`.
-- **Start-up housekeeping (1.6).** When the dashboard starts it silently deletes any file named exactly `temp` (no extension) inside the app folder. It skips `node_modules`, `.git` and `data/`, follows no shortcuts, and prints nothing.
+- **Settings can no longer be wiped by an update (1.5.1).** Two ways it could happen are closed: a release that is missing `.gitignore` (easy to do when uploading files by hand, because dotfiles are hidden) made the update's `git clean` delete `data/`, and a release that accidentally tracked `data/data.json` overwrote it. Updates now keep a snapshot of `data/` in a hidden folder *outside* the app folder (`.squadron-dashboard-backup`, next to it), put it back straight after the code is swapped, and `git clean` is told never to touch `data/`. The server also restores any missing settings from that snapshot when it starts, and refreshes the snapshot after every save.
+- **The dashboard always comes back after an update (1.5.2).** The in-app restart no longer relies on shell commands that break on paths with spaces; it uses a small Node helper that waits, then launches the new copy. On a Pi, the service is now `Restart=always` (so even a "clean" exit restarts it), every update run starts the dashboard if it found it stopped, and the update script double-checks it is running after the restart. Existing Pis get the new restart policy automatically on the next update run.
+- **Windows updates are no longer silent (1.5.3).** `sqndash --update` / `--force-update` used to end without a word when something went wrong, because the result line was lost when the helper exited. Every outcome now prints what happened and the recorded reason (also in `data\update-status.json`), and each failure has its own exit code. A `git reset` that fails because of a briefly locked file or a stale `.git\index.lock` is retried automatically. The settings backup for an app in a drive root (e.g. `C:\SquadronDashboard`) goes to your user folder instead of `C:\`.
+- **Start-up housekeeping (1.5.4).** When the dashboard starts it silently deletes any file named exactly `temp` (no extension) inside the app folder. It skips `node_modules`, `.git` and `data/`, follows no shortcuts, and prints nothing.
 - **Panels survive a wifi wobble.** Weather, news headlines and the leaderboard are cached, and if the source is unreachable the last good data is shown for up to six hours (`"stale": true` in the API) instead of a blank panel. All outgoing requests have timeouts.
 - **Large settings save.** The request size limit is raised so a squadron with many big embed widgets can save.
 - **Leaderboard re-renders when names change**, not only when the number of rows changes.
@@ -44,7 +60,7 @@ Release 1.6 is a **hardening and tidy-up patch**. There are no new panels: the g
 - The unneeded `node-fetch` dependency is gone (Node 18+ has `fetch` built in), and `package.json` now declares `"node": ">=18"`.
 - New `GET /healthz` endpoint and a Docker `HEALTHCHECK`.
 - News uses the HTTPS BBC feed. The FeedGrabbr embed that used to ship as the default is no longer baked into the repo — see [Carousel widgets](#carousel-widgets-tick-to-show).
-- Automated tests (`npm test`, 67 checks covering the CSV parser, leaderboard maths, settings storage, PIN protection, rate limiting, the cache and the whole update/rollback flow) and a GitHub Actions workflow that runs them, plus a Docker build check.
+- Automated tests (`npm test`, 108 checks covering the CSV parser, leaderboard maths, settings storage, PIN protection, rate limiting, the cache and the whole update/rollback flow) and a GitHub Actions workflow that runs them, plus a Docker build check.
 - Installer uses Node 22 LTS.
 
 ### Upgrading from 1.2 – 1.4
@@ -188,13 +204,14 @@ Open **`http://<device-IP>:3000/edit`** on any device on the same network.
 
 ### Carousel widgets (tick to show)
 
-Order on screen: **Leaderboard → News → Events → Instagram → extra embeds**.
+Order on screen: **Leaderboard → News → Events → Uniform → Instagram → extra embeds**.
 
 | Widget | Notes |
 |--------|--------|
 | **Leaderboard** | Individual top 5 + Flight top 3 |
 | **News** | Embed widget. Paste any news widget snippet (for example one you create at FeedGrabbr) under **News widget embed code**. **Blank hides the panel** — new installs no longer ship with a default |
-| **Events** | List you edit on this page; 3 per page, auto-rotate; optional “see all” QR |
+| **Events** | Typed events + calendar events; 3 per page, auto-rotate; optional “see all” QR |
+| **Uniform** | This week / next week; from the calendar and/or a typed list |
 | **Instagram** | Needs embed code (Elfsight, SociableKit, etc.); skipped if empty |
 
 **Extra embed widgets:** add as many as you like (+ Add embed widget). Each has enable tick, name (edit page only), title (on screen), and embed code. They refresh about every 10 minutes.
@@ -207,7 +224,43 @@ Order on screen: **Leaderboard → News → Events → Instagram → extra embed
 
 ### Events
 
-Add title, date/recurrence, and detail. Changes appear on the display within about **10 seconds** after **Save**.
+Add title, date/recurrence, and detail. Changes appear on the display within about **10 seconds** after **Save**. Typed events come first, then upcoming calendar events. Give a typed event a **Hide after** date and it disappears by itself.
+
+### Screen controls and backup
+
+- **Show message** puts a full-screen notice on every display for 1–720 minutes (default 30). **Clear message** removes it; **Reload screens** reloads every display. They take effect within about 10 seconds. A restart clears any message.
+- **Download settings file** saves everything (including the private calendar link, but not the PIN). **Restore from file…** loads one, after asking; the previous settings are kept in `data/data.before-import.json`.
+
+---
+
+## Calendar (live link)
+
+Events and the uniform panel can read from a calendar, so nobody has to retype anything.
+
+**Google Calendar**
+
+1. On a computer open Google Calendar &rarr; **Settings** (cog) &rarr; click your squadron calendar under *Settings for my calendars*.
+2. Scroll to **Integrate calendar** and copy **Secret address in iCal format** (a long link ending `basic.ics`).
+3. Paste it into **Calendar link (.ics)** on `/edit`, **Save**, then press **Test calendar link**.
+
+That's it &ndash; no sign-in, no API keys. Outlook, iCloud and other calendars work the same way with their `.ics` / "subscribe" link (`webcal://` links are accepted).
+
+- **Speed:** the dashboard reads the link at most every 10 minutes. Google itself can take a few hours to show a change in that feed, so a brand-new event may not appear straight away. Use a typed event (or the screen message) for anything urgent.
+- **Privacy:** anyone with the secret link can read the calendar. It is stored on the device only, is never shown on the public display page when a PIN is set, and is included in settings backups.
+- **Time zone and range:** default `Europe/London`, looking 60 days ahead (14–365).
+- **Why not sign in to Google?** A live `.ics` link needs no Google Cloud project or logins that can expire. If you ever need instant updates, the Google Calendar API is the alternative, at the cost of that extra setup.
+- **Offline:** if the calendar can't be reached the last good copy is shown (up to 24 hours) with an amber "Offline" stamp; typed events always keep working.
+
+## Uniform (this week / next week)
+
+A carousel panel (tick **Uniform** on `/edit`) with two columns: **This week** (from today onwards) and **Next week**. It is hidden while there is nothing to show.
+
+Where the uniform comes from (both are combined):
+
+- **The calendar.** In the event's description put a line such as `Uniform: Working blues`. Or put `[Uniform: Working blues]` at the end of the title &ndash; that part is removed from the title on the events panel.
+- **A list on `/edit`** (**Uniform** section): a date, an optional label and the uniform. Useful without a calendar.
+
+Weeks run Monday to Sunday. The same day + uniform found twice is shown once.
 
 ---
 
@@ -247,7 +300,7 @@ Your settings live in the **`data/`** folder (git-ignored). Updates **never** ov
 
 | Channel | Follows | Use for |
 |---------|---------|---------|
-| **release** (default) | The newest tag like `v1.6.0` | Room screens |
+| **release** (default) | The newest tag like `v1.5.0` | Room screens |
 | **main** | The tip of the `main` branch | A test device that should always be latest |
 
 Change it with `sqndash --channel main` / `sqndash --channel release` (or the `UPDATE_CHANNEL` environment variable). A device that is already at or ahead of its target is left alone rather than downgraded. If the repository has no release tags yet, the release channel falls back to `main`.
@@ -266,11 +319,11 @@ Change it with `sqndash --channel main` / `sqndash --channel release` (or the `U
 ```bash
 git checkout main && git pull
 # bump "version" in package.json, update this README, merge, then:
-git tag v1.6.0
-git push origin v1.6.0
+git tag v1.5.0
+git push origin v1.5.0
 ```
 
-Devices on the release channel pick the tag up within about 30 minutes (Pi) or 5 minutes (Windows). Tags must look like `vMAJOR.MINOR.PATCH`; other tags such as `v1.6.0-beta` are ignored.
+Devices on the release channel pick the tag up within about 30 minutes (Pi) or 5 minutes (Windows). Tags must look like `vMAJOR.MINOR.PATCH`; other tags such as `v1.5.0-beta` are ignored.
 
 ### Check local vs GitHub
 
@@ -307,7 +360,7 @@ You will be asked to confirm before it runs on Windows.
 ```bash
 cd /path/to/SquadronDashboard
 git fetch --tags origin
-git reset --hard v1.6.0        # or origin/main
+git reset --hard v1.5.0        # or origin/main
 git clean -fd
 npm install --omit=dev
 # restart: npm start   or   docker compose up -d --build
@@ -348,7 +401,7 @@ docker compose logs -f
 docker compose restart
 ```
 
-Settings are bind-mounted from `./data` so they survive rebuilds. Set the editor PIN with the `EDIT_PIN` environment variable or by putting it in `./data/edit-pin`. The image has a health check (`docker ps` shows `healthy`). The container has no git history, so updating means rebuilding: `git pull` on the host, then `docker compose up -d --build`.
+Settings are bind-mounted from `./data` so they survive rebuilds. Set the editor PIN with the `EDIT_PIN` environment variable or by putting it in `./data/edit-pin`. The image has a health check (`docker ps` shows `healthy`). The app runs as the unprivileged `node` user (not root): the container starts as root only long enough to make the mounted `./data` folder writable by that user (Docker creates it root-owned on first run), then drops privileges. Note the container has no settings snapshot outside `./data`, because updating means rebuilding the image, not swapping code in place. The container has no git history, so updating means rebuilding: `git pull` on the host, then `docker compose up -d --build`.
 
 ---
 
@@ -360,6 +413,8 @@ Settings are bind-mounted from `./data` so they survive rebuilds. Set the editor
 - Weather API, news widget configured, leaderboard CSV, Instagram configured
 - `data.json` / backup presence
 - Editor PIN set or not
+- Calendar feed health (events in range, when it was last fetched)
+- Device health: CPU temperature, memory, storage free, Wi-Fi signal, load, uptime (Pi/Linux; "Not available" elsewhere)
 - Git commit and local-change warning when relevant
 
 **http://\<host\>:3000/healthz** is a cheap liveness check (`{"ok":true}`) used by Docker and by the update safety net.
@@ -373,7 +428,7 @@ Dashboard panels that fail show a **reason** when the API provides one, and an e
 ```text
 SquadronDashboard/
   server.js          App wiring: pages, settings API, security, route modules
-  routes/            weather, news, leaderboard, status (+ /healthz), update
+  routes/            weather, news, leaderboard, schedule (events + uniform), control, config, status (+ /healthz), update
   lib/
     auth.js          Editor PIN check
     security.js      Security headers + rate limiter
@@ -384,6 +439,12 @@ SquadronDashboard/
     release.js       Which version to follow (release tag vs main), skip list
     canary.js        Start-and-check a new version before switching
     cleanup.js       Silent start-up deletion of stray files named "temp"
+    tz.js            Time-zone / date helpers (Intl, no dependencies)
+    ics.js           Calendar (.ics) reader incl. repeating events
+    calendar.js      Fetch + cache the calendar link
+    events.js        Typed + calendar events -> the display list
+    uniform.js       This week / next week uniform
+    sysinfo.js       Pi health numbers (temperature, memory, disk, Wi-Fi)
     restart.js       Relaunch the app after an in-app update
     settingsGuard.js Settings snapshot/restore around updates
   storage.js         Atomic settings load/save/validate under data/
@@ -397,7 +458,7 @@ SquadronDashboard/
   test/              npm test  (node:test, no extra dependencies)
   .github/workflows/ CI: tests on Node 18/20/22, shell checks, Docker build
   package.json
-  docker-compose.yml / Dockerfile
+  docker-compose.yml / Dockerfile / docker-entrypoint.sh
   data.example.json  Example settings (real settings go in data/)
   public/
     dashboard.html   Kiosk UI
@@ -417,6 +478,11 @@ SquadronDashboard/
 | `GET /api/data` | Read settings |
 | `POST /api/data` | Save settings (PIN) |
 | `GET /api/weather` | Open-Meteo proxy (cached, serves stale on error) |
+| `GET /api/events` | Typed + calendar events for the display (calendar status included) |
+| `GET /api/uniform` | This week / next week uniform |
+| `POST /api/control` | Show / clear a screen message, reload screens (PIN) |
+| `GET /api/config/export` | Download all settings as a file (PIN) |
+| `POST /api/config/import` | Restore settings from a file (PIN) |
 | `GET /api/leaderboard` | CSV → top 5 / top 3 (cached, serves stale on error) |
 | `GET /api/news` | BBC RSS headlines (display uses the embed) |
 | `GET /api/version` | Local vs update target |
@@ -424,7 +490,7 @@ SquadronDashboard/
 | `GET /api/update/status` | Update progress |
 | `GET /api/status` | Health payload |
 | `GET /healthz` | Liveness |
-| `GET /api/boot` | Boot id (clients reload after restart) |
+| `GET /api/boot` | Boot id + pending reload / screen message (clients poll it) |
 
 ---
 
@@ -466,16 +532,10 @@ Ideas queued for releases after 1.6. Nothing here is built yet.
 
 ### Dashboard features
 
-- **Live events feed:** pull events from an `.ics` calendar (Google Calendar) so they don't need retyping on `/edit`, with real dates so recurring "Every Thursday" entries can be generated.
-- **Auto-hide expired events** once dates are real dates instead of free text.
-- **Offline mode:** a small "last updated 14:32" stamp per panel, on top of the stale-data caching that arrives in 1.6.
 - **Themes:** a dark mode for evening parade nights, plus a "parade night" view showing tonight's programme.
 - **Birthday and promotion shout-outs, and "cadet of the month"** panels, driven from the sheet.
-- **Uniform and dress-of-the-day panel.**
-- **Weekly points movement:** flight progress bars, or "+12 this week", rather than only totals.
-- **Remote screen control:** a "reload display" or "show notice now" button on `/edit`.
-- **Richer `/status`:** CPU temperature, memory, SD-card free space and Wi-Fi signal — handy for a Pi meant to run unattended.
-- **Config export/import** from `/edit`, so a replacement Pi can be set up in five minutes.
+- **Uniform and dress-of-the-day panel** beyond the weekly one (for example a picture of the uniform).
+- **Weekly points movement:** flight progress bars, or "+12 this week", rather than only totals. Needs the dashboard to keep a little history.
 
 ### Future projects
 
@@ -483,10 +543,9 @@ Ideas queued for releases after 1.6. Nothing here is built yet.
 - **Award and badge tracker:** DOJO-style gamification for cadet proficiency levels, with photo or instructor sign-off.
 - **Multi-squadron version:** configurable enough that another unit can install it with one command and its own theme.
 
-### Follow-ups from 1.6
+### Follow-ups
 
-- Commit a `package-lock.json` (generate it with `npm install`, then commit it) so Pi installs are reproducible; the Dockerfile and CI will then use it automatically.
-- Run the Docker image as a non-root user.
+- Commit a `package-lock.json`: run `npm install` once in the project folder and commit the file it creates, so Pi installs are reproducible. The Dockerfile and CI then use it automatically.
 
 ---
 
@@ -496,4 +555,4 @@ See [LICENSE](LICENSE) in the repository.
 
 ---
 
-**Squadron Dashboard 1.6** — self-hosted, settings-safe updates, room-ready display for your unit.
+**Squadron Dashboard 1.6.0** — self-hosted, settings-safe updates, room-ready display for your unit.
