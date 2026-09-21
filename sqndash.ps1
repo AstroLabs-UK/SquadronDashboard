@@ -1,5 +1,5 @@
 # Squadron Dashboard - Windows helper
-#   sqndash.cmd --check | --update | --force-update | --restart | --set-pin | --channel | --help
+#   sqndash.cmd [--start] | --check | --update | --force-update | --restart | --set-pin | --channel | --help
 # Settings in data\ are kept. Updates and version checks are done by scripts\update.js (Node),
 # the same engine the dashboard itself uses: it follows the newest release tag (or main if there
 # are no tags yet), tests the new version before switching to it, and rolls back if that test fails.
@@ -14,6 +14,8 @@ function Show-Usage {
   Write-Host @"
 Squadron Dashboard (Windows)
 
+  sqndash                    start the dashboard
+  sqndash --start            same as above
   sqndash --check            compare local version to the update target (also: --version)
   sqndash --update           update if there's a newer release, then restart
   sqndash --force-update     re-download even if up to date, then restart
@@ -202,6 +204,10 @@ function Set-Channel([string]$Name) {
 $arg = if ($args.Count -gt 0) { "$($args[0])" } else { '' }
 $arg2 = if ($args.Count -gt 1) { "$($args[1])" } else { '' }
 switch -Regex ($arg) {
+  '^(|--start)$' {
+    Restart-App
+    exit $script:RestartResult
+  }
   '^(--check|--version|-v)$' {
     if (-not (Test-Prereqs)) { exit 2 }
     & node (Join-Path $Dir 'scripts\update.js') --check | Out-Host
@@ -217,7 +223,7 @@ switch -Regex ($arg) {
     break
   }
   '^--channel$'              { Set-Channel $arg2; break }
-  '^(--help|-h|)$'           { Show-Usage; break }
+  '^(--help|-h)$'            { Show-Usage; break }
   default {
     Write-Host "Unknown option: $arg"
     Show-Usage

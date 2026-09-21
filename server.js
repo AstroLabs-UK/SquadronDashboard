@@ -40,8 +40,7 @@ const DEFAULT_DATA = {
   autoShutdownMinutes: 165,
   instagramEmbedCode: "",
   weatherEmbedCode: "",
-  // News panel: paste any news widget embed (e.g. FeedGrabbr) on /edit. Blank = panel hidden.
-  newsEmbedCode: "",
+  // News panel is always the scraped BBC News feed (no embed code).
   importantInfo: { enabled: false, title: "IMPORTANT INFORMATION", message: "" },
   widgets: { leaderboard: true, news: true, events: true, instagram: true, uniform: true },
   customWidgets: [],
@@ -79,8 +78,21 @@ const requireEditor = createEditorAuth({ dataDir: DATA_DIR, failureLimiter: pinF
 // ---------- pages ----------
 const sendPage = name => (req, res) => res.sendFile(path.join(__dirname, 'public', name));
 app.get('/', sendPage('dashboard.html'));
+app.get('/pin', sendPage('pin.html'));
 app.get('/edit', requireEditor, sendPage('edit.html'));
 app.get('/status', sendPage('status.html'));
+
+// ---------- API: editor PIN (stylised screen posts here; no PIN is stored in the browser) ----------
+// Failures are rate-limited (skipSuccessful); successes are not counted.
+app.post('/api/auth/login', pinFailureLimiter, (req, res) => {
+  requireEditor.login(req, res);
+});
+app.post('/api/auth/logout', (req, res) => {
+  requireEditor.logout(req, res);
+});
+app.get('/api/auth/check', (req, res) => {
+  requireEditor.check(req, res);
+});
 
 // ---------- API: boot id ----------
 // Changes every time the server starts. The dashboard page polls this and reloads itself

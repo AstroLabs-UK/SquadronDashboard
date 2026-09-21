@@ -130,9 +130,10 @@ function createStore({ dir, defaults, legacyDir }) {
     if (isStr(incoming.calendarTimezone) && isValidTimeZone(incoming.calendarTimezone.trim())) out.calendarTimezone = incoming.calendarTimezone.trim();
     const calDays = Number(incoming.calendarDays);
     if (Number.isFinite(calDays) && calDays >= 14 && calDays <= 365) out.calendarDays = Math.round(calDays);
-    for (const k of ['instagramEmbedCode', 'weatherEmbedCode', 'newsEmbedCode']) {
+    for (const k of ['instagramEmbedCode', 'weatherEmbedCode']) {
       if (isStr(incoming[k])) out[k] = incoming[k];
     }
+    // newsEmbedCode is no longer used (news is always the scraped BBC feed)
     const mins = Number(incoming.autoShutdownMinutes);
     if (Number.isFinite(mins) && mins >= 1) out.autoShutdownMinutes = Math.round(mins);
 
