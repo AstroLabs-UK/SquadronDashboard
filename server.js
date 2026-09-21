@@ -68,11 +68,22 @@ const DEFAULT_DATA = {
 const SNAP_DIR = guard.defaultSnapshotDir(__dirname);
 const guardActive = !process.env.CANARY;
 if (guardActive) {
-  if (!fs.existsSync(path.join(DATA_DIR, 'data.json')) && guard.restore(DATA_DIR, SNAP_DIR, { onlyMissing: true })) {
+  // Prefer the external current-settings snapshot over empty/missing data/.
+  const main = path.join(DATA_DIR, 'data.json');
+  let mainOk = false;
+  try {
+    if (fs.existsSync(main)) {
+      const o = JSON.parse(fs.readFileSync(main, 'utf8'));
+      mainOk = o && typeof o === 'object' && !Array.isArray(o);
+    }
+  } catch (e) { mainOk = false; }
+  if (!mainOk && guard.restore(DATA_DIR, SNAP_DIR, { onlyMissing: false })) {
+    console.warn('[storage] restored current settings from ' + SNAP_DIR);
+  } else if (!fs.existsSync(main) && guard.restore(DATA_DIR, SNAP_DIR, { onlyMissing: true })) {
     console.warn('[storage] settings were missing - restored them from ' + SNAP_DIR);
   }
 }
-const store = createStore({ dir: DATA_DIR, defaults: DEFAULT_DATA, legacyDir: __dirname });
+const store = createStore({ dir: DATA_DIR, defaults: DEFAULT_DATA, legacyDir: __dirname, snapDir: guardActive ? SNAP_DIR : null });
 if (guardActive) guard.snapshot(DATA_DIR, SNAP_DIR);
 
 // ---------- protection ----------
@@ -152,7 +163,7 @@ app.use(require('./routes/leaderboard')({ store }));
 app.use(require('./routes/status')({ store, cwd: __dirname, requireEditor, calendar }));
 app.use(require('./routes/schedule')({ store, calendar }));
 app.use(control.router);
-app.use(require('./routes/config')({ store, dataDir: DATA_DIR, requireEditor, limiter: sensitiveLimiter }));
+app.use(require('./routes/config')({ store, dataDir: DATA_DIR, snapDir: SNAP_DIR, requireEditor, limiter: sensitiveLimiter }));
 app.use(require('./routes/update')({ cwd: __dirname, dataDir: DATA_DIR, requireEditor, limiter: sensitiveLimiter }));
 
 if (require.main === module) {

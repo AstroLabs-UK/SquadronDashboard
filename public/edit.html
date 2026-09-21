@@ -453,7 +453,9 @@
 <div id="controlStatus" class="hint"></div>
 
 <h2>Backup</h2>
+<p class="hint">Live: <code>data/data.json</code>. One in-app backup: <code>data/data.backup.json</code>. One external backup: <code>sqndash-data-backup/</code> (next to the app). Changes autosave after 30s idle.</p>
 <div class="actions">
+  <button class="primary" type="button" onclick="backupNow()">Backup now</button>
   <button class="add" type="button" onclick="location.href='/api/config/export'">Download</button>
   <button class="add" type="button" onclick="document.getElementById('importFile').click()">Restore…</button>
 </div>
@@ -644,7 +646,10 @@ function updateForceButton() {
   btn.title = dirty ? 'Save first' : '';
 }
 ['input', 'change', 'click'].forEach(ev =>
-  document.addEventListener(ev, () => setTimeout(updateForceButton, 0)));
+  document.addEventListener(ev, () => setTimeout(() => {
+    updateForceButton();
+    scheduleAutoSave();
+  }, 0)));
 
 async function load() {
   data = await (await fetch('/api/data')).json();
@@ -685,18 +690,52 @@ async function load() {
   loadVersionInfo();
 }
 
-async function save() {
+let autoSaveTimer = null;
+let saveInFlight = false;
+const AUTO_SAVE_MS = 30 * 1000;
+
+function scheduleAutoSave() {
+  clearTimeout(autoSaveTimer);
+  autoSaveTimer = null;
+  if (!hasUnsavedChanges()) return;
+  autoSaveTimer = setTimeout(() => {
+    autoSaveTimer = null;
+    if (hasUnsavedChanges()) save({ silent: true, reason: 'autosave' });
+  }, AUTO_SAVE_MS);
+}
+
+async function save(opts) {
+  const silent = !!(opts && opts.silent);
+  const reason = (opts && opts.reason) || 'manual';
+  if (saveInFlight) return;
+  if (silent && !hasUnsavedChanges()) return;
   const payload = collectPayload();
-  const res = await fetch('/api/data', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
+  saveInFlight = true;
   const statusEl = document.getElementById('status');
-  statusEl.textContent = res.ok ? 'Saved' : 'Failed';
-  clearTimeout(statusTimer);
-  statusTimer = setTimeout(() => { statusEl.textContent = ''; }, 2500);
-  if (res.ok) { savedSnapshot = JSON.stringify(payload); updateForceButton(); }
+  try {
+    const res = await fetch('/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      savedSnapshot = JSON.stringify(payload);
+      updateForceButton();
+      clearTimeout(autoSaveTimer);
+      autoSaveTimer = null;
+      statusEl.textContent = reason === 'autosave' ? 'Autosaved' : 'Saved';
+    } else {
+      statusEl.textContent = 'Save failed';
+    }
+    clearTimeout(statusTimer);
+    statusTimer = setTimeout(() => { statusEl.textContent = ''; }, silent ? 2000 : 2500);
+  } catch (e) {
+    statusEl.textContent = 'Save failed';
+    clearTimeout(statusTimer);
+    statusTimer = setTimeout(() => { statusEl.textContent = ''; }, 2500);
+  } finally {
+    saveInFlight = false;
+  }
 }
 
 async function testCalendar() {
@@ -747,6 +786,26 @@ function sendNotice() {
     text: document.getElementById('noticeText').value,
     minutes: parseInt(document.getElementById('noticeMinutes').value, 10) || 30
   });
+}
+
+async function backupNow() {
+  const status = document.getElementById('backupStatus');
+  status.style.color = '';
+  status.textContent = 'Backing up…';
+  try {
+    const res = await fetch('/api/config/backup', { method: 'POST' });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      status.style.color = 'var(--raf-red)';
+      status.textContent = body.error || 'Backup failed';
+      return;
+    }
+    status.style.color = 'var(--raf-navy)';
+    status.textContent = 'Backed up to ' + (body.path || 'sqndash-data-backup');
+  } catch (e) {
+    status.style.color = 'var(--raf-red)';
+    status.textContent = e.message;
+  }
 }
 
 async function importConfig(input) {
