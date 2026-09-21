@@ -1,8 +1,6 @@
 # Squadron Dashboard - Windows helper
 #   sqndash.cmd [--start] | --stop | --check | --update | --force-update | --restart | --set-pin | --channel | --help
-# Settings in data\ are kept. Updates and version checks are done by scripts\update.js (Node),
-# the same engine the dashboard itself uses: it follows the newest release tag (or main if there
-# are no tags yet), tests the new version before switching to it, and rolls back if that test fails.
+# Settings in data\ are kept. Updates and version checks are done by scripts\update.js (Node).
 
 $ErrorActionPreference = 'Continue'
 $Dir = $PSScriptRoot
@@ -16,11 +14,11 @@ Squadron Dashboard (Windows)
 
   sqndash                    start the dashboard
   sqndash --start            same as above
+  sqndash --stop             stop ALL running dashboard instances (node + Docker)
   sqndash --check            compare local version to the update target (also: --version)
   sqndash --update           update if there's a newer release, then restart
   sqndash --force-update     re-download even if up to date, then restart
   sqndash --restart          restart only
-  sqndash --stop             stop ALL running dashboard instances (node + Docker)
   sqndash --set-pin [PIN]    set the PIN that protects the /edit page (4+ characters)
   sqndash --clear-pin        remove the PIN (anyone on the network can then edit)
   sqndash --channel [name]   show, or set, the update channel:
@@ -42,7 +40,6 @@ function Write-UpdateStatus([string]$State, [string]$Message) {
   } catch { }
 }
 
-# Print the result the update engine recorded, so a failure is never silent
 function Show-LastStatus {
   try {
     $file = Join-Path $Dir 'data\update-status.json'
@@ -59,7 +56,6 @@ function Ensure-DataFolder {
   $example = Join-Path $Dir 'data.example.json'
   $dataJson = Join-Path $dataDir 'data.json'
   $backup = Join-Path $dataDir 'data.backup.json'
-  # Only seed factory defaults when there is no live file and no previous backup
   if (-not (Test-Path $dataJson) -and -not (Test-Path $backup) -and (Test-Path $example)) {
     Copy-Item $example $dataJson
   } elseif (-not (Test-Path $dataJson) -and (Test-Path $backup)) {
@@ -80,8 +76,6 @@ function Test-Prereqs {
   return $true
 }
 
-
-# Stop every dashboard instance: Docker, node server.js, and anything on the app port.
 function Stop-App {
   Write-Host '[stop] stopping all dashboard instances...'
   $stopped = 0
@@ -140,8 +134,6 @@ function Stop-App {
   }
 }
 
-# Sets $script:RestartResult (0 = ok). Everything it runs is sent to the screen with Out-Host so
-# it can't leak into a return value - that was the classic PowerShell trap here.
 function Restart-App {
   $script:RestartResult = 1
   Write-Host '[update] restarting the dashboard...'
@@ -164,10 +156,9 @@ function Restart-App {
   }
 
   $serverJs = Join-Path $Dir 'server.js'
-  # Stop every instance first (avoids two node processes serving different settings)
   Stop-App | Out-Null
-
   Start-Sleep -Seconds 1
+
   if (Test-Path $serverJs) {
     Start-Process -FilePath 'node' -ArgumentList 'server.js' -WorkingDirectory $Dir -WindowStyle Hidden
     Write-Host '[update] done - started node (http://localhost:3000)'
@@ -248,7 +239,7 @@ function Set-Pin([string]$Pin) {
   Ensure-DataFolder
   [System.IO.File]::WriteAllText((Join-Path $Dir 'data\edit-pin'), $Pin + "`n")
   Write-Host 'Editor PIN saved. It applies straight away - no restart needed.'
-  Write-Host 'Open /edit, leave the username blank and enter the PIN as the password.'
+  Write-Host 'Open /edit and enter the PIN on the unlock screen.'
 }
 
 function Set-Channel([string]$Name) {
