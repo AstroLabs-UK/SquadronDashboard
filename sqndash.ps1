@@ -81,8 +81,7 @@ function Test-Prereqs {
 }
 
 
-# Stop every dashboard instance: Docker container, every node running server.js for this
-# install (and any other server.js node process as a fallback), and anything on port 3000.
+# Stop every dashboard instance: Docker, node server.js, and anything on the app port.
 function Stop-App {
   Write-Host '[stop] stopping all dashboard instances...'
   $stopped = 0
@@ -90,52 +89,42 @@ function Stop-App {
   if (Get-Command docker -ErrorAction SilentlyContinue) {
     $names = cmd /c "docker ps -a --format {{.Names}} 2>nul"
     if ("$names" -match 'squadron-dashboard') {
-      cmd /c "docker compose down" 2>$null | Out-Host
+      cmd /c "docker compose down" | Out-Host
       Write-Host '[stop] Docker container stopped'
       $stopped = 1
     }
   }
 
-  $serverJs = Join-Path $Dir 'server.js'
-  $dirNorm = $Dir.TrimEnd('\', '/').ToLowerInvariant()
   $nodeProcs = @(Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue)
   foreach ($proc in $nodeProcs) {
-    $cmd = [string]$proc.CommandLine
-    if (-not $cmd) { continue }
-    $cmdLower = $cmd.ToLowerInvariant()
-    $match = $false
-    if ($cmdLower -like '*server.js*') {
-      # Prefer processes whose command line mentions this install directory
-      if ($cmdLower.Contains($dirNorm) -or $cmdLower -like '*server.js*') {
-        $match = $true
-      }
-    }
-    if ($match) {
-      Write-Host "[stop] killing node PID $($proc.ProcessId) — $cmd"
-      Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue
-      $stopped = 1
-    }
+    $cmdLine = [string]$proc.CommandLine
+    if (-not $cmdLine) { continue }
+    $cmdLower = $cmdLine.ToLowerInvariant()
+    if ($cmdLower -notlike '*server.js*') { continue }
+    Write-Host ("[stop] killing node PID {0}" -f $proc.ProcessId)
+    Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue
+    $stopped = 1
   }
 
-  # Free port 3000 (and PORT env if set) if something is still listening
-  $port = if ($env:PORT) { $env:PORT } else { '3000' }
+  $port = 3000
+  if ($env:PORT -match '^[0-9]+$') { $port = [int]$env:PORT }
   try {
-    $conns = Get-NetTCPConnection -LocalPort ([int]$port) -State Listen -ErrorAction SilentlyContinue
-    foreach ($c in $conns) {
+    $conns = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
+    foreach ($c in @($conns)) {
       if ($c.OwningProcess -and $c.OwningProcess -ne 0) {
-        Write-Host "[stop] killing PID $($c.OwningProcess) listening on port $port"
+        Write-Host ("[stop] killing PID {0} on port {1}" -f $c.OwningProcess, $port)
         Stop-Process -Id $c.OwningProcess -Force -ErrorAction SilentlyContinue
         $stopped = 1
       }
     }
   } catch {
-    # Older Windows without Get-NetTCPConnection: try netstat
     try {
-      $lines = netstat -ano | Select-String ":$port\s+.*LISTENING"
-      foreach ($line in $lines) {
-        $procId = ($line.ToString().Trim() -split '\s+')[-1]
-        if ($procId -match '^\d+$' -and [int]$procId -gt 0) {
-          Write-Host "[stop] killing PID $procId (netstat port $port)"
+      $lines = netstat -ano | Select-String (":{0}\s+.*LISTENING" -f $port)
+      foreach ($line in @($lines)) {
+        $parts = ($line.ToString().Trim() -split '\s+')
+        $procId = $parts[-1]
+        if ($procId -match '^[0-9]+$' -and [int]$procId -gt 0) {
+          Write-Host ("[stop] killing PID {0} (netstat port {1})" -f $procId, $port)
           Stop-Process -Id ([int]$procId) -Force -ErrorAction SilentlyContinue
           $stopped = 1
         }
@@ -147,9 +136,8 @@ function Stop-App {
   if ($stopped -eq 0) {
     Write-Host '[stop] no running dashboard instance found'
   } else {
-    Write-Host '[stop] done — all matching instances stopped'
+    Write-Host '[stop] done - all matching instances stopped'
   }
-  return 0
 }
 
 # Sets $script:RestartResult (0 = ok). Everything it runs is sent to the screen with Out-Host so
