@@ -54,7 +54,7 @@ module.exports = function statusRoutes({ store, cwd, requireEditor, calendar }) 
       error: cal.error || undefined
     };
     status.system = sysinfo.collect({ dir: cwd });
-    status.newsWidget = (data.newsEmbedCode && data.newsEmbedCode.trim()) ? 'ONLINE' : 'WARNING';
+    status.newsWidget = 'ONLINE'; // built-in BBC scrape – always available
     status.instagramWidget = (data.instagramEmbedCode && data.instagramEmbedCode.trim()) ? 'ONLINE' : 'WARNING';
 
     const head = await git(['rev-parse', '--short', 'HEAD'], { cwd });

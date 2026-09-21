@@ -21,17 +21,30 @@ let server, base, feed, feedUrl, feedHits = 0, feedBody = '';
 const pad = n => String(n).padStart(2, '0');
 const stamp = ms => { const d = new Date(ms); return d.getUTCFullYear() + pad(d.getUTCMonth() + 1) + pad(d.getUTCDate()) + 'T' + pad(d.getUTCHours()) + pad(d.getUTCMinutes()) + '00Z'; };
 const post = (url, body, headers = {}) => fetch(base + url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body) });
+function cookieFromResponse(r) {
+  // Node 19.2+ has getSetCookie(); older Node only exposes a single set-cookie header.
+  if (typeof r.headers.getSetCookie === 'function') {
+    const list = r.headers.getSetCookie();
+    if (list && list.length) return list.map(c => c.split(';')[0].trim()).filter(Boolean).join('; ');
+  }
+  const raw = r.headers.get('set-cookie');
+  if (!raw) return '';
+  // Split on ", " only when it looks like a new cookie (name=), not Expires=Tue, 01...
+  const parts = [];
+  let buf = '';
+  for (const bit of raw.split(/,(?=\s*[A-Za-z_][A-Za-z0-9_]*=)/)) {
+    buf = bit.trim();
+    if (buf) parts.push(buf.split(';')[0].trim());
+  }
+  return parts.filter(Boolean).join('; ');
+}
 async function loginCookie(pin) {
   const r = await fetch(base + '/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ pin })
   });
-  const setCookie = r.headers.getSetCookie ? r.headers.getSetCookie() : [];
-  if (setCookie && setCookie.length) return setCookie.map(c => c.split(';')[0]).join('; ');
-  const raw = r.headers.get('set-cookie');
-  if (!raw) return '';
-  return raw.split(',').map(c => c.split(';')[0].trim()).join('; ');
+  return cookieFromResponse(r);
 }
 const cookieHdr = c => (c ? { Cookie: c } : {});
 

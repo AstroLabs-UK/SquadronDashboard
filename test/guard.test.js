@@ -42,8 +42,8 @@ test('a backup for an app in a drive/filesystem root goes to the home folder, no
   delete process.env.DATA_BACKUP_DIR;
   try {
     const rootApp = path.parse(os.tmpdir()).root + 'SquadronDashboard';
-    assert.equal(guard.defaultSnapshotDir(rootApp), path.join(os.homedir(), '.squadron-dashboard-backup'));
+    assert.equal(guard.defaultSnapshotDir(rootApp), path.join(os.homedir(), 'sqndash-data-backup'));
     const nested = path.join(os.tmpdir(), 'x', 'SquadronDashboard');
-    assert.equal(guard.defaultSnapshotDir(nested), path.join(path.dirname(nested), '.squadron-dashboard-backup'));
+    assert.equal(guard.defaultSnapshotDir(nested), path.join(path.dirname(nested), 'sqndash-data-backup'));
   } finally { if (saved !== undefined) process.env.DATA_BACKUP_DIR = saved; }
 });

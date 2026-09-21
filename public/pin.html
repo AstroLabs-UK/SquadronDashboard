@@ -12,179 +12,168 @@
     --raf-blue: #0066A1;
     --light-blue: #D9EAF3;
     --white: #FFFFFF;
+    --off-white: #F4F6F8;
     --raf-red: #C8102E;
-    --muted: #8aa0b5;
-    --glow: rgba(0, 102, 161, 0.45);
+    --muted: #667788;
+    --border: #D5DDE5;
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body {
-    height: 100%;
-    font-family: "Inter", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
-    background: radial-gradient(ellipse at 50% 20%, #0a2a4a 0%, var(--deep-navy) 55%, #020810 100%);
-    color: var(--white);
-  }
+  * { box-sizing: border-box; }
   body {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 100%;
-    padding: 24px;
+    font-family: "Inter", Arial, Helvetica, sans-serif;
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 0 0 40px 0;
+    background: var(--off-white);
+    color: var(--deep-navy);
+    min-height: 100vh;
   }
-  .card {
-    width: 100%;
-    max-width: 380px;
-    background: linear-gradient(160deg, rgba(0, 32, 91, 0.92) 0%, rgba(7, 21, 37, 0.96) 100%);
-    border: 1px solid rgba(217, 234, 243, 0.12);
-    border-radius: 16px;
-    padding: 36px 32px 40px;
-    box-shadow:
-      0 0 0 1px rgba(0, 102, 161, 0.15),
-      0 24px 48px rgba(0, 0, 0, 0.45),
-      0 0 80px var(--glow);
-    text-align: center;
+  header {
+    background: var(--raf-navy);
+    color: var(--white);
+    padding: 18px 20px;
+    border-bottom: 3px solid var(--raf-blue);
   }
-  .badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 64px;
-    height: 64px;
-    border-radius: 50%;
-    background: radial-gradient(circle at 35% 30%, var(--raf-blue), var(--raf-navy));
-    border: 2px solid rgba(217, 234, 243, 0.25);
-    margin-bottom: 20px;
-    box-shadow: 0 0 24px var(--glow);
-  }
-  .badge svg { width: 30px; height: 30px; fill: var(--white); }
-  .eyebrow {
+  header .eyebrow {
     text-transform: uppercase;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.08em;
     font-size: 11px;
     font-weight: 700;
     color: var(--light-blue);
-    opacity: 0.85;
-    margin-bottom: 6px;
   }
-  h1 {
+  header h1 { margin: 4px 0 0 0; font-size: 20px; font-weight: 700; }
+  .content { padding: 0 20px; }
+
+  .panel {
+    margin-top: 28px;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 24px 20px 28px;
+    box-shadow: 0 2px 8px rgba(7, 21, 37, 0.06);
+  }
+  .panel h2 {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin: 0 0 8px 0;
+    color: var(--raf-navy);
+    border-bottom: 2px solid var(--raf-navy);
+    padding-bottom: 8px;
+  }
+  .hint {
+    color: var(--muted);
+    font-size: 13px;
+    margin: 0 0 18px 0;
+    line-height: 1.45;
+  }
+  label {
+    display: block;
+    margin-top: 4px;
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+  }
+  input {
+    width: 100%;
+    padding: 12px 12px;
+    margin-top: 6px;
     font-size: 22px;
     font-weight: 700;
-    letter-spacing: -0.01em;
-    margin-bottom: 8px;
-  }
-  .sub {
-    font-size: 14px;
-    color: var(--muted);
-    margin-bottom: 28px;
-    line-height: 1.4;
-  }
-  .pin-field {
-    position: relative;
-    margin-bottom: 20px;
-  }
-  .pin-field input {
-    width: 100%;
-    font-size: 28px;
-    font-weight: 700;
-    letter-spacing: 0.45em;
-    text-align: center;
-    padding: 16px 12px;
-    border-radius: 10px;
-    border: 1px solid rgba(217, 234, 243, 0.18);
-    background: rgba(0, 0, 0, 0.35);
-    color: var(--white);
-    outline: none;
-    transition: border-color 0.15s, box-shadow 0.15s;
-    font-variant-numeric: tabular-nums;
-  }
-  .pin-field input::placeholder {
-    color: rgba(255, 255, 255, 0.2);
     letter-spacing: 0.35em;
+    text-align: center;
+    font-family: inherit;
+    font-variant-numeric: tabular-nums;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--deep-navy);
   }
-  .pin-field input:focus {
-    border-color: var(--raf-blue);
-    box-shadow: 0 0 0 3px rgba(0, 102, 161, 0.35);
-  }
-  .pin-field input.error {
+  input:focus { border-color: var(--raf-blue); outline: none; }
+  input.error {
     border-color: var(--raf-red);
     animation: shake 0.4s ease;
   }
   @keyframes shake {
     0%, 100% { transform: translateX(0); }
-    20% { transform: translateX(-8px); }
-    40% { transform: translateX(8px); }
-    60% { transform: translateX(-6px); }
-    80% { transform: translateX(6px); }
+    20% { transform: translateX(-6px); }
+    40% { transform: translateX(6px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
   }
-  button.submit {
+  button.primary {
     width: 100%;
-    padding: 14px 18px;
-    font-size: 15px;
+    margin-top: 16px;
+    padding: 12px 18px;
+    font-size: 14px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-    border: none;
-    border-radius: 10px;
+    letter-spacing: 0.04em;
+    border: 1px solid transparent;
+    border-radius: 3px;
     cursor: pointer;
-    background: linear-gradient(180deg, #0a7ec4 0%, var(--raf-blue) 100%);
+    background: var(--raf-navy);
     color: var(--white);
-    box-shadow: 0 4px 16px rgba(0, 102, 161, 0.4);
-    transition: transform 0.1s, filter 0.15s, opacity 0.15s;
+    font-family: inherit;
   }
-  button.submit:hover:not(:disabled) { filter: brightness(1.08); }
-  button.submit:active:not(:disabled) { transform: scale(0.98); }
-  button.submit:disabled {
-    opacity: 0.55;
+  button.primary:hover:not(:disabled) { background: var(--raf-blue); }
+  button.primary:disabled {
+    background: #C9D1D9;
+    color: #8A96A3;
     cursor: not-allowed;
   }
-  .status {
-    min-height: 22px;
-    margin-top: 16px;
+  #status {
+    margin-top: 14px;
+    min-height: 20px;
+    font-weight: 700;
     font-size: 14px;
-    font-weight: 600;
-    color: var(--muted);
+    color: var(--raf-navy);
+    text-align: center;
   }
-  .status.error { color: #ff6b81; }
-  .status.ok { color: #6ee7a8; }
-  .footer {
-    margin-top: 28px;
+  #status.error { color: var(--raf-red); }
+  #status.ok { color: var(--raf-navy); }
+  .footer-note {
+    margin-top: 20px;
+    text-align: center;
+    color: var(--muted);
     font-size: 12px;
-    color: rgba(255, 255, 255, 0.28);
-    letter-spacing: 0.04em;
   }
 </style>
 </head>
 <body>
-  <div class="card">
-    <div class="badge" aria-hidden="true">
-      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path d="M12 1a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V11a2 2 0 0 0-2-2h-1V6a5 5 0 0 0-5-5zm-3 5a3 3 0 0 1 6 0v3H9V6zm3 8a2 2 0 1 1 0 4 2 2 0 0 1 0-4z"/>
-      </svg>
-    </div>
-    <div class="eyebrow">Squadron Dashboard</div>
-    <h1>Enter editor PIN</h1>
-    <p class="sub">Enter the PIN to open the settings page. Nothing is stored in this browser.</p>
+<header>
+  <div class="eyebrow">Royal Air Force Air Cadets</div>
+  <h1>Editor unlock</h1>
+</header>
+
+<div class="content">
+  <div class="panel">
+    <h2>Enter PIN</h2>
+    <p class="hint">Enter the editor PIN to open the settings page. The PIN is checked on the server and is not stored in this browser.</p>
 
     <form id="pinForm" autocomplete="off" novalidate>
-      <div class="pin-field">
-        <input
-          id="pin"
-          type="password"
-          inputmode="numeric"
-          pattern="[0-9]*"
-          maxlength="32"
-          placeholder="••••"
-          autocomplete="one-time-code"
-          autocapitalize="off"
-          autocorrect="off"
-          spellcheck="false"
-          autofocus
-        >
-      </div>
-      <button type="submit" class="submit" id="submitBtn">Unlock</button>
+      <label for="pin">PIN</label>
+      <input
+        id="pin"
+        type="password"
+        inputmode="numeric"
+        pattern="[0-9]*"
+        maxlength="32"
+        placeholder="••••"
+        autocomplete="one-time-code"
+        autocapitalize="off"
+        autocorrect="off"
+        spellcheck="false"
+        autofocus
+      >
+      <button type="submit" class="primary" id="submitBtn">Unlock</button>
     </form>
-    <div class="status" id="status" role="status" aria-live="polite"></div>
-    <div class="footer">Protected access · RAF-themed kiosk</div>
+    <div id="status" role="status" aria-live="polite"></div>
   </div>
+  <p class="footer-note">Squadron Dashboard · protected access</p>
+</div>
 
 <script>
 (function () {
@@ -206,13 +195,13 @@
     e.preventDefault();
     const pin = (input.value || '').trim();
     if (!pin) {
-      status.className = 'status error';
+      status.className = 'error';
       status.textContent = 'Please enter the PIN.';
       input.focus();
       return;
     }
     btn.disabled = true;
-    status.className = 'status';
+    status.className = '';
     status.textContent = 'Checking…';
     input.classList.remove('error');
 
@@ -225,30 +214,28 @@
       });
       const body = await res.json().catch(() => ({}));
       if (res.ok && body.ok) {
-        status.className = 'status ok';
+        status.className = 'ok';
         status.textContent = 'Unlocked – opening editor…';
-        // Brief pause so the success state is visible, then go
         setTimeout(() => { window.location.replace(nextUrl()); }, 350);
         return;
       }
-      status.className = 'status error';
+      status.className = 'error';
       status.textContent = body.error || 'Incorrect PIN';
       input.classList.add('error');
       input.select();
       input.focus();
     } catch (err) {
-      status.className = 'status error';
+      status.className = 'error';
       status.textContent = 'Could not reach the server.';
     } finally {
       btn.disabled = false;
     }
   });
 
-  // Clear error styling as soon as the user types again
   input.addEventListener('input', () => {
     input.classList.remove('error');
     if (status.classList.contains('error')) {
-      status.className = 'status';
+      status.className = '';
       status.textContent = '';
     }
   });

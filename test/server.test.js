@@ -14,22 +14,30 @@ delete process.env.EDIT_PIN;
 const app = require('../server');
 let server, base;
 
+function cookieFromResponse(r) {
+  // Node 19.2+ has getSetCookie(); older Node only exposes a single set-cookie header.
+  if (typeof r.headers.getSetCookie === 'function') {
+    const list = r.headers.getSetCookie();
+    if (list && list.length) return list.map(c => c.split(';')[0].trim()).filter(Boolean).join('; ');
+  }
+  const raw = r.headers.get('set-cookie');
+  if (!raw) return '';
+  // Split on ", " only when it looks like a new cookie (name=), not Expires=Tue, 01...
+  const parts = [];
+  let buf = '';
+  for (const bit of raw.split(/,(?=\s*[A-Za-z_][A-Za-z0-9_]*=)/)) {
+    buf = bit.trim();
+    if (buf) parts.push(buf.split(';')[0].trim());
+  }
+  return parts.filter(Boolean).join('; ');
+}
 async function login(pin) {
   const r = await fetch(base + '/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ pin })
   });
-  const setCookie = r.headers.getSetCookie ? r.headers.getSetCookie() : [];
-  // node fetch may expose getSetCookie(); fall back to raw header
-  let cookie = '';
-  if (setCookie && setCookie.length) {
-    cookie = setCookie.map(c => c.split(';')[0]).join('; ');
-  } else {
-    const raw = r.headers.get('set-cookie');
-    if (raw) cookie = raw.split(',').map(c => c.split(';')[0].trim()).join('; ');
-  }
-  return { res: r, cookie, body: await r.json().catch(() => ({})) };
+  return { res: r, cookie: cookieFromResponse(r), body: await r.json().catch(() => ({})) };
 }
 
 const postJson = (url, body, cookie = '') => fetch(base + url, {
