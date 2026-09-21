@@ -99,6 +99,23 @@
     .grid.cols-2 { grid-template-columns: 1fr 1fr; }
   }
 
+  /* Events (left) + Uniform (right) */
+  .split-eu {
+    display: grid;
+    gap: 8px 20px;
+    grid-template-columns: 1fr;
+    margin-top: 8px;
+  }
+  .split-eu > section { min-width: 0; }
+  .split-eu h2 { margin-top: 22px; }
+  @media (min-width: 640px) {
+    .split-eu {
+      grid-template-columns: 1fr 1fr;
+      align-items: start;
+    }
+    .split-eu h2 { margin-top: 22px; }
+  }
+
   .checks {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -317,13 +334,18 @@
 <label for="importantInfoMessage">Message</label>
 <textarea id="importantInfoMessage" rows="2" placeholder="Banner text"></textarea>
 
-<h2>Events</h2>
-<div id="eventsContainer"></div>
-<button class="add" type="button" onclick="addEvent()">+ Add event</button>
-
-<h2>Uniform</h2>
-<div id="uniformContainer"></div>
-<button class="add" type="button" onclick="addUniform()">+ Add day</button>
+<div class="split-eu">
+  <section>
+    <h2>Events</h2>
+    <div id="eventsContainer"></div>
+    <button class="add" type="button" onclick="addEvent()">+ Add event</button>
+  </section>
+  <section>
+    <h2>Uniform</h2>
+    <div id="uniformContainer"></div>
+    <button class="add" type="button" onclick="addUniform()">+ Add day</button>
+  </section>
+</div>
 
 <h2>Screens</h2>
 <label for="noticeText">Message</label>
