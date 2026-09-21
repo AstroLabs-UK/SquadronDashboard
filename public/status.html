@@ -84,9 +84,9 @@
 
   <h2>Data Sources</h2>
   <div class="grid">
-    <div class="card"><div class="label">Weather API</div><div class="value" id="weatherApi">—</div></div>
-    <div class="card"><div class="label">News widget</div><div class="value" id="newsRss">—</div></div>
-    <div class="card"><div class="label">Leaderboard CSV</div><div class="value" id="leaderboardCsv">—</div></div>
+    <div class="card"><div class="label">Weather API</div><div class="value" id="weatherApi">—</div><div class="hint" id="weatherDetail"></div></div>
+    <div class="card"><div class="label">News widget</div><div class="value" id="newsRss">—</div><div class="hint" id="newsDetail"></div></div>
+    <div class="card"><div class="label">Leaderboard CSV</div><div class="value" id="leaderboardCsv">—</div><div class="hint" id="leaderboardDetail"></div></div>
     <div class="card"><div class="label">Instagram Widget</div><div class="value" id="instagramWidget">—</div></div>
     <div class="card"><div class="label">Calendar feed</div><div class="value" id="calendarFeed">—</div><div class="hint" id="calendarDetail"></div></div>
   </div>
@@ -148,11 +148,27 @@ async function refreshStatus() {
     document.getElementById('leaderboardCsv').innerHTML = dot(data.leaderboardCsv || 'OFFLINE');
     document.getElementById('instagramWidget').innerHTML = dot(data.instagramWidget || 'WARNING');
 
+    function sourceDetail(s) {
+      if (!s) return '';
+      const bits = [];
+      if (s.usingCachedData) bits.push('using cached data');
+      if (s.lastSuccessAt) bits.push('last OK ' + new Date(s.lastSuccessAt).toLocaleString());
+      if (s.consecutiveFailures) bits.push(s.consecutiveFailures + ' recent failure(s)');
+      if (s.lastError && s.consecutiveFailures) bits.push(s.lastError);
+      return bits.join(' · ');
+    }
+    const sources = data.sources || {};
+    document.getElementById('weatherDetail').textContent = sourceDetail(sources.weather);
+    document.getElementById('newsDetail').textContent = sourceDetail(sources.news);
+    document.getElementById('leaderboardDetail').textContent = sourceDetail(sources.leaderboard);
+
     document.getElementById('calendarFeed').innerHTML = dot(data.calendar || 'WARNING');
     const ci = data.calendarInfo || {};
     document.getElementById('calendarDetail').textContent = !ci.configured ? 'No calendar link set'
       : ci.error ? ci.error
-      : (ci.events != null ? ci.events + ' events in range' : '') + (ci.updatedAt ? ', fetched ' + new Date(ci.updatedAt).toLocaleTimeString() : '');
+      : ((ci.usingCachedData ? 'using cached data · ' : '') +
+         (ci.events != null ? ci.events + ' events in range' : '') +
+         (ci.updatedAt ? ', fetched ' + new Date(ci.updatedAt).toLocaleTimeString() : ''));
 
     const sys = data.system || {};
     const na = '<span class="plain">Not available</span>';

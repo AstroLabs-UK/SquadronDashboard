@@ -1,20 +1,34 @@
+const path = require('path');
 const express = require('express');
 const { createCache } = require('../lib/cache');
+const { withRetries, fetchWithTimeout } = require('../lib/upstream');
 
 // Open-Meteo needs no API key. Cached for 5 minutes; if it's unreachable the last good
-// reading (up to 6 hours old) is served, flagged with "stale": true.
-module.exports = function weatherRoutes({ store }) {
+// reading (up to 6 hours old, including across restarts) is served, flagged with "stale": true.
+module.exports = function weatherRoutes({ store, cacheDir }) {
   const router = express.Router();
-  const cache = createCache({ ttlMs: 5 * 60 * 1000 });
+  const cache = createCache({
+    ttlMs: 5 * 60 * 1000,
+    staleMs: 6 * 60 * 60 * 1000,
+    cooldownMs: 60 * 1000,
+    service: 'weather',
+    persistPath: cacheDir ? path.join(cacheDir, 'weather.json') : null
+  });
 
   router.get('/api/weather', async (req, res) => {
     try {
       const { lat, lon } = store.load().location;
       const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m&timezone=auto`;
       const { value, stale, updatedAt } = await cache.get(`${lat},${lon}`, async () => {
-        const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
-        if (!r.ok) throw new Error('weather service returned HTTP ' + r.status);
-        return r.json();
+        return withRetries(async () => {
+          const r = await fetchWithTimeout(url, { timeoutMs: 8000 });
+          if (!r.ok) throw new Error('weather service returned HTTP ' + r.status);
+          const body = await r.json();
+          if (!body || typeof body !== 'object' || !body.current) {
+            throw new Error('weather service returned an unexpected response');
+          }
+          return body;
+        }, { retries: 2, label: 'weather' });
       });
       res.set('Cache-Control', 'public, max-age=60');
       res.json({ ...value, stale, updatedAt });
