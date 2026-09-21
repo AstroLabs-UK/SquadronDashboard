@@ -333,6 +333,31 @@
       <div id="date"></div>
     </div>
   </header>
+  <script>
+  /* Early local clock — runs even if later dashboard script hits an error */
+  (function earlyClock() {
+    function pad(n) { return n < 10 ? '0' + n : '' + n; }
+    function paint() {
+      try {
+        var d = new Date();
+        var c = document.getElementById('clock');
+        var dateEl = document.getElementById('date');
+        if (c) c.textContent = pad(d.getHours()) + ':' + pad(d.getMinutes());
+        if (dateEl) {
+          try {
+            dateEl.textContent = d.toLocaleDateString('en-GB', {
+              weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+            });
+          } catch (e2) {
+            dateEl.textContent = d.toDateString();
+          }
+        }
+      } catch (e) {}
+    }
+    paint();
+    setInterval(paint, 1000);
+  })();
+  </script>
 
   <main>
     <div class="panel" id="weatherPanel">
@@ -414,12 +439,19 @@ let currentBannerMessage = null;
 
 // Snapshot each rotating pane's original markup so it can be restored after an
 // error state (showError fully replaces a pane's contents with an error box).
-const paneTemplates = {
-  lbPane: document.getElementById('lbPane').innerHTML
-};
+const paneTemplates = {};
+(function initPaneTemplates() {
+  try {
+    const lb = document.getElementById('lbPane');
+    if (lb) paneTemplates.lbPane = lb.innerHTML;
+  } catch (e) { console.warn('pane template init', e); }
+})();
 function ensurePaneSkeleton(paneId) {
   const pane = document.getElementById(paneId);
-  if (pane.querySelector('.error-box')) pane.innerHTML = paneTemplates[paneId];
+  if (!pane) return null;
+  if (pane.querySelector('.error-box') && paneTemplates[paneId]) {
+    pane.innerHTML = paneTemplates[paneId];
+  }
   return pane;
 }
 
@@ -515,12 +547,33 @@ function refreshInstagramEmbed() {
 }
 setInterval(refreshInstagramEmbed, 10 * 60 * 1000);
 
+// Local clock — independent of network/settings so the header always updates.
 function tick() {
-  const now = new Date();
-  document.getElementById('clock').textContent = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-  document.getElementById('date').textContent = now.toLocaleDateString([], {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+  try {
+    const now = new Date();
+    const clockEl = document.getElementById('clock');
+    const dateEl = document.getElementById('date');
+    if (clockEl) {
+      clockEl.textContent = now.toLocaleTimeString('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+    }
+    if (dateEl) {
+      dateEl.textContent = now.toLocaleDateString('en-GB', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    }
+  } catch (e) {
+    console.warn('clock tick failed', e);
+  }
 }
-setInterval(tick, 1000); tick();
+tick();
+setInterval(tick, 1000);
 
 function makeQr(containerId, url, size) {
   const el = document.getElementById(containerId);
@@ -827,7 +880,7 @@ async function loadNews() {
       const title = esc(item.title || '');
       const desc = esc(item.description || '');
       const thumb = item.thumbnail
-        ? '<img class="thumb" src="' + esc(item.thumbnail) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.outerHTML=\'<div class=\\'thumb placeholder\\'>BBC</div>\'">'
+        ? '<img class="thumb" src="' + esc(item.thumbnail) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display=\'none\'">'
         : '<div class="thumb placeholder">BBC</div>';
       return '<article class="news-card">' +
         thumb +
