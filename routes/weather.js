@@ -28,7 +28,7 @@ module.exports = function weatherRoutes({ store, cacheDir }) {
             throw new Error('weather service returned an unexpected response');
           }
           return body;
-        }, { retries: 2, label: 'weather' });
+        }, { retries: 1, delaysMs: [500], label: 'weather' });
       });
       res.set('Cache-Control', 'public, max-age=60');
       res.json({ ...value, stale, updatedAt });

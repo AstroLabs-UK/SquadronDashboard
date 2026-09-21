@@ -31,7 +31,7 @@ module.exports = function leaderboardRoutes({ store, cacheDir }) {
           const text = await r.text();
           if (!text || !String(text).trim()) throw new Error('the sheet returned an empty file');
           return buildLeaderboard(parseCsv(text));
-        }, { retries: 2, label: 'leaderboard' });
+        }, { retries: 1, delaysMs: [500], label: 'leaderboard' });
       });
       res.set('Cache-Control', 'public, max-age=30');
       res.json({ ...value, stale, updatedAt });

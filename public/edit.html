@@ -654,7 +654,7 @@ function updateForceButton() {
 
 async function load() {
   loadOk = false;
-  data = await (await fetch('/api/data')).json();
+  data = await (await fetch('/api/data', { cache: 'no-store' })).json();
   document.getElementById('squadronName').value = data.squadronName;
   document.getElementById('locName').value = data.location.name;
   document.getElementById('lat').value = data.location.lat;
