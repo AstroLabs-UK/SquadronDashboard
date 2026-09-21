@@ -47,7 +47,7 @@ function readJsonObject(file) {
   return parsed;
 }
 
-function createStore({ dir, defaults, legacyDir }) {
+function createStore({ dir, defaults, legacyDir, snapDir }) {
   const dataFile = path.join(dir, 'data.json');
   const backupFile = path.join(dir, 'data.backup.json');
   fs.mkdirSync(dir, { recursive: true });
@@ -70,9 +70,28 @@ function createStore({ dir, defaults, legacyDir }) {
 
   function save(data) {
     const json = JSON.stringify(data, null, 2);
+    // Keep the *previous* settings in data.backup.json (not a twin of the new write),
+    // so a bad save can still roll back to the last good configuration.
+    try {
+      if (fs.existsSync(dataFile)) {
+        const prev = fs.readFileSync(dataFile, 'utf8');
+        JSON.parse(prev); // only rotate if current file is still valid JSON
+        writeFileDurable(backupFile, prev);
+      }
+    } catch (e) { /* keep existing backup if rotation fails */ }
     writeFileDurable(dataFile, json);
-    writeFileDurable(backupFile, json);
+    // If there was no previous file, seed backup with the same content so restore always has something.
+    if (!fs.existsSync(backupFile)) {
+      try { writeFileDurable(backupFile, json); } catch (e) { /* best effort */ }
+    }
     mem = withDefaults(data); // keep RAM in sync so the next load() skips disk
+  }
+
+  function tryLoadFile(file, label) {
+    const parsed = readJsonObject(file);
+    console.warn('[storage] restored data.json from ' + label);
+    try { writeFileDurable(dataFile, JSON.stringify(parsed, null, 2)); } catch (e3) { /* best effort */ }
+    return withDefaults(parsed);
   }
 
   function load() {
@@ -81,15 +100,22 @@ function createStore({ dir, defaults, legacyDir }) {
       mem = withDefaults(readJsonObject(dataFile));
       return mem;
     } catch (e) {
-      console.warn('[storage] data.json missing or corrupt (' + e.message + ') - trying backup');
+      console.warn('[storage] data.json missing or corrupt (' + e.message + ') - trying previous settings backup');
       try {
-        const parsed = readJsonObject(backupFile); // validate before trusting it
-        try { writeFileDurable(dataFile, JSON.stringify(parsed, null, 2)); } catch (e3) { /* best effort */ }
-        console.warn('[storage] restored data.json from backup');
-        mem = withDefaults(parsed);
+        mem = tryLoadFile(backupFile, 'data.backup.json (previous settings)');
         return mem;
       } catch (e2) {
-        console.warn('[storage] backup also missing or corrupt (' + e2.message + ') - using built-in defaults');
+        // Prefer the external current-settings snapshot over built-in defaults.
+        if (snapDir) {
+          try {
+            const snapFile = path.join(snapDir, 'data.json');
+            mem = tryLoadFile(snapFile, 'external snapshot ' + snapDir);
+            return mem;
+          } catch (eSnap) {
+            console.warn('[storage] external snapshot also unusable (' + eSnap.message + ')');
+          }
+        }
+        console.warn('[storage] no usable settings backup - using built-in defaults');
         const fresh = withDefaults({});
         try { save(fresh); } catch (e4) { /* still serve defaults */ }
         mem = fresh;
