@@ -165,6 +165,32 @@
   #infoBanner .message { font-size: 30px; font-weight: 600; color: #000000; line-height: 1.3; flex-shrink: 0; }
   @keyframes bannerScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 
+
+  /* Panel header: title on the left, small "last updated" stamp on the right */
+  #rotatingTitle { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
+  .stamp { font-size: 11px; font-weight: 600; letter-spacing: 0.02em; text-transform: none; color: var(--muted); white-space: nowrap; }
+  .stamp.stale { color: #B45F06; }
+  #weatherStamp { margin-top: 6px; }
+
+  /* Uniform: this week / next week */
+  #uniformPane { flex-direction: row; gap: 24px; }
+  .uni-col { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+  .uni-col h3 { margin: 0 0 10px 0; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--raf-blue); flex-shrink: 0; }
+  .uni-next { border-left: 1px solid var(--border); padding-left: 24px; }
+  .uni-next h3 { color: var(--raf-red); }
+  .uni-item { padding: 8px 0 14px; border-bottom: 1px solid var(--border); }
+  .uni-day { font-size: 14px; font-weight: 600; color: var(--muted); }
+  .uni-what { font-size: clamp(20px, 4.4vh, 36px); font-weight: 800; color: var(--raf-navy); line-height: 1.15; margin-top: 3px; overflow-wrap: anywhere; }
+  .uni-empty { color: var(--muted); font-size: 16px; padding: 10px 0; }
+  @media (max-width: 700px) { #uniformPane { flex-direction: column; } .uni-next { border-left: 0; padding-left: 0; } }
+
+  /* Message pushed from /edit: sits over everything until it runs out or is cleared */
+  #notice { display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(7, 21, 37, 0.74); align-items: center; justify-content: center; padding: 5vh 5vw; }
+  #notice.visible { display: flex; }
+  #notice .notice-card { background: var(--white); border-left: 14px solid var(--raf-red); border-radius: 4px; padding: 4vh 4vw; max-width: 92vw; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4); }
+  #notice .notice-title { color: var(--raf-red); font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; font-size: clamp(14px, 2.4vh, 26px); }
+  #noticeText { color: #000; font-weight: 700; font-size: clamp(22px, 6vh, 64px); line-height: 1.25; margin-top: 1.5vh; overflow-wrap: anywhere; white-space: pre-wrap; }
+
   /* ================= Small-screen layout =================
      Used automatically on screens 800px wide or less / 500px tall or less (or when forced
      on /edit). Designed for a 480 x 300 screen, and everything scales from there: --u is
@@ -228,6 +254,17 @@
   body.compact .error-box p { font-size: var(--fs); max-width: none; }
   body.compact #noWidgetsPane { font-size: var(--fm); }
 
+
+  body.compact .stamp { font-size: var(--fxs); }
+  body.compact #weatherStamp { display: none; }
+  body.compact #uniformPane { flex-direction: row; gap: calc(8 * var(--u)); }
+  body.compact .uni-next { padding-left: calc(8 * var(--u)); border-left: 1px solid var(--border); }
+  body.compact .uni-col h3 { font-size: var(--fxs); margin-bottom: calc(2 * var(--u)); }
+  body.compact .uni-item { padding: calc(3 * var(--u)) 0 calc(4 * var(--u)); }
+  body.compact .uni-day { font-size: var(--fs); }
+  body.compact .uni-what { font-size: var(--fl); margin-top: 0; }
+  body.compact .uni-empty { font-size: var(--fs); padding: calc(3 * var(--u)) 0; }
+
   body.compact #infoBanner { margin: 0 calc(6 * var(--u)) calc(6 * var(--u)); padding: calc(2 * var(--u)) 0; border-left-width: 4px; }
   body.compact #infoBanner .icon { font-size: var(--fl); margin-right: calc(4 * var(--u)); }
   body.compact #infoBanner .title { font-size: var(--fs); padding-right: calc(6 * var(--u)); margin-right: calc(6 * var(--u)); }
@@ -252,10 +289,11 @@
       <h2><span class="wlabel">Weather</span><br><span id="weatherLocationName">Your Town</span></h2>
       <div id="weatherContent"><p style="color:var(--muted)">Loading...</p></div>
       <div id="weatherWidgetWrap"></div>
+      <div class="stamp" id="weatherStamp"></div>
     </div>
 
     <div class="panel" id="rotatingPanel">
-      <h2 id="rotatingTitle">Leaderboard</h2>
+      <h2 id="rotatingTitle"><span id="rotatingTitleText">Leaderboard</span><span class="stamp" id="rotatingStamp"></span></h2>
 
       <div class="rotate-pane" id="lbPane">
         <div class="lb-col">
@@ -283,6 +321,11 @@
         </div>
       </div>
 
+      <div class="rotate-pane" id="uniformPane">
+        <div class="uni-col"><h3>This week</h3><div id="uniThisList"></div></div>
+        <div class="uni-col uni-next"><h3>Next week</h3><div id="uniNextList"></div></div>
+      </div>
+
       <div class="rotate-pane embed-pane" id="socialsPane">
         <div class="insta-wrap" id="instaWrap"></div>
       </div>
@@ -297,6 +340,8 @@
     <div class="ticker" id="infoBannerTicker"><div class="track" id="infoBannerTrack"></div></div>
   </div>
 
+<div id="notice"><div class="notice-card"><div class="notice-title">Notice</div><div id="noticeText"></div></div></div>
+
 <script>
 let errorReportUrl = '';
 let lastInstagramEmbedCode = '';
@@ -309,7 +354,9 @@ let eventsPages = [];
 let eventsPageIndex = 0;
 let isCompact = false;               // small-screen layout active?
 let layoutSetting = 'auto';          // auto | full | compact (from /edit)
-let widgetFlags = { leaderboard: true, news: true, events: true, instagram: true };
+let widgetFlags = { leaderboard: true, news: true, events: true, instagram: true, uniform: true };
+let latestUniform = { thisWeek: [], nextWeek: [] };
+let eventsLoaded = false;
 let customWidgets = [];              // extra embed widgets from /edit
 const customMounted = {};            // widget id -> embed code currently mounted
 let weatherEmbedCodeSetting = '';
@@ -355,7 +402,7 @@ function renderEventsPage() {
   const seeMore = document.getElementById('eventsSeeMore');
   const events = eventsPages[eventsPageIndex] || [];
   ul.innerHTML = events.map(e =>
-    `<li><div class="title">${esc(e.title)}</div><div class="meta">${esc(e.date)} &middot; ${esc(e.detail)}</div></li>`).join('')
+    `<li><div class="title">${esc(e.title)}</div><div class="meta">${[e.date, e.detail].filter(x => x && String(x).trim()).map(esc).join(' &middot; ')}</div></li>`).join('')
     || '<li><div class="meta">No events added yet - add some on /edit</div></li>';
 
   if (eventsSeeMoreUrl) {
@@ -566,7 +613,8 @@ function applyWidgetSettings(data) {
     leaderboard: f.leaderboard !== false,
     news: f.news !== false,
     events: f.events !== false,
-    instagram: f.instagram !== false
+    instagram: f.instagram !== false,
+    uniform: f.uniform !== false
   };
   if (widgetFlags.leaderboard && !prev.leaderboard) loadLeaderboard();
 
@@ -656,9 +704,11 @@ async function loadSettings() {
       lastBannerKey = null;
     }
 
-    latestEvents = data.events || [];
+    if (!eventsLoaded) latestEvents = data.events || [];   // until /api/events answers (it adds the calendar)
     eventsSeeMoreUrl = data.eventsSeeMoreUrl || '';
     rebuildEventsPages();
+    loadEvents();
+    loadUniform();
     updatePanes();
   } catch (e) { console.error('settings load failed', e); }
 }
@@ -674,6 +724,9 @@ async function loadWeather() {
       <div class="temp">${Math.round(c.temperature_2m)}&deg;</div>
       <div class="feels">Feels like ${Math.round(c.apparent_temperature ?? c.temperature_2m)}&deg;</div>
       <div class="condition">${WEATHER_CODES[c.weather_code] || 'Unknown'}</div>`;
+    const ws = document.getElementById('weatherStamp');
+    ws.textContent = w.updatedAt ? (w.stale ? 'Offline – data from ' : 'Updated ') + fmtClock(w.updatedAt) : '';
+    ws.classList.toggle('stale', !!w.stale);
   } catch (e) {
     showError(box, 'weather', e.message || String(e));
   }
@@ -724,6 +777,7 @@ async function loadLeaderboard() {
     if (!lb.rows || !lb.rows.length) throw new Error(lb.note || 'No leaderboard rows returned');
     cachedLb = lb;
     lastLbKey = '';
+    setStamp('lbPane', lb.updatedAt, lb.stale);
     renderLeaderboardFromCache();
   } catch (e) {
     cachedLb = null;
@@ -731,6 +785,64 @@ async function loadLeaderboard() {
     showError(pane, 'leaderboard', e.message || String(e));
   }
 }
+
+// ---- "Last updated" stamps (top right of the rotating panel) ----
+// The server says when each source was last fetched successfully, and whether what it sent is old
+// data being kept because the source can't be reached right now.
+const paneStamps = {};
+function fmtClock(ms) { return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }); }
+function setStamp(paneId, updatedAt, stale, note) {
+  paneStamps[paneId] = updatedAt
+    ? { text: (stale ? 'Offline – showing data from ' : 'Updated ') + fmtClock(updatedAt), stale: !!stale }
+    : (note ? { text: note, stale: true } : null);
+  if (typeof panes !== 'undefined' && panes[paneIndex] && panes[paneIndex].id === paneId) renderStamp(paneId);
+}
+function renderStamp(paneId) {
+  const s = paneStamps[paneId];
+  const el = document.getElementById('rotatingStamp');
+  el.textContent = s ? s.text : '';
+  el.classList.toggle('stale', !!(s && s.stale));
+}
+function setTitle(text) { document.getElementById('rotatingTitleText').textContent = text; }
+
+// ---- Events: typed events + the calendar feed, merged by the server ----
+async function loadEvents() {
+  try {
+    const r = await apiJson('/api/events');
+    latestEvents = r.events || [];
+    eventsLoaded = true;
+    const c = r.calendar || {};
+    if (!c.configured) setStamp('eventsPane', null, false, null);
+    else if (!c.ok) setStamp('eventsPane', null, false, 'Calendar offline');
+    else setStamp('eventsPane', c.updatedAt, c.stale);
+    rebuildEventsPages();
+  } catch (e) { console.error('events load failed', e); }
+}
+
+// ---- Uniform: this week / next week ----
+let uniformSignature = '';
+async function loadUniform() {
+  if (!widgetFlags.uniform) return;
+  try {
+    const u = await apiJson('/api/uniform');
+    latestUniform = { thisWeek: u.thisWeek || [], nextWeek: u.nextWeek || [] };
+    const c = u.calendar || {};
+    if (c.configured && c.ok) setStamp('uniformPane', c.updatedAt, c.stale);
+    else if (c.configured) setStamp('uniformPane', null, false, 'Calendar offline');
+    else setStamp('uniformPane', null, false, null);
+    const sig = JSON.stringify(latestUniform);
+    if (sig !== uniformSignature) { uniformSignature = sig; renderUniform(); }
+    updatePanes();
+  } catch (e) { console.error('uniform load failed', e); }
+}
+function renderUniform() {
+  const col = (list, empty) => list.length
+    ? list.map(x => `<div class="uni-item"><div class="uni-day">${esc(x.day)}${x.title ? ' &middot; ' + esc(x.title) : ''}</div><div class="uni-what">${esc(x.uniform)}</div></div>`).join('')
+    : `<div class="uni-empty">${empty}</div>`;
+  document.getElementById('uniThisList').innerHTML = col(latestUniform.thisWeek, 'Nothing more this week');
+  document.getElementById('uniNextList').innerHTML = col(latestUniform.nextWeek, 'Not announced yet');
+}
+const hasUniform = () => latestUniform.thisWeek.length + latestUniform.nextWeek.length > 0;
 
 async function refreshAll() {
   await loadSettings();
@@ -744,18 +856,33 @@ setInterval(loadSettings, 10 * 1000); // checks for edits made on /edit every 10
 
 // ---- Reload when the server restarts (e.g. after an auto-update) ----
 let bootId = null;
+let reloadId = null;
+let noticeUntil = 0;
+function showNotice(n) {
+  const el = document.getElementById('notice');
+  if (n && n.text) {
+    document.getElementById('noticeText').textContent = n.text;   // text, never HTML
+    noticeUntil = Date.now() + (n.secondsLeft || 0) * 1000;
+    el.classList.add('visible');
+  } else {
+    noticeUntil = 0;
+    el.classList.remove('visible');
+  }
+}
+setInterval(() => { if (noticeUntil && Date.now() > noticeUntil) showNotice(null); }, 1000);
 async function checkForRestart() {
   try {
-    const { id } = await (await fetch('/api/boot', { cache: 'no-store' })).json();
-    if (bootId === null) bootId = id;
-    else if (id !== bootId) location.reload();
+    const b = await (await fetch('/api/boot', { cache: 'no-store' })).json();
+    if (bootId === null) { bootId = b.id; reloadId = b.reload; }
+    else if (b.id !== bootId || b.reload !== reloadId) location.reload();   // restarted, or "reload screens" pressed on /edit
+    showNotice(b.notice);
   } catch (e) { /* server is restarting - try again next time */ }
 }
 checkForRestart();
 setInterval(checkForRestart, 10 * 1000);
 
 // ---- Carousel: rotates through the widgets that are ticked on /edit, every 10s ----
-// Order: Leaderboard, News, Events, Instagram, then the extra embed widgets in the order
+// Order: Leaderboard, News, Events, Uniform, Instagram, then the extra embed widgets in the order
 // they were added. Anything unticked (or an embed widget with no code) is skipped.
 let panes = [];
 let paneIndex = 0;
@@ -767,6 +894,7 @@ function computePanes() {
   if (widgetFlags.leaderboard) list.push({ id: 'lbPane', title: 'Leaderboard' });
   if (widgetFlags.news && lastNewsEmbedCode) list.push({ id: 'newsPane', title: 'News' });
   if (widgetFlags.events) list.push({ id: 'eventsPane', title: 'Latest Events' });
+  if (widgetFlags.uniform && hasUniform()) list.push({ id: 'uniformPane', title: 'Uniform' });
   if (widgetFlags.instagram && lastInstagramEmbedCode) list.push({ id: 'socialsPane', title: 'Follow Us' });
   customWidgets.forEach(w => {
     if (w.enabled && (w.embedCode || '').trim()) {
@@ -781,12 +909,14 @@ function showPane(i) {
   const p = panes[i];
   if (!p) {
     document.getElementById('noWidgetsPane').classList.add('active');
-    document.getElementById('rotatingTitle').textContent = 'Widgets';
+    setTitle('Widgets');
+    renderStamp('none');
     clearInterval(eventsTimer);
     return;
   }
   document.getElementById(p.id).classList.add('active');
-  document.getElementById('rotatingTitle').textContent = p.title;
+  setTitle(p.title);
+  renderStamp(p.id);
   if (p.id === 'eventsPane') startEventsRotation();
   else clearInterval(eventsTimer);
 }
@@ -818,7 +948,7 @@ function updatePanes() {
   const keep = currentId ? panes.findIndex(p => p.id === currentId) : -1;
   if (keep >= 0) {
     paneIndex = keep;
-    document.getElementById('rotatingTitle').textContent = panes[keep].title; // in case it was renamed
+    setTitle(panes[keep].title); // in case it was renamed
   } else {
     paneIndex = 0;
     showPane(0);

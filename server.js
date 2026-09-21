@@ -7,6 +7,7 @@ const { createEditorAuth } = require('./lib/auth');
 const autoUpdate = require('./autoUpdate');
 const guard = require('./lib/settingsGuard');
 const { removeTempFiles } = require('./lib/cleanup');
+const { createCalendarService } = require('./lib/calendar');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -30,6 +31,11 @@ const DEFAULT_DATA = {
   location: { name: "Your Town", lat: 51.5074, lon: -0.1278 },
   leaderboardCsvUrl: "",
   eventsSeeMoreUrl: "https://cadets.bader.mod.uk/events",
+  // Calendar feed: Google Calendar > Settings > your calendar > "Secret address in iCal format"
+  icsUrl: "",
+  calendarTimezone: "Europe/London",
+  calendarDays: 60,
+  uniform: { items: [] },
   errorReportUrl: "",
   autoShutdownMinutes: 165,
   instagramEmbedCode: "",
@@ -37,7 +43,7 @@ const DEFAULT_DATA = {
   // News panel: paste any news widget embed (e.g. FeedGrabbr) on /edit. Blank = panel hidden.
   newsEmbedCode: "",
   importantInfo: { enabled: false, title: "IMPORTANT INFORMATION", message: "" },
-  widgets: { leaderboard: true, news: true, events: true, instagram: true },
+  widgets: { leaderboard: true, news: true, events: true, instagram: true, uniform: true },
   customWidgets: [],
   layout: "auto",
   events: []
@@ -63,7 +69,7 @@ if (guardActive) guard.snapshot(DATA_DIR, SNAP_DIR);
 // a tight one for anything that changes things or shells out to git, and a lockout for
 // wrong-PIN guessing (only failed attempts count).
 const apiLimiter = rateLimit({ windowMs: 60 * 1000, max: 240 });
-const sensitiveLimiter = rateLimit({ windowMs: 60 * 1000, max: 20 });
+const sensitiveLimiter = rateLimit({ windowMs: 60 * 1000, max: Number(process.env.SENSITIVE_RATE_MAX) || 20 }); // the env var is only for automated tests
 const pinFailureLimiter = rateLimit({
   windowMs: 5 * 60 * 1000, max: 10, skipSuccessful: true,
   message: 'Too many wrong PIN attempts - wait a few minutes and try again.'
@@ -81,14 +87,20 @@ app.get('/status', sendPage('status.html'));
 // when it changes, so after an auto-update restarts the app the screen picks up the new
 // version without anyone touching the Pi.
 const BOOT_ID = Date.now().toString(36);
+const calendar = createCalendarService({ store });
+const control = require('./routes/control')({ requireEditor, limiter: sensitiveLimiter });
 app.get('/api/boot', (req, res) => {
   res.set('Cache-Control', 'no-store');
-  res.json({ id: BOOT_ID });
+  // reload / notice come from the buttons on /edit (see routes/control.js)
+  res.json({ id: BOOT_ID, ...control.publicState() });
 });
 
 // ---------- API: settings / events ----------
+// The calendar's secret link is only sent to the editor - the public display never needs it.
 app.get('/api/data', apiLimiter, (req, res) => {
-  res.json(store.load());
+  const data = store.load();
+  const visible = requireEditor.isEditor(req) ? data : { ...data, icsUrl: '' };
+  res.json({ ...visible, icsUrlSet: !!data.icsUrl });
 });
 
 app.post('/api/data', requireEditor, sensitiveLimiter, (req, res) => {
@@ -108,7 +120,10 @@ app.use(apiLimiter);
 app.use(require('./routes/weather')({ store }));
 app.use(require('./routes/news')());
 app.use(require('./routes/leaderboard')({ store }));
-app.use(require('./routes/status')({ store, cwd: __dirname, requireEditor }));
+app.use(require('./routes/status')({ store, cwd: __dirname, requireEditor, calendar }));
+app.use(require('./routes/schedule')({ store, calendar }));
+app.use(control.router);
+app.use(require('./routes/config')({ store, dataDir: DATA_DIR, requireEditor, limiter: sensitiveLimiter }));
 app.use(require('./routes/update')({ cwd: __dirname, dataDir: DATA_DIR, requireEditor, limiter: sensitiveLimiter }));
 
 if (require.main === module) {

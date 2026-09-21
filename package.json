@@ -1,7 +1,7 @@
 {
   "name": "squadron-dashboard",
-  "version": "1.5.4",
-  "description": "Self-hosted squadron/unit room dashboard - news, weather, leaderboard, events (release 1.5.4)",
+  "version": "1.6.0",
+  "description": "Self-hosted squadron/unit room dashboard - news, weather, leaderboard, events (release 1.6.0)",
   "main": "server.js",
   "license": "MIT",
   "engines": {

@@ -12,6 +12,11 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
+const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
+function isValidTimeZone(tz) {
+  try { new Intl.DateTimeFormat('en-US', { timeZone: tz }); return typeof tz === 'string' && tz.trim() !== ''; } catch (e) { return false; }
+}
+
 function isHttpUrl(v) {
   try { const u = new URL(v); return u.protocol === 'http:' || u.protocol === 'https:'; } catch (e) { return false; }
 }
@@ -54,6 +59,7 @@ function createStore({ dir, defaults, legacyDir }) {
       location: { ...defaults.location, ...(d.location && typeof d.location === 'object' ? d.location : {}) },
       importantInfo: { ...defaults.importantInfo, ...(d.importantInfo && typeof d.importantInfo === 'object' ? d.importantInfo : {}) },
       widgets: { ...defaults.widgets, ...(d.widgets && typeof d.widgets === 'object' ? d.widgets : {}) },
+      uniform: { ...defaults.uniform, ...(d.uniform && typeof d.uniform === 'object' ? d.uniform : {}) },
       customWidgets: Array.isArray(d.customWidgets) ? d.customWidgets : defaults.customWidgets,
       events: Array.isArray(d.events) ? d.events : defaults.events
     };
@@ -116,6 +122,14 @@ function createStore({ dir, defaults, legacyDir }) {
         if (v === '' || isHttpUrl(v)) out[k] = v;
       }
     }
+    // Calendar feed (Google Calendar "secret address in iCal format" etc.). webcal:// is https:// under another name.
+    if (isStr(incoming.icsUrl)) {
+      const v = incoming.icsUrl.trim().replace(/^webcal:\/\//i, 'https://');
+      if (v === '' || isHttpUrl(v)) out.icsUrl = v;
+    }
+    if (isStr(incoming.calendarTimezone) && isValidTimeZone(incoming.calendarTimezone.trim())) out.calendarTimezone = incoming.calendarTimezone.trim();
+    const calDays = Number(incoming.calendarDays);
+    if (Number.isFinite(calDays) && calDays >= 14 && calDays <= 365) out.calendarDays = Math.round(calDays);
     for (const k of ['instagramEmbedCode', 'weatherEmbedCode', 'newsEmbedCode']) {
       if (isStr(incoming[k])) out[k] = incoming[k];
     }
@@ -144,7 +158,7 @@ function createStore({ dir, defaults, legacyDir }) {
     const flags = incoming.widgets;
     if (flags && typeof flags === 'object') {
       const next = { ...current.widgets };
-      for (const k of ['leaderboard', 'news', 'events', 'instagram']) {
+      for (const k of ['leaderboard', 'news', 'events', 'instagram', 'uniform']) {
         if (typeof flags[k] === 'boolean') next[k] = flags[k];
       }
       out.widgets = next;
@@ -176,12 +190,29 @@ function createStore({ dir, defaults, legacyDir }) {
     if (Array.isArray(incoming.events)) {
       out.events = incoming.events
         .filter(e => e && typeof e === 'object')
-        .map(e => ({ title: String(e.title ?? ''), date: String(e.date ?? ''), detail: String(e.detail ?? '') }));
+        .map(e => ({
+          title: String(e.title ?? ''), date: String(e.date ?? ''), detail: String(e.detail ?? ''),
+          // optional YYYY-MM-DD: the event is hidden from the display the day after this
+          hideAfter: isStr(e.hideAfter) && DATE_KEY.test(e.hideAfter.trim()) ? e.hideAfter.trim() : ''
+        }));
+    }
+
+    // Uniform panel: manual entries (date + uniform), used alongside "Uniform:" lines found in calendar events
+    if (incoming.uniform && typeof incoming.uniform === 'object' && Array.isArray(incoming.uniform.items)) {
+      out.uniform = {
+        ...current.uniform,
+        items: incoming.uniform.items
+          .filter(i => i && typeof i === 'object' && isStr(i.date) && DATE_KEY.test(i.date.trim()) && String(i.uniform ?? '').trim())
+          .slice(0, 40)
+          .map(i => ({ date: i.date.trim(), title: String(i.title ?? '').slice(0, 80), uniform: String(i.uniform).trim().slice(0, 80) }))
+      };
     }
     return out;
   }
 
-  return { load, save, sanitize, dataFile, backupFile };
+  // A complete settings object made only from the built-in defaults (used when importing a config file)
+  const defaultData = () => withDefaults({});
+  return { load, save, sanitize, defaultData, dataFile, backupFile };
 }
 
-module.exports = { createStore, writeFileDurable, isHttpUrl };
+module.exports = { createStore, writeFileDurable, isHttpUrl, isValidTimeZone };

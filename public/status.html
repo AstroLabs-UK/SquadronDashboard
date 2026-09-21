@@ -60,6 +60,7 @@
     margin: 32px 0 14px 0;
   }
   h2:first-of-type { margin-top: 0; }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 6px; font-weight: 400; }
   #lastChecked { color: var(--muted); font-size: 13px; margin-top: 24px; text-align: center; }
 </style>
 </head>
@@ -87,6 +88,17 @@
     <div class="card"><div class="label">News widget</div><div class="value" id="newsRss">—</div></div>
     <div class="card"><div class="label">Leaderboard CSV</div><div class="value" id="leaderboardCsv">—</div></div>
     <div class="card"><div class="label">Instagram Widget</div><div class="value" id="instagramWidget">—</div></div>
+    <div class="card"><div class="label">Calendar feed</div><div class="value" id="calendarFeed">—</div><div class="hint" id="calendarDetail"></div></div>
+  </div>
+
+  <h2>Device health</h2>
+  <div class="grid">
+    <div class="card"><div class="label">CPU temperature</div><div class="value" id="sysTemp">—</div></div>
+    <div class="card"><div class="label">Memory</div><div class="value" id="sysMemory">—</div></div>
+    <div class="card"><div class="label">Storage free</div><div class="value" id="sysDisk">—</div></div>
+    <div class="card"><div class="label">Wi-Fi signal</div><div class="value" id="sysWifi">—</div></div>
+    <div class="card"><div class="label">Load (1 min)</div><div class="value plain" id="sysLoad">—</div></div>
+    <div class="card"><div class="label">Device up for</div><div class="value plain" id="sysUptime">—</div></div>
   </div>
 
   <h2>Storage</h2>
@@ -135,6 +147,21 @@ async function refreshStatus() {
     document.getElementById('newsRss').innerHTML = dot(data.newsWidget || data.newsRss || 'OFFLINE');
     document.getElementById('leaderboardCsv').innerHTML = dot(data.leaderboardCsv || 'OFFLINE');
     document.getElementById('instagramWidget').innerHTML = dot(data.instagramWidget || 'WARNING');
+
+    document.getElementById('calendarFeed').innerHTML = dot(data.calendar || 'WARNING');
+    const ci = data.calendarInfo || {};
+    document.getElementById('calendarDetail').textContent = !ci.configured ? 'No calendar link set'
+      : ci.error ? ci.error
+      : (ci.events != null ? ci.events + ' events in range' : '') + (ci.updatedAt ? ', fetched ' + new Date(ci.updatedAt).toLocaleTimeString() : '');
+
+    const sys = data.system || {};
+    const na = '<span class="plain">Not available</span>';
+    document.getElementById('sysTemp').innerHTML = sys.cpuTempC == null ? na : dot(sys.cpuTempStatus || 'ONLINE') + ' ' + sys.cpuTempC + ' °C';
+    document.getElementById('sysMemory').innerHTML = !sys.memory ? na : dot(sys.memory.status) + ' ' + sys.memory.usedPercent + '% used (' + sys.memory.freeMB + ' MB free)';
+    document.getElementById('sysDisk').innerHTML = !sys.disk ? na : dot(sys.disk.status) + ' ' + sys.disk.freeGB + ' GB (' + sys.disk.freePercent + '%)';
+    document.getElementById('sysWifi').innerHTML = !sys.wifi ? na : dot(sys.wifi.status) + ' ' + (sys.wifi.signalPercent != null ? sys.wifi.signalPercent + '%' : '') + (sys.wifi.dbm != null ? ' (' + sys.wifi.dbm + ' dBm)' : '');
+    document.getElementById('sysLoad').textContent = sys.loadAvg1 == null ? 'Not available' : sys.loadAvg1;
+    document.getElementById('sysUptime').textContent = sys.osUptimeSeconds == null ? 'Not available' : formatUptime(sys.osUptimeSeconds);
 
     document.getElementById('dataJson').innerHTML = dot(data.dataJson || 'OFFLINE');
     document.getElementById('dataBackup').innerHTML = dot(data.dataBackup || 'WARNING');

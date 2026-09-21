@@ -36,3 +36,28 @@ test('the Dockerfile copies every folder the app needs', () => {
   const docker = fs.readFileSync(path.join(root, 'Dockerfile'), 'utf8');
   for (const dir of ['lib', 'routes', 'public']) assert.match(docker, new RegExp('COPY ' + dir + ' '), dir + '/ is not copied into the image');
 });
+
+// A file named exactly "temp" (no extension) must never be part of the repo. .gitignore stops new
+// ones being committed; this fails the test run / CI if one has slipped in (or was already tracked).
+test('no file named "temp" is in the project', () => {
+  const found = [];
+  const skip = new Set(['node_modules', '.git', 'data']);
+  (function walk(dir) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (skip.has(entry.name)) continue;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.name === 'temp') found.push(path.relative(root, full));
+    }
+  })(root);
+  assert.deepEqual(found, [], 'remove these (git rm --cached <file>, then commit): ' + found.join(', '));
+});
+
+test('Docker: the entrypoint script exists, is copied, and is not excluded by .dockerignore', () => {
+  const docker = fs.readFileSync(path.join(root, 'Dockerfile'), 'utf8');
+  assert.match(docker, /COPY docker-entrypoint\.sh /);
+  assert.ok(fs.existsSync(path.join(root, 'docker-entrypoint.sh')));
+  const ignore = fs.readFileSync(path.join(root, '.dockerignore'), 'utf8');
+  assert.match(ignore, /^!docker-entrypoint\.sh$/m);
+  assert.match(fs.readFileSync(path.join(root, '.gitattributes'), 'utf8'), /\*\.sh text eol=lf/);
+});

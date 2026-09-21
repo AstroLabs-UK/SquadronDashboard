@@ -151,11 +151,23 @@
 <textarea id="weatherEmbedCode" rows="4" placeholder="Paste a full embed snippet (e.g. from weatherwidget.io) to replace the built-in weather display - leave blank to use the default"></textarea>
 <p class="hint">The small-screen layout always uses the built-in weather display, so a weather widget is only used on larger screens.</p>
 
+<h2>Calendar</h2>
+<p class="hint">Shows your calendar's upcoming events on the display and reads next week's uniform from it. In Google Calendar: <b>Settings &rarr; click your calendar &rarr; Integrate calendar &rarr; "Secret address in iCal format"</b>. Copy that link and paste it below &ndash; there is nothing to sign in to. Google can take a few hours to show changes in that feed. Anyone with the link can read the calendar, so keep it private.</p>
+<label>Calendar link (.ics)</label>
+<input id="icsUrl" autocomplete="off" placeholder="https://calendar.google.com/calendar/ical/.../private-.../basic.ics">
+<label>Calendar time zone</label>
+<input id="calendarTimezone" placeholder="Europe/London">
+<label>How far ahead to look (days)</label>
+<input id="calendarDays" type="number" min="14" max="365" placeholder="60">
+<div class="actions"><button class="add" onclick="testCalendar()">Test calendar link</button></div>
+<div id="calendarTestResult" class="hint"></div>
+
 <h2>Carousel widgets</h2>
 <p class="hint">Tick the widgets you want in the rotating panel. Anything unticked isn't shown, and each ticked widget gets 10 seconds on screen.</p>
 <label class="check"><input type="checkbox" id="w-leaderboard"> Leaderboard</label>
 <label class="check"><input type="checkbox" id="w-news"> News</label>
 <label class="check"><input type="checkbox" id="w-events"> Upcoming events</label>
+<label class="check"><input type="checkbox" id="w-uniform"> Uniform (this week and next week)</label>
 <label class="check"><input type="checkbox" id="w-instagram"> Instagram / social feed</label>
 <label>News widget embed code</label>
 <textarea id="newsEmbedCode" rows="4" placeholder="Paste a news feed embed snippet (script + div), e.g. from FeedGrabbr. Leave blank to hide the News panel."></textarea>
@@ -178,8 +190,36 @@
 <p style="color:var(--muted); font-size:13px;">Shown as a banner at the bottom of the dashboard. Leave the message empty or the checkbox unticked to hide it completely.</p>
 
 <h2>Events</h2>
+<p class="hint">Events typed here are shown first, followed by the next events from your calendar (if you set a link above). Use "Hide after" to make a typed event disappear by itself.</p>
 <div id="eventsContainer"></div>
 <button class="add" onclick="addEvent()">+ Add event</button>
+
+<h2>Uniform</h2>
+<p class="hint">Shown on the display as "This week" and "Next week". With a calendar link, just put a line like <b>Uniform: Working blues</b> in the event's description (or <b>[Uniform: Working blues]</b> in its title) and it appears by itself. Days added here are shown as well &ndash; handy if you don't use a calendar.</p>
+<div id="uniformContainer"></div>
+<button class="add" onclick="addUniform()">+ Add uniform day</button>
+
+<h2>Screen controls</h2>
+<p class="hint">Reaches every display within about 10 seconds. A message covers the whole screen until its time runs out or you clear it (a restart also clears it).</p>
+<label>Message to show on the screens</label>
+<input id="noticeText" maxlength="300" placeholder="e.g. Parade has moved to the hall tonight">
+<label>Show it for (minutes)</label>
+<input id="noticeMinutes" type="number" min="1" max="720" value="30">
+<div class="actions">
+  <button class="primary" onclick="sendNotice()">Show message</button>
+  <button class="add" onclick="controlAction('clear-notice')">Clear message</button>
+  <button class="add" onclick="controlAction('reload')">Reload screens</button>
+</div>
+<div id="controlStatus" class="hint"></div>
+
+<h2>Backup &amp; restore</h2>
+<p class="hint">Download every setting as one file, or restore from one &ndash; handy when replacing a Pi. The file contains your private calendar link, so keep it safe. The editor PIN is not included. Restoring keeps a copy of the current settings on the device first.</p>
+<div class="actions">
+  <button class="add" onclick="location.href='/api/config/export'">Download settings file</button>
+  <button class="add" onclick="document.getElementById('importFile').click()">Restore from file&hellip;</button>
+</div>
+<input type="file" id="importFile" accept="application/json,.json" style="display:none" onchange="importConfig(this)">
+<div id="backupStatus" class="hint"></div>
 
 <h2>&nbsp;</h2>
 <div class="actions">
@@ -203,13 +243,41 @@ function eventRow(e = {title:'', date:'', detail:''}) {
     <label>Title</label><input class="ev-title">
     <label>Date / recurrence</label><input class="ev-date">
     <label>Detail</label><input class="ev-detail">
+    <label>Hide after (optional)</label><input type="date" class="ev-hide">
+    <div class="hint ev-note">The event disappears from the screen the day after this date.</div>
     <button class="danger" onclick="this.parentElement.remove()">Remove</button>`;
   // set values as text (not into the HTML) so quotes etc. in an event can't break the page
   div.querySelector('.ev-title').value = e.title || '';
   div.querySelector('.ev-date').value = e.date || '';
   div.querySelector('.ev-detail').value = e.detail || '';
+  const hide = div.querySelector('.ev-hide');
+  hide.value = e.hideAfter || '';
+  const note = div.querySelector('.ev-note');
+  const refreshNote = () => {
+    const expired = hide.value && hide.value < todayLocal();
+    note.textContent = expired ? 'Expired - this event is no longer shown on the screen.' : 'The event disappears from the screen the day after this date.';
+    note.style.color = expired ? 'var(--raf-red)' : '';
+  };
+  hide.addEventListener('input', refreshNote); refreshNote();
   return div;
 }
+function todayLocal() { return new Date().toLocaleDateString('en-CA'); } // YYYY-MM-DD in this device's time zone
+
+// One row per typed uniform day
+function uniformRow(u = {}) {
+  const div = document.createElement('div');
+  div.className = 'event-row uniform-row';
+  div.innerHTML = `
+    <label>Date</label><input type="date" class="un-date">
+    <label>What's on (optional)</label><input class="un-title" placeholder="e.g. Parade night">
+    <label>Uniform</label><input class="un-uniform" placeholder="e.g. Working blues">
+    <button class="danger" onclick="this.parentElement.remove()">Remove</button>`;
+  div.querySelector('.un-date').value = u.date || '';
+  div.querySelector('.un-title').value = u.title || '';
+  div.querySelector('.un-uniform').value = u.uniform || '';
+  return div;
+}
+function addUniform() { document.getElementById('uniformContainer').appendChild(uniformRow()); }
 function addEvent() { document.getElementById('eventsContainer').appendChild(eventRow()); }
 
 // One row per extra embed widget
@@ -241,13 +309,16 @@ async function load() {
   document.getElementById('leaderboardCsvUrl').value = data.leaderboardCsvUrl || '';
   document.getElementById('eventsSeeMoreUrl').value = data.eventsSeeMoreUrl || '';
   document.getElementById('errorReportUrl').value = data.errorReportUrl || '';
+  document.getElementById('icsUrl').value = data.icsUrl || '';
+  document.getElementById('calendarTimezone').value = data.calendarTimezone || 'Europe/London';
+  document.getElementById('calendarDays').value = data.calendarDays || 60;
   document.getElementById('autoShutdownMinutes').value = data.autoShutdownMinutes || 165;
   document.getElementById('instagramEmbedCode').value = data.instagramEmbedCode || '';
   document.getElementById('newsEmbedCode').value = data.newsEmbedCode || '';
   document.getElementById('weatherEmbedCode').value = data.weatherEmbedCode || '';
   document.getElementById('layout').value = data.layout || 'auto';
   const wf = data.widgets || {};
-  ['leaderboard', 'news', 'events', 'instagram'].forEach(k => {
+  ['leaderboard', 'news', 'events', 'instagram', 'uniform'].forEach(k => {
     document.getElementById('w-' + k).checked = wf[k] !== false;
   });
   const cw = document.getElementById('customWidgets'); cw.innerHTML = '';
@@ -258,6 +329,8 @@ async function load() {
   document.getElementById('importantInfoMessage').value = info.message || '';
   const ec = document.getElementById('eventsContainer'); ec.innerHTML = '';
   data.events.forEach(e => ec.appendChild(eventRow(e)));
+  const uc = document.getElementById('uniformContainer'); uc.innerHTML = '';
+  ((data.uniform && data.uniform.items) || []).slice().sort((a, b) => String(a.date).localeCompare(String(b.date))).forEach(u => uc.appendChild(uniformRow(u)));
   savedSnapshot = JSON.stringify(collectPayload());
   updateForceButton();
   loadVersionInfo();
@@ -268,7 +341,13 @@ function collectPayload() {
   const events = [...document.querySelectorAll('#eventsContainer .event-row')].map(r => ({
     title: r.querySelector('.ev-title').value,
     date: r.querySelector('.ev-date').value,
-    detail: r.querySelector('.ev-detail').value
+    detail: r.querySelector('.ev-detail').value,
+    hideAfter: r.querySelector('.ev-hide').value
+  }));
+  const uniformItems = [...document.querySelectorAll('#uniformContainer .uniform-row')].map(r => ({
+    date: r.querySelector('.un-date').value,
+    title: r.querySelector('.un-title').value,
+    uniform: r.querySelector('.un-uniform').value
   }));
   return {
     squadronName: document.getElementById('squadronName').value,
@@ -280,6 +359,9 @@ function collectPayload() {
     leaderboardCsvUrl: document.getElementById('leaderboardCsvUrl').value,
     eventsSeeMoreUrl: document.getElementById('eventsSeeMoreUrl').value,
     errorReportUrl: document.getElementById('errorReportUrl').value,
+    icsUrl: document.getElementById('icsUrl').value,
+    calendarTimezone: document.getElementById('calendarTimezone').value,
+    calendarDays: parseInt(document.getElementById('calendarDays').value, 10) || 60,
     autoShutdownMinutes: parseInt(document.getElementById('autoShutdownMinutes').value, 10) || 165,
     instagramEmbedCode: document.getElementById('instagramEmbedCode').value,
     newsEmbedCode: document.getElementById('newsEmbedCode').value,
@@ -289,7 +371,8 @@ function collectPayload() {
       leaderboard: document.getElementById('w-leaderboard').checked,
       news: document.getElementById('w-news').checked,
       events: document.getElementById('w-events').checked,
-      instagram: document.getElementById('w-instagram').checked
+      instagram: document.getElementById('w-instagram').checked,
+      uniform: document.getElementById('w-uniform').checked
     },
     customWidgets: [...document.querySelectorAll('.widget-row')].map(r => ({
       id: r.dataset.id,
@@ -303,7 +386,8 @@ function collectPayload() {
       title: document.getElementById('importantInfoTitle').value,
       message: document.getElementById('importantInfoMessage').value
     },
-    events
+    events,
+    uniform: { items: uniformItems }
   };
 }
 
@@ -338,6 +422,57 @@ async function save() {
   clearTimeout(statusTimer);
   statusTimer = setTimeout(() => { statusEl.textContent = ''; }, 3000);
   if (res.ok) { savedSnapshot = JSON.stringify(payload); updateForceButton(); }
+}
+
+// ---- Calendar test ----
+async function testCalendar() {
+  const el = document.getElementById('calendarTestResult');
+  if (hasUnsavedChanges()) { el.style.color = 'var(--raf-red)'; el.textContent = 'Save your changes first - the test uses the saved link.'; return; }
+  el.style.color = ''; el.textContent = 'Checking…';
+  try {
+    const r = await (await fetch('/api/events', { cache: 'no-store' })).json();
+    const c = r.calendar || {};
+    if (!c.configured) { el.textContent = 'No calendar link saved yet.'; return; }
+    if (!c.ok) { el.style.color = 'var(--raf-red)'; el.textContent = 'Could not read the calendar: ' + (c.error || 'unknown problem'); return; }
+    const next = (r.events || []).find(e => e.source === 'calendar');
+    el.style.color = 'var(--raf-navy)';
+    el.textContent = 'Connected. ' + (next ? 'Next event: ' + next.title + ' (' + next.date + ').' : 'No upcoming events found in the next ' + (data.calendarDays || 60) + ' days.');
+  } catch (e) { el.style.color = 'var(--raf-red)'; el.textContent = 'Could not check: ' + e.message; }
+}
+
+// ---- Screen controls ----
+function controlStatus(text, isError) {
+  const el = document.getElementById('controlStatus');
+  el.style.color = isError ? 'var(--raf-red)' : 'var(--raf-navy)'; el.textContent = text;
+  setTimeout(() => { el.textContent = ''; }, 6000);
+}
+async function controlAction(action, extra) {
+  try {
+    const res = await fetch('/api/control', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action, ...extra }) });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) return controlStatus(body.error || 'Something went wrong.', true);
+    controlStatus(action === 'reload' ? 'Screens will reload within about 10 seconds.' : action === 'clear-notice' ? 'Message cleared.' : 'Message sent - it appears within about 10 seconds.');
+  } catch (e) { controlStatus('Could not reach the dashboard: ' + e.message, true); }
+}
+function sendNotice() {
+  controlAction('notice', { text: document.getElementById('noticeText').value, minutes: parseInt(document.getElementById('noticeMinutes').value, 10) || 30 });
+}
+
+// ---- Backup & restore ----
+async function importConfig(input) {
+  const status = document.getElementById('backupStatus');
+  const file = input.files && input.files[0];
+  input.value = '';
+  if (!file) return;
+  try {
+    const parsed = JSON.parse(await file.text());
+    if (!confirm('Replace ALL current settings with the ones in "' + file.name + '"?\n\nA copy of the current settings is kept on the device (data/data.before-import.json).')) return;
+    const res = await fetch('/api/config/import', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(parsed) });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) { status.style.color = 'var(--raf-red)'; status.textContent = body.error || 'Something went wrong.'; return; }
+    await load();
+    status.style.color = 'var(--raf-navy)'; status.textContent = 'Settings restored from ' + file.name + '.';
+  } catch (e) { status.style.color = 'var(--raf-red)'; status.textContent = 'That file could not be read: ' + e.message; }
 }
 
 // ---- Force update ----

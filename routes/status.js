@@ -1,6 +1,7 @@
 const fs = require('fs');
 const express = require('express');
 const { git } = require('../lib/git');
+const sysinfo = require('../lib/sysinfo');
 
 // Diagnostic info only - never exposes secrets, tokens, or raw config values,
 // just reachability / configured-or-not indicators.
@@ -11,7 +12,7 @@ async function probe(url, ms = 5000) {
   } catch (e) { return 'OFFLINE'; }
 }
 
-module.exports = function statusRoutes({ store, cwd, requireEditor }) {
+module.exports = function statusRoutes({ store, cwd, requireEditor, calendar }) {
   const router = express.Router();
 
   // Cheap liveness check: no git, no upstream calls. Used by Docker HEALTHCHECK, the update
@@ -43,6 +44,16 @@ module.exports = function statusRoutes({ store, cwd, requireEditor }) {
     ]);
     status.weatherApi = weather;
     status.leaderboardCsv = sheet;
+    // Calendar feed (cached - this doesn't add extra requests to Google)
+    const cal = calendar ? await calendar.get() : { configured: false };
+    status.calendar = !cal.configured ? 'WARNING' : !cal.ok ? 'OFFLINE' : cal.stale ? 'WARNING' : 'ONLINE';
+    status.calendarInfo = {
+      configured: !!cal.configured,
+      events: cal.configured && cal.ok ? cal.events.length : null,
+      updatedAt: cal.updatedAt || null,
+      error: cal.error || undefined
+    };
+    status.system = sysinfo.collect({ dir: cwd });
     status.newsWidget = (data.newsEmbedCode && data.newsEmbedCode.trim()) ? 'ONLINE' : 'WARNING';
     status.instagramWidget = (data.instagramEmbedCode && data.instagramEmbedCode.trim()) ? 'ONLINE' : 'WARNING';
 
