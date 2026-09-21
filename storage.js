@@ -1,0 +1,218 @@
+// Durable settings storage for the Squadron Dashboard.
+//
+// Goals: settings saved on /edit must survive (1) the Pi losing power at any moment,
+// (2) app restarts, and (3) code updates from GitHub.
+//   - Settings live in the data/ folder, which is git-ignored, so updates never touch it.
+//   - Every write is fsync'd and atomically renamed, so a power cut leaves either the
+//     complete old file or the complete new file - never a half-written one.
+//   - A second copy (data.backup.json) is kept; a corrupt/empty main file is restored from it.
+//   - Anything missing from a saved file (e.g. a setting added in a later update) is
+//     filled in from the defaults, so old settings files keep working after updates.
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+
+const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
+function isValidTimeZone(tz) {
+  try { new Intl.DateTimeFormat('en-US', { timeZone: tz }); return typeof tz === 'string' && tz.trim() !== ''; } catch (e) { return false; }
+}
+
+function isHttpUrl(v) {
+  try { const u = new URL(v); return u.protocol === 'http:' || u.protocol === 'https:'; } catch (e) { return false; }
+}
+
+function fsyncDir(dir) {
+  try {
+    const fd = fs.openSync(dir, 'r');
+    try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
+  } catch (e) { /* not supported everywhere - best effort */ }
+}
+
+function writeFileDurable(file, contents) {
+  const tmp = file + '.tmp'; // same folder as the target, so the rename is atomic
+  const fd = fs.openSync(tmp, 'w');
+  try {
+    fs.writeSync(fd, contents);
+    fs.fsyncSync(fd); // force the bytes onto the SD card before renaming
+  } finally {
+    fs.closeSync(fd);
+  }
+  fs.renameSync(tmp, file);
+  fsyncDir(path.dirname(file));
+}
+
+function readJsonObject(file) {
+  const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('not a JSON object');
+  return parsed;
+}
+
+function createStore({ dir, defaults, legacyDir }) {
+  const dataFile = path.join(dir, 'data.json');
+  const backupFile = path.join(dir, 'data.backup.json');
+  fs.mkdirSync(dir, { recursive: true });
+
+  function withDefaults(d) {
+    return {
+      ...defaults,
+      ...d,
+      location: { ...defaults.location, ...(d.location && typeof d.location === 'object' ? d.location : {}) },
+      importantInfo: { ...defaults.importantInfo, ...(d.importantInfo && typeof d.importantInfo === 'object' ? d.importantInfo : {}) },
+      widgets: { ...defaults.widgets, ...(d.widgets && typeof d.widgets === 'object' ? d.widgets : {}) },
+      uniform: { ...defaults.uniform, ...(d.uniform && typeof d.uniform === 'object' ? d.uniform : {}) },
+      customWidgets: Array.isArray(d.customWidgets) ? d.customWidgets : defaults.customWidgets,
+      events: Array.isArray(d.events) ? d.events : defaults.events
+    };
+  }
+
+  function save(data) {
+    const json = JSON.stringify(data, null, 2);
+    writeFileDurable(dataFile, json);
+    writeFileDurable(backupFile, json);
+  }
+
+  function load() {
+    try {
+      return withDefaults(readJsonObject(dataFile));
+    } catch (e) {
+      console.warn('[storage] data.json missing or corrupt (' + e.message + ') - trying backup');
+      try {
+        const parsed = readJsonObject(backupFile); // validate before trusting it
+        try { writeFileDurable(dataFile, JSON.stringify(parsed, null, 2)); } catch (e3) { /* best effort */ }
+        console.warn('[storage] restored data.json from backup');
+        return withDefaults(parsed);
+      } catch (e2) {
+        console.warn('[storage] backup also missing or corrupt (' + e2.message + ') - using built-in defaults');
+        const fresh = withDefaults({});
+        try { save(fresh); } catch (e4) { /* still serve defaults */ }
+        return fresh;
+      }
+    }
+  }
+
+  // One-time migration: older versions kept data.json next to server.js. If there's no
+  // settings file in data/ yet, adopt the old one instead of starting from scratch.
+  if (legacyDir && !fs.existsSync(dataFile) && !fs.existsSync(backupFile)) {
+    for (const name of ['data.json', 'data.backup.json']) {
+      try {
+        const legacy = path.join(legacyDir, name);
+        if (fs.existsSync(legacy)) {
+          readJsonObject(legacy); // only adopt it if it's valid
+          writeFileDurable(path.join(dir, name), fs.readFileSync(legacy, 'utf8'));
+          console.warn('[storage] migrated ' + name + ' into ' + dir);
+        }
+      } catch (e) { /* ignore unreadable legacy file */ }
+    }
+  }
+
+  // Accepts only well-formed values for known settings; anything else is ignored and the
+  // current saved value is kept, so a bad request can't break the dashboard.
+  function sanitize(current, incoming) {
+    const out = { ...current };
+    if (!incoming || typeof incoming !== 'object') return out;
+    const isStr = v => typeof v === 'string';
+
+    if (isStr(incoming.squadronName) && incoming.squadronName.trim()) out.squadronName = incoming.squadronName;
+    // URLs: blank (to switch a feature off) or a real http(s) address. Anything else -
+    // javascript:, file://, a bare word - is ignored and the saved value is kept. This also
+    // stops the server being pointed at file:// or other odd schemes when it fetches the sheet.
+    for (const k of ['leaderboardCsvUrl', 'eventsSeeMoreUrl', 'errorReportUrl']) {
+      if (isStr(incoming[k])) {
+        const v = incoming[k].trim();
+        if (v === '' || isHttpUrl(v)) out[k] = v;
+      }
+    }
+    // Calendar feed (Google Calendar "secret address in iCal format" etc.). webcal:// is https:// under another name.
+    if (isStr(incoming.icsUrl)) {
+      const v = incoming.icsUrl.trim().replace(/^webcal:\/\//i, 'https://');
+      if (v === '' || isHttpUrl(v)) out.icsUrl = v;
+    }
+    if (isStr(incoming.calendarTimezone) && isValidTimeZone(incoming.calendarTimezone.trim())) out.calendarTimezone = incoming.calendarTimezone.trim();
+    const calDays = Number(incoming.calendarDays);
+    if (Number.isFinite(calDays) && calDays >= 14 && calDays <= 365) out.calendarDays = Math.round(calDays);
+    for (const k of ['instagramEmbedCode', 'weatherEmbedCode', 'newsEmbedCode']) {
+      if (isStr(incoming[k])) out[k] = incoming[k];
+    }
+    const mins = Number(incoming.autoShutdownMinutes);
+    if (Number.isFinite(mins) && mins >= 1) out.autoShutdownMinutes = Math.round(mins);
+
+    const loc = incoming.location;
+    if (loc && typeof loc === 'object') {
+      const next = { ...current.location };
+      if (isStr(loc.name) && loc.name.trim()) next.name = loc.name;
+      if (typeof loc.lat === 'number' && Number.isFinite(loc.lat) && Math.abs(loc.lat) <= 90) next.lat = loc.lat;
+      if (typeof loc.lon === 'number' && Number.isFinite(loc.lon) && Math.abs(loc.lon) <= 180) next.lon = loc.lon;
+      out.location = next;
+    }
+
+    const info = incoming.importantInfo;
+    if (info && typeof info === 'object') {
+      const next = { ...current.importantInfo };
+      if (typeof info.enabled === 'boolean') next.enabled = info.enabled;
+      if (isStr(info.title)) next.title = info.title;
+      if (isStr(info.message)) next.message = info.message;
+      out.importantInfo = next;
+    }
+
+    // Which built-in widgets appear in the carousel
+    const flags = incoming.widgets;
+    if (flags && typeof flags === 'object') {
+      const next = { ...current.widgets };
+      for (const k of ['leaderboard', 'news', 'events', 'instagram', 'uniform']) {
+        if (typeof flags[k] === 'boolean') next[k] = flags[k];
+      }
+      out.widgets = next;
+    }
+
+    // Small-screen layout: automatic detection, or forced either way
+    if (['auto', 'full', 'compact'].includes(incoming.layout)) out.layout = incoming.layout;
+
+    // Extra embed widgets: {id, name (shown on /edit), title (shown on the carousel), embedCode, enabled}
+    if (Array.isArray(incoming.customWidgets)) {
+      const seen = new Set();
+      out.customWidgets = incoming.customWidgets
+        .filter(w => w && typeof w === 'object')
+        .slice(0, 20)
+        .map(w => {
+          let id = isStr(w.id) && /^[A-Za-z0-9_-]{1,40}$/.test(w.id) ? w.id : null;
+          if (!id || seen.has(id)) id = 'w' + crypto.randomBytes(4).toString('hex');
+          seen.add(id);
+          return {
+            id,
+            name: String(w.name ?? '').slice(0, 80),
+            title: String(w.title ?? '').slice(0, 80),
+            embedCode: String(w.embedCode ?? '').slice(0, 20000),
+            enabled: w.enabled !== false
+          };
+        });
+    }
+
+    if (Array.isArray(incoming.events)) {
+      out.events = incoming.events
+        .filter(e => e && typeof e === 'object')
+        .map(e => ({
+          title: String(e.title ?? ''), date: String(e.date ?? ''), detail: String(e.detail ?? ''),
+          // optional YYYY-MM-DD: the event is hidden from the display the day after this
+          hideAfter: isStr(e.hideAfter) && DATE_KEY.test(e.hideAfter.trim()) ? e.hideAfter.trim() : ''
+        }));
+    }
+
+    // Uniform panel: manual entries (date + uniform), used alongside "Uniform:" lines found in calendar events
+    if (incoming.uniform && typeof incoming.uniform === 'object' && Array.isArray(incoming.uniform.items)) {
+      out.uniform = {
+        ...current.uniform,
+        items: incoming.uniform.items
+          .filter(i => i && typeof i === 'object' && isStr(i.date) && DATE_KEY.test(i.date.trim()) && String(i.uniform ?? '').trim())
+          .slice(0, 40)
+          .map(i => ({ date: i.date.trim(), title: String(i.title ?? '').slice(0, 80), uniform: String(i.uniform).trim().slice(0, 80) }))
+      };
+    }
+    return out;
+  }
+
+  // A complete settings object made only from the built-in defaults (used when importing a config file)
+  const defaultData = () => withDefaults({});
+  return { load, save, sanitize, defaultData, dataFile, backupFile };
+}
+
+module.exports = { createStore, writeFileDurable, isHttpUrl, isValidTimeZone };

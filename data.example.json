@@ -1,0 +1,40 @@
+{
+  "squadronName": "Your Squadron Name",
+  "location": {
+    "name": "Your Town",
+    "lat": 51.5074,
+    "lon": -0.1278
+  },
+  "leaderboardCsvUrl": "",
+  "eventsSeeMoreUrl": "https://cadets.bader.mod.uk/events",
+  "errorReportUrl": "",
+  "autoShutdownMinutes": 165,
+  "instagramEmbedCode": "",
+  "weatherEmbedCode": "",
+  "newsEmbedCode": "",
+  "importantInfo": {
+    "enabled": false,
+    "title": "IMPORTANT INFORMATION",
+    "message": ""
+  },
+  "widgets": {
+    "leaderboard": true,
+    "news": true,
+    "events": true,
+    "instagram": true
+  },
+  "customWidgets": [],
+  "layout": "auto",
+  "events": [
+    {
+      "title": "Parade Night",
+      "date": "Every Thursday",
+      "detail": "1900 - 2130, main hall"
+    },
+    {
+      "title": "Example Event",
+      "date": "Edit me on /edit",
+      "detail": "Add real events on the edit page"
+    }
+  ]
+}
