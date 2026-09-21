@@ -107,14 +107,23 @@
     margin-top: 8px;
   }
   .split-eu > section { min-width: 0; }
-  .split-eu h2 { margin-top: 22px; }
+  .split-eu h2 { margin-top: 12px; }
   @media (min-width: 640px) {
     .split-eu {
       grid-template-columns: 1fr 1fr;
       align-items: start;
     }
-    .split-eu h2 { margin-top: 22px; }
   }
+  .eu-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-top: 18px;
+  }
+  .eu-toolbar .hint { margin: 0; flex: 1 1 auto; }
+  .eu-toolbar button { margin-top: 0; }
+  .event-row.is-hidden, .uniform-row.is-hidden { display: none; }
 
   .checks {
     display: grid;
@@ -334,6 +343,11 @@
 <label for="importantInfoMessage">Message</label>
 <textarea id="importantInfoMessage" rows="2" placeholder="Banner text"></textarea>
 
+<div class="eu-toolbar">
+  <button class="add" type="button" id="euExpandBtn" onclick="expandEu()">Expand</button>
+  <button class="add" type="button" id="euCollapseBtn" onclick="collapseEu()">Collapse</button>
+  <span class="hint" id="euLimitHint"></span>
+</div>
 <div class="split-eu">
   <section>
     <h2>Events</h2>
@@ -397,7 +411,7 @@ function eventRow(e = {}) {
     '<label>Detail</label><input class="ev-detail">' +
     '<label>Hide after</label><input type="date" class="ev-hide">' +
     '<div class="hint ev-note"></div>' +
-    '<button type="button" class="danger" onclick="this.parentElement.remove()">Remove</button>';
+    '<button type="button" class="danger" onclick="this.parentElement.remove(); applyEuLimit();">Remove</button>';
   div.querySelector('.ev-title').value = e.title || '';
   div.querySelector('.ev-date').value = e.date || '';
   div.querySelector('.ev-detail').value = e.detail || '';
@@ -420,7 +434,7 @@ function uniformRow(u = {}) {
     '<label>Date</label><input type="date" class="un-date">' +
     '<label>Title</label><input class="un-title" placeholder="Optional">' +
     '<label>Uniform</label><input class="un-uniform" placeholder="e.g. Working blues">' +
-    '<button type="button" class="danger" onclick="this.parentElement.remove()">Remove</button>';
+    '<button type="button" class="danger" onclick="this.parentElement.remove(); applyEuLimit();">Remove</button>';
   div.querySelector('.un-date').value = u.date || '';
   div.querySelector('.un-title').value = u.title || '';
   div.querySelector('.un-uniform').value = u.uniform || '';
@@ -445,8 +459,47 @@ function widgetRow(w = {}) {
   return div;
 }
 
-function addUniform() { document.getElementById('uniformContainer').appendChild(uniformRow()); }
-function addEvent() { document.getElementById('eventsContainer').appendChild(eventRow()); }
+let euVisibleLimit = 3;
+const EU_DEFAULT = 3;
+const EU_STEP = 5;
+
+function applyEuLimit() {
+  const events = [...document.querySelectorAll('#eventsContainer .event-row')];
+  const uniforms = [...document.querySelectorAll('#uniformContainer .uniform-row')];
+  events.forEach((el, i) => el.classList.toggle('is-hidden', i >= euVisibleLimit));
+  uniforms.forEach((el, i) => el.classList.toggle('is-hidden', i >= euVisibleLimit));
+  const maxCount = Math.max(events.length, uniforms.length);
+  const hidden = maxCount > euVisibleLimit;
+  const expandBtn = document.getElementById('euExpandBtn');
+  const collapseBtn = document.getElementById('euCollapseBtn');
+  const hint = document.getElementById('euLimitHint');
+  if (expandBtn) expandBtn.disabled = !hidden;
+  if (collapseBtn) collapseBtn.disabled = euVisibleLimit <= EU_DEFAULT;
+  if (hint) {
+    if (maxCount === 0) hint.textContent = '';
+    else if (!hidden) hint.textContent = 'Showing all (' + maxCount + ')';
+    else hint.textContent = 'Showing ' + euVisibleLimit + ' of up to ' + maxCount;
+  }
+}
+
+function expandEu() {
+  euVisibleLimit += EU_STEP;
+  applyEuLimit();
+}
+
+function collapseEu() {
+  euVisibleLimit = EU_DEFAULT;
+  applyEuLimit();
+}
+
+function addUniform() {
+  document.getElementById('uniformContainer').appendChild(uniformRow());
+  applyEuLimit();
+}
+function addEvent() {
+  document.getElementById('eventsContainer').appendChild(eventRow());
+  applyEuLimit();
+}
 function addWidget() { document.getElementById('customWidgets').appendChild(widgetRow()); }
 
 function collectPayload() {
@@ -548,6 +601,8 @@ async function load() {
     .forEach(u => uc.appendChild(uniformRow(u)));
   savedSnapshot = JSON.stringify(collectPayload());
   updateForceButton();
+  euVisibleLimit = EU_DEFAULT;
+  applyEuLimit();
   loadVersionInfo();
 }
 
