@@ -16,6 +16,7 @@ module.exports = function weatherRoutes({ store }) {
         if (!r.ok) throw new Error('weather service returned HTTP ' + r.status);
         return r.json();
       });
+      res.set('Cache-Control', 'public, max-age=60');
       res.json({ ...value, stale, updatedAt });
     } catch (e) {
       res.status(502).json({ error: 'weather fetch failed', detail: String(e && e.message ? e.message : e) });

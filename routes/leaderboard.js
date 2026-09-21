@@ -13,6 +13,7 @@ module.exports = function leaderboardRoutes({ store }) {
     try {
       const { leaderboardCsvUrl } = store.load();
       if (!leaderboardCsvUrl) {
+        res.set('Cache-Control', 'public, max-age=30');
         return res.json({ rows: [], note: 'No leaderboard CSV URL set yet - add one on /edit' });
       }
       const { value, stale, updatedAt } = await cache.get(leaderboardCsvUrl, async () => {
@@ -20,6 +21,7 @@ module.exports = function leaderboardRoutes({ store }) {
         if (!r.ok) throw new Error('the sheet returned HTTP ' + r.status + ' - is it still published to the web?');
         return buildLeaderboard(parseCsv(await r.text()));
       });
+      res.set('Cache-Control', 'public, max-age=30');
       res.json({ ...value, stale, updatedAt });
     } catch (e) {
       res.status(502).json({ error: 'leaderboard fetch failed', detail: String(e && e.message ? e.message : e) });

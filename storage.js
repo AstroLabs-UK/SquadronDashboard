@@ -51,6 +51,9 @@ function createStore({ dir, defaults, legacyDir }) {
   const dataFile = path.join(dir, 'data.json');
   const backupFile = path.join(dir, 'data.backup.json');
   fs.mkdirSync(dir, { recursive: true });
+  // In-memory cache: every /api/* path used to re-read data.json from the SD card.
+  // Cache is invalidated on save; a single process never serves a stale copy of its own writes.
+  let mem = null;
 
   function withDefaults(d) {
     return {
@@ -69,22 +72,27 @@ function createStore({ dir, defaults, legacyDir }) {
     const json = JSON.stringify(data, null, 2);
     writeFileDurable(dataFile, json);
     writeFileDurable(backupFile, json);
+    mem = withDefaults(data); // keep RAM in sync so the next load() skips disk
   }
 
   function load() {
+    if (mem) return mem;
     try {
-      return withDefaults(readJsonObject(dataFile));
+      mem = withDefaults(readJsonObject(dataFile));
+      return mem;
     } catch (e) {
       console.warn('[storage] data.json missing or corrupt (' + e.message + ') - trying backup');
       try {
         const parsed = readJsonObject(backupFile); // validate before trusting it
         try { writeFileDurable(dataFile, JSON.stringify(parsed, null, 2)); } catch (e3) { /* best effort */ }
         console.warn('[storage] restored data.json from backup');
-        return withDefaults(parsed);
+        mem = withDefaults(parsed);
+        return mem;
       } catch (e2) {
         console.warn('[storage] backup also missing or corrupt (' + e2.message + ') - using built-in defaults');
         const fresh = withDefaults({});
         try { save(fresh); } catch (e4) { /* still serve defaults */ }
+        mem = fresh;
         return fresh;
       }
     }

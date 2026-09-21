@@ -13,6 +13,7 @@ module.exports = function newsRoutes() {
       const { value, stale, updatedAt } = await cache.get('bbc-scrape', async () => {
         return await fetchBbcNews();
       });
+      res.set('Cache-Control', 'public, max-age=60');
       res.json({ items: value, stale, updatedAt, source: 'bbc' });
     } catch (e) {
       res.status(502).json({ error: 'news fetch failed', detail: String(e && e.message ? e.message : e) });

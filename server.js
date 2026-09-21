@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const { createStore } = require('./storage');
 const { securityHeaders, rateLimit } = require('./lib/security');
 const { createEditorAuth } = require('./lib/auth');
@@ -21,7 +22,18 @@ app.disable('x-powered-by');
 app.use(securityHeaders);
 // Custom embed widgets can be large (up to 20 x 20,000 characters), so allow more than express's 100kb default
 app.use(express.json({ limit: '1mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
+// Static assets change only on deploy/update; short cache cuts repeat transfers on the kiosk.
+app.use(express.static(path.join(__dirname, 'public'), {
+  etag: true,
+  lastModified: true,
+  maxAge: process.env.NODE_ENV === 'production' ? '1h' : 0,
+  setHeaders(res, filePath) {
+    if (filePath.endsWith('.html')) {
+      // HTML is the shell the kiosk keeps open; prefer revalidate so updates show up.
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  }
+}));
 
 // Last-resort defaults, embedded in code, used only if BOTH data.json and its
 // backup are missing or corrupted (e.g. the Pi lost power mid-write twice in a row).
@@ -112,7 +124,12 @@ app.get('/api/boot', (req, res) => {
 app.get('/api/data', apiLimiter, (req, res) => {
   const data = store.load();
   const visible = requireEditor.isEditor(req) ? data : { ...data, icsUrl: '' };
-  res.json({ ...visible, icsUrlSet: !!data.icsUrl });
+  const body = { ...visible, icsUrlSet: !!data.icsUrl };
+  const etag = '"' + crypto.createHash('sha1').update(JSON.stringify(body)).digest('hex') + '"';
+  res.set('ETag', etag);
+  res.set('Cache-Control', 'private, no-cache');
+  if (req.headers['if-none-match'] === etag) return res.status(304).end();
+  res.json(body);
 });
 
 app.post('/api/data', requireEditor, sensitiveLimiter, (req, res) => {
