@@ -1,0 +1,14 @@
+node_modules
+.git
+.gitignore
+.github
+*.md
+test
+scripts
+data
+data.json
+data.backup.json
+*.sh
+*.ps1
+*.cmd
+!docker-entrypoint.sh
