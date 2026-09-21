@@ -165,13 +165,11 @@
 <h2>Carousel widgets</h2>
 <p class="hint">Tick the widgets you want in the rotating panel. Anything unticked isn't shown, and each ticked widget gets 10 seconds on screen.</p>
 <label class="check"><input type="checkbox" id="w-leaderboard"> Leaderboard</label>
-<label class="check"><input type="checkbox" id="w-news"> News</label>
+<label class="check"><input type="checkbox" id="w-news"> News (BBC)</label>
 <label class="check"><input type="checkbox" id="w-events"> Upcoming events</label>
 <label class="check"><input type="checkbox" id="w-uniform"> Uniform (this week and next week)</label>
 <label class="check"><input type="checkbox" id="w-instagram"> Instagram / social feed</label>
-<label>News widget embed code</label>
-<textarea id="newsEmbedCode" rows="4" placeholder="Paste a news feed embed snippet (script + div), e.g. from FeedGrabbr. Leave blank to hide the News panel."></textarea>
-<p class="hint">News is skipped while this is empty. Paste any compatible embed (e.g. FeedGrabbr) to change the feed.</p>
+<p class="hint">News shows the latest BBC News headlines (title, short description and thumbnail) scraped from the BBC homepage. There is nothing to configure.</p>
 <label>Instagram widget embed code</label>
 <textarea id="instagramEmbedCode" rows="4" placeholder="Paste the full embed snippet from a free Instagram-feed widget service (e.g. Elfsight or SociableKit) - the script tag and div, exactly as they give it to you"></textarea>
 <p class="hint">The Instagram widget is skipped while this is empty.</p>
@@ -314,7 +312,6 @@ async function load() {
   document.getElementById('calendarDays').value = data.calendarDays || 60;
   document.getElementById('autoShutdownMinutes').value = data.autoShutdownMinutes || 165;
   document.getElementById('instagramEmbedCode').value = data.instagramEmbedCode || '';
-  document.getElementById('newsEmbedCode').value = data.newsEmbedCode || '';
   document.getElementById('weatherEmbedCode').value = data.weatherEmbedCode || '';
   document.getElementById('layout').value = data.layout || 'auto';
   const wf = data.widgets || {};
@@ -364,7 +361,6 @@ function collectPayload() {
     calendarDays: parseInt(document.getElementById('calendarDays').value, 10) || 60,
     autoShutdownMinutes: parseInt(document.getElementById('autoShutdownMinutes').value, 10) || 165,
     instagramEmbedCode: document.getElementById('instagramEmbedCode').value,
-    newsEmbedCode: document.getElementById('newsEmbedCode').value,
     weatherEmbedCode: document.getElementById('weatherEmbedCode').value,
     layout: document.getElementById('layout').value,
     widgets: {

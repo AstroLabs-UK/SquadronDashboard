@@ -91,8 +91,58 @@
   .rotate-pane.active { display: flex; }
   .rotate-pane ul { list-style: none; padding: 0; margin: 0; overflow: hidden; flex: 1; min-height: 0; }
 
-  /* News is an embed widget (same fill behaviour as Instagram) */
-  #newsPane.embed-pane { padding: 0; }
+  /* News cards – scraped BBC headlines */
+  #newsPane { padding: 4px 0 0 0; gap: 0; }
+  #newsList {
+    flex: 1; min-height: 0; overflow: hidden;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    align-content: start;
+  }
+  .news-card {
+    display: flex; flex-direction: column;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    min-height: 0;
+    box-shadow: 0 2px 8px rgba(7, 21, 37, 0.06);
+  }
+  .news-card .thumb {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    background: var(--off-white);
+    display: block;
+    flex-shrink: 0;
+  }
+  .news-card .thumb.placeholder {
+    display: flex; align-items: center; justify-content: center;
+    color: var(--muted); font-size: 12px; font-weight: 700;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    background: linear-gradient(135deg, #e8eef4, #d5dde5);
+  }
+  .news-card .body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+  .news-card .title {
+    font-weight: 700; color: var(--raf-navy); font-size: clamp(13px, 1.7vh, 17px);
+    line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .news-card .desc {
+    color: var(--muted); font-size: clamp(12px, 1.4vh, 14px); line-height: 1.35;
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .news-card .source {
+    margin-top: auto; font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--raf-blue);
+  }
+  #newsStamp {
+    flex-shrink: 0; font-size: 11px; color: var(--muted); margin-top: 8px; text-align: right;
+  }
+  #newsStamp.stale { color: var(--raf-red); }
+  @media (max-width: 700px) {
+    #newsList { grid-template-columns: 1fr; }
+  }
 
   /* Leaderboard: individual + flight side by side — fill available vertical space with taller rows */
   #lbPane { flex-direction: row; gap: 24px; }
@@ -307,8 +357,9 @@
         </div>
       </div>
 
-      <div class="rotate-pane embed-pane" id="newsPane">
-        <div class="insta-wrap" id="newsWrap"></div>
+      <div class="rotate-pane" id="newsPane">
+        <div id="newsList"></div>
+        <div id="newsStamp"></div>
       </div>
 
       <div class="rotate-pane" id="eventsPane">
@@ -345,7 +396,6 @@
 <script>
 let errorReportUrl = '';
 let lastInstagramEmbedCode = '';
-let lastNewsEmbedCode = '';
 let lastWeatherEmbedCode = '';
 let weatherEmbedActive = false;
 let latestEvents = [];
@@ -618,18 +668,8 @@ function applyWidgetSettings(data) {
   };
   if (widgetFlags.leaderboard && !prev.leaderboard) loadLeaderboard();
 
-  // News embed (default FeedGrabbr; editable on /edit)
-  const newsCode = (data.newsEmbedCode || '').trim();
-  if (widgetFlags.news && newsCode) {
-    if (newsCode !== lastNewsEmbedCode) {
-      lastNewsEmbedCode = newsCode;
-      mountEmbedCode('newsWrap', newsCode);
-    }
-  } else if (lastNewsEmbedCode) {
-    lastNewsEmbedCode = '';
-    const nw = document.getElementById('newsWrap');
-    if (nw) nw.innerHTML = '';
-  }
+  // News is the built-in BBC scrape – just ensure we (re)load when the widget is enabled
+  if (widgetFlags.news && !prev.news) loadNews();
 
   // Instagram: only loaded while ticked (and it has an embed code)
   const igCode = (data.instagramEmbedCode || '').trim();
@@ -769,6 +809,40 @@ function renderLeaderboardFromCache() {
   }
 }
 
+async function loadNews() {
+  if (!widgetFlags.news) return;
+  const list = document.getElementById('newsList');
+  const stamp = document.getElementById('newsStamp');
+  if (!list) return;
+  try {
+    const r = await apiJson('/api/news');
+    const items = (r.items || []).slice(0, 4);
+    if (!items.length) throw new Error('No headlines returned');
+    list.innerHTML = items.map(item => {
+      const title = esc(item.title || '');
+      const desc = esc(item.description || '');
+      const thumb = item.thumbnail ? '<img class="thumb" src="' + esc(item.thumbnail) + '" alt="" loading="lazy" referrerpolicy="no-referrer">' : '<div class="thumb placeholder">BBC</div>';
+      return '<article class="news-card">' +
+        thumb +
+        '<div class="body">' +
+          '<div class="title">' + title + '</div>' +
+          (desc ? '<div class="desc">' + desc + '</div>' : '') +
+          '<div class="source">BBC News</div>' +
+        '</div>' +
+      '</article>';
+    }).join('');
+    if (stamp) {
+      stamp.textContent = r.updatedAt ? ((r.stale ? 'Offline – data from ' : 'Updated ') + fmtClock(r.updatedAt)) : '';
+      stamp.classList.toggle('stale', !!r.stale);
+    }
+    setStamp('newsPane', r.updatedAt, r.stale);
+  } catch (e) {
+    list.innerHTML = '';
+    if (stamp) { stamp.textContent = ''; stamp.classList.remove('stale'); }
+    showError(list.parentElement || list, 'news', e.message || String(e));
+  }
+}
+
 async function loadLeaderboard() {
   if (!widgetFlags.leaderboard) return;
   const pane = ensurePaneSkeleton('lbPane');
@@ -848,10 +922,12 @@ async function refreshAll() {
   await loadSettings();
   await loadWeather();
   await loadLeaderboard();
+  await loadNews();
 }
 refreshAll();
 setInterval(loadWeather, 10 * 60 * 1000);
 setInterval(loadLeaderboard, 5 * 60 * 1000);
+setInterval(loadNews, 10 * 60 * 1000);
 setInterval(loadSettings, 10 * 1000); // checks for edits made on /edit every 10 seconds
 
 // ---- Reload when the server restarts (e.g. after an auto-update) ----
@@ -892,7 +968,7 @@ let paneSignature = null;
 function computePanes() {
   const list = [];
   if (widgetFlags.leaderboard) list.push({ id: 'lbPane', title: 'Leaderboard' });
-  if (widgetFlags.news && lastNewsEmbedCode) list.push({ id: 'newsPane', title: 'News' });
+  if (widgetFlags.news) list.push({ id: 'newsPane', title: 'News' });
   if (widgetFlags.events) list.push({ id: 'eventsPane', title: 'Latest Events' });
   if (widgetFlags.uniform && hasUniform()) list.push({ id: 'uniformPane', title: 'Uniform' });
   if (widgetFlags.instagram && lastInstagramEmbedCode) list.push({ id: 'socialsPane', title: 'Follow Us' });

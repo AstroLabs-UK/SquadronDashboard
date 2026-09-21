@@ -13,9 +13,45 @@ delete process.env.EDIT_PIN;
 
 const app = require('../server');
 let server, base;
-const basic = pin => ({ Authorization: 'Basic ' + Buffer.from(':' + pin).toString('base64') });
-const postJson = (url, body, headers = {}) => fetch(base + url, {
-  method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body)
+
+function cookieFromResponse(r) {
+  // Node 19.2+ has getSetCookie(); older Node only exposes a single set-cookie header.
+  if (typeof r.headers.getSetCookie === 'function') {
+    const list = r.headers.getSetCookie();
+    if (list && list.length) return list.map(c => c.split(';')[0].trim()).filter(Boolean).join('; ');
+  }
+  const raw = r.headers.get('set-cookie');
+  if (!raw) return '';
+  // Split on ", " only when it looks like a new cookie (name=), not Expires=Tue, 01...
+  const parts = [];
+  let buf = '';
+  for (const bit of raw.split(/,(?=\s*[A-Za-z_][A-Za-z0-9_]*=)/)) {
+    buf = bit.trim();
+    if (buf) parts.push(buf.split(';')[0].trim());
+  }
+  return parts.filter(Boolean).join('; ');
+}
+async function login(pin) {
+  const r = await fetch(base + '/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pin })
+  });
+  return { res: r, cookie: cookieFromResponse(r), body: await r.json().catch(() => ({})) };
+}
+
+const postJson = (url, body, cookie = '') => fetch(base + url, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    ...(cookie ? { Cookie: cookie } : {})
+  },
+  body: JSON.stringify(body)
+});
+
+const get = (url, cookie = '') => fetch(base + url, {
+  headers: cookie ? { Cookie: cookie } : {},
+  redirect: 'manual'
 });
 
 test.before(async () => {
@@ -40,35 +76,55 @@ test('with no PIN set the editor stays open (upgrades never lock anyone out)', a
   assert.equal(r.status, 200);
 });
 
-test('with a PIN set: /edit, saving and force-update need it; the display stays open', async () => {
+test('with a PIN set: /edit redirects to /pin; login cookie unlocks editor', async () => {
   fs.writeFileSync(path.join(dataDir, 'edit-pin'), '2468\n');
 
   assert.equal((await fetch(base + '/')).status, 200);
   assert.equal((await fetch(base + '/api/data')).status, 200);
   assert.equal((await fetch(base + '/status')).status, 200);
+  assert.equal((await fetch(base + '/pin')).status, 200);
 
-  const noAuth = await fetch(base + '/edit');
-  assert.equal(noAuth.status, 401);
-  assert.match(noAuth.headers.get('www-authenticate') || '', /Basic/);
-  assert.equal((await fetch(base + '/edit', { headers: basic('0000') })).status, 401);
-  assert.equal((await fetch(base + '/edit', { headers: basic('2468') })).status, 200);
+  // Unauthenticated page request is redirected to the stylised PIN screen
+  const noAuth = await get('/edit');
+  assert.ok([302, 401].includes(noAuth.status));
+  if (noAuth.status === 302) {
+    assert.match(noAuth.headers.get('location') || '', /\/pin/);
+  }
 
+  // Wrong PIN rejected
+  const bad = await login('0000');
+  assert.equal(bad.res.status, 401);
+  assert.equal(bad.body.ok, false);
+
+  // Correct PIN sets cookie
+  const good = await login('2468');
+  assert.equal(good.res.status, 200);
+  assert.equal(good.body.ok, true);
+  assert.ok(good.cookie, 'expected session cookie');
+
+  // Cookie unlocks /edit and POST /api/data
+  assert.equal((await get('/edit', good.cookie)).status, 200);
   assert.equal((await postJson('/api/data', { squadronName: 'Hacked' })).status, 401);
-  assert.equal((await postJson('/api/update', {})).status, 401);
-  const ok = await postJson('/api/data', { squadronName: 'Real Squadron' }, basic('2468'));
+  const ok = await postJson('/api/data', { squadronName: 'Real Squadron' }, good.cookie);
   assert.equal(ok.status, 200);
   assert.equal((await (await fetch(base + '/api/data')).json()).squadronName, 'Real Squadron');
 });
 
 test('bad settings are rejected by validation, not stored', async () => {
-  const r = await postJson('/api/data', { leaderboardCsvUrl: 'javascript:alert(1)' }, basic('2468'));
+  const { cookie } = await login('2468');
+  const r = await postJson('/api/data', { leaderboardCsvUrl: 'javascript:alert(1)' }, cookie);
   assert.equal((await r.json()).data.leaderboardCsvUrl, '');
 });
 
-test('changing data/edit-pin takes effect immediately', async () => {
+test('changing data/edit-pin takes effect immediately (old sessions die)', async () => {
+  const old = await login('2468');
+  assert.equal(old.res.status, 200);
   fs.writeFileSync(path.join(dataDir, 'edit-pin'), '1357\n');
-  assert.equal((await fetch(base + '/edit', { headers: basic('2468') })).status, 401);
-  assert.equal((await fetch(base + '/edit', { headers: basic('1357') })).status, 200);
+  // Cookie signed against the old PIN is now invalid
+  assert.ok([302, 401].includes((await get('/edit', old.cookie)).status));
+  const neu = await login('1357');
+  assert.equal(neu.res.status, 200);
+  assert.equal((await get('/edit', neu.cookie)).status, 200);
 });
 
 test('/api/status reports whether a PIN is set', async () => {
@@ -79,8 +135,9 @@ test('/api/status reports whether a PIN is set', async () => {
 
 test('repeated wrong PINs are locked out (last, because it changes limiter state)', async () => {
   let last;
-  for (let i = 0; i < 12; i++) last = await fetch(base + '/edit', { headers: basic('bad' + i) });
-  assert.equal(last.status, 429);
+  for (let i = 0; i < 12; i++) last = await login('bad' + i);
+  assert.equal(last.res.status, 429);
   // even the right PIN is refused during the lockout
-  assert.equal((await fetch(base + '/edit', { headers: basic('1357') })).status, 429);
+  const blocked = await login('1357');
+  assert.equal(blocked.res.status, 429);
 });

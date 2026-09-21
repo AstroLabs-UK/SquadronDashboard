@@ -133,7 +133,7 @@ sync_code() {
   done
   # Settings safety copy lives OUTSIDE the app folder, so even a wiped data/ can be recovered
   SNAP_BASE="$(dirname "$DIR")"; [ "$SNAP_BASE" = "/" ] && SNAP_BASE="$HOME"
-  SNAP="${DATA_BACKUP_DIR:-$SNAP_BASE/.squadron-dashboard-backup}"
+  SNAP="${DATA_BACKUP_DIR:-$SNAP_BASE/sqndash-data-backup}"
   if [ ! -f data/data.json ] && [ -f "$SNAP/data.json" ]; then
     echo "[update] settings were missing - restoring them from $SNAP"
     cp -a "$SNAP/." data/
@@ -247,6 +247,39 @@ restart_app() {
   fi
 }
 
+# Start the dashboard if it is not already running (systemd service, Docker, or node).
+start_app() {
+  echo "[start] starting the dashboard..."
+  if uses_docker; then
+    $SUDO docker compose up -d --build
+    echo "[start] Docker container started"
+    return 0
+  fi
+  if command -v systemctl >/dev/null 2>&1 && [ -f /etc/systemd/system/squadron-dashboard.service ]; then
+    if systemctl is-active --quiet squadron-dashboard.service 2>/dev/null; then
+      echo "[start] already running (systemd)"
+      return 0
+    fi
+    $SUDO systemctl start squadron-dashboard.service
+    sleep 1
+    if systemctl is-active --quiet squadron-dashboard.service 2>/dev/null; then
+      echo "[start] done - squadron-dashboard.service is active"
+      return 0
+    fi
+    echo "[start] systemd start failed - falling back to node"
+  fi
+  # Bare-metal fallback: run node in the background if nothing is listening yet
+  if command -v node >/dev/null 2>&1; then
+    mkdir -p "$DIR/data"
+    npm install --omit=dev --quiet 2>/dev/null || true
+    nohup node "$DIR/server.js" >>"$DIR/data/sqndash.log" 2>&1 &
+    echo "[start] started node in the background (http://localhost:3000) - log: data/sqndash.log"
+    return 0
+  fi
+  echo "[start] could not start - install the service with install.sh, or run: npm start"
+  return 1
+}
+
 # Step 3 - wait for the restarted app to answer /healthz (up to ~90 s).
 # If this Pi has neither curl nor wget the check is skipped rather than failing every update.
 wait_healthy() {
@@ -280,6 +313,7 @@ case "${1:-}" in
   --check)   check_only; exit $? ;;
   --sync)    [ "${2:-}" = "force" ] && FORCE=1; sync_code; exit $? ;;
   --restart) restart_app; rc=$?; [ $rc -eq 0 ] && echo "[update] done - the screen reloads itself within about 10 seconds"; exit $rc ;;
+  --start) start_app; exit $? ;;
   --force)   FORCE=1 ;;
 esac
 

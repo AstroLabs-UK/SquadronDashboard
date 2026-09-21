@@ -8,7 +8,7 @@ const { createStore, isHttpUrl } = require('../storage');
 const defaults = {
   squadronName: 'Default', location: { name: 'Town', lat: 1, lon: 2 },
   leaderboardCsvUrl: '', eventsSeeMoreUrl: 'https://example.com', errorReportUrl: '',
-  autoShutdownMinutes: 165, instagramEmbedCode: '', weatherEmbedCode: '', newsEmbedCode: '',
+  autoShutdownMinutes: 165, instagramEmbedCode: '', weatherEmbedCode: '', 
   importantInfo: { enabled: false, title: 'T', message: '' },
   widgets: { leaderboard: true, news: true, events: true, instagram: true },
   customWidgets: [], layout: 'auto', events: []

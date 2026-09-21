@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # The `sqndash` command. Installed to /usr/local/bin by the installer and by update.sh.
 #
+#   sqndash                   start the dashboard service
+#   sqndash --start           same as above
 #   sqndash --check / --version   compare local code to the update target (newest release)
 #   sqndash --update              update if there's a newer release, then restart
 #   sqndash --force-update        re-download even if up to date, then restart
@@ -15,16 +17,18 @@ usage() {
   cat <<'EOF2'
 Squadron Dashboard
 
-  sqndash --check            compare local version to the update target (also: --version)
-  sqndash --update           update if there's a newer release, then restart
-  sqndash --force-update     re-download even if already up to date, then restart
-  sqndash --restart          restart the dashboard
-  sqndash --set-pin [PIN]    set the PIN that protects the /edit page (4+ characters)
-  sqndash --clear-pin        remove the PIN (anyone on the network can then edit)
-  sqndash --channel [name]   show, or set, the update channel:
-                               release = newest tagged release (default, safest)
-                               main    = tip of the main branch (for a test device)
-  sqndash --help             show this help
+  sqndash                  start the dashboard service
+  sqndash --start          same as above
+  sqndash --check          compare local version to the update target (also: --version)
+  sqndash --update         update if there's a newer release, then restart
+  sqndash --force-update   re-download even if already up to date, then restart
+  sqndash --restart        restart the dashboard
+  sqndash --set-pin [PIN]  set the PIN that protects the /edit page (4+ characters)
+  sqndash --clear-pin      remove the PIN (anyone on the network can then edit)
+  sqndash --channel [name] show, or set, the update channel:
+                             release = newest tagged release (default, safest)
+                             main    = tip of the main branch (for a test device)
+  sqndash --help           show this help
 
 Your settings (from /edit) are never changed by an update.
 EOF2
@@ -43,10 +47,11 @@ set_pin() {
   mkdir -p "$DIR/data"
   ( umask 077; printf '%s\n' "$pin" > "$DIR/data/edit-pin.tmp" && mv -f "$DIR/data/edit-pin.tmp" "$DIR/data/edit-pin" )
   echo "Editor PIN saved. It applies straight away - no restart needed."
-  echo "Open /edit, leave the username blank and enter the PIN as the password."
+  echo "Open /edit and enter the PIN on the unlock screen."
 }
 
 case "${1:-}" in
+  ""|--start)   exec bash "$DIR/update.sh" --start ;;
   --check|--version|-v) exec bash "$DIR/update.sh" --check ;;
   --update|-u)  exec bash "$DIR/update.sh" ;;
   --force-update|-f) exec bash "$DIR/update.sh" --force ;;
@@ -64,6 +69,6 @@ case "${1:-}" in
         *) echo "Channel must be 'release' or 'main'."; exit 1 ;;
       esac
     fi ;;
-  --help|-h|"") usage ;;
+  --help|-h) usage ;;
   *) echo "Unknown option: $1"; echo; usage; exit 1 ;;
 esac
