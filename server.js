@@ -55,6 +55,7 @@ const DEFAULT_DATA = {
   timetreeCalendarId: "",
   timetreeCalendarName: "",
   timetreeCalendarCode: "",
+  timetreeLabelIds: [],
   uniform: { items: [] },
   errorReportUrl: "",
   autoShutdownMinutes: 165,

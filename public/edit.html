@@ -465,11 +465,15 @@
   </div>
   <p class="hint" id="timetreeConnectResult"></p>
   <label for="timetreeCalendar">Calendar</label>
-  <select id="timetreeCalendar">
+  <select id="timetreeCalendar" onchange="onTimetreeCalendarChange()">
     <option value="">— connect first —</option>
   </select>
   <input type="hidden" id="timetreeCalendarName" value="">
   <input type="hidden" id="timetreeCalendarCode" value="">
+  <label>Tags to show on the board</label>
+  <p class="hint">Leave all unchecked to show every event. Tick one or more tags to only show those.</p>
+  <div id="timetreeLabels" class="checks"></div>
+  <p class="hint" id="timetreeLabelsHint">Connect and pick a calendar to load its tags.</p>
 </div>
 
 <div class="grid cols-2">
@@ -694,6 +698,7 @@ function collectPayload() {
     timetreeCalendarId: document.getElementById('timetreeCalendar').value,
     timetreeCalendarName: document.getElementById('timetreeCalendarName').value,
     timetreeCalendarCode: document.getElementById('timetreeCalendarCode').value,
+    timetreeLabelIds: [...document.querySelectorAll('#timetreeLabels input[type=checkbox]:checked')].map(c => Number(c.value)),
     autoShutdownMinutes: parseInt(document.getElementById('autoShutdownMinutes').value, 10) || 165,
     instagramEmbedCode: document.getElementById('instagramEmbedCode').value,
     weatherEmbedCode: document.getElementById('weatherEmbedCode').value,
@@ -779,6 +784,9 @@ async function load() {
   }
   document.getElementById('timetreeCalendarName').value = data.timetreeCalendarName || '';
   document.getElementById('timetreeCalendarCode').value = data.timetreeCalendarCode || '';
+  // restore selected tags as checkboxes (names filled when labels are loaded)
+  window._savedTimetreeLabelIds = Array.isArray(data.timetreeLabelIds) ? data.timetreeLabelIds.map(Number) : [];
+  renderTimetreeLabels([], window._savedTimetreeLabelIds);
   applyCalendarSource();
   document.getElementById('calendarTimezone').value = data.calendarTimezone || 'Europe/London';
   document.getElementById('calendarDays').value = data.calendarDays || 60;
@@ -909,7 +917,7 @@ async function connectTimetree() {
     if (!sel.value && sel.options.length) sel.selectedIndex = 0;
     onTimetreeCalendarChange();
     el.style.color = 'var(--raf-navy)';
-    el.textContent = 'Connected — ' + (data.calendars || []).length + ' calendar(s). Pick one and Save.';
+    el.textContent = 'Connected — ' + (data.calendars || []).length + ' calendar(s). Pick a calendar, choose tags, then Save.';
   } catch (e) {
     el.style.color = 'var(--raf-red)';
     el.textContent = e.message || String(e);
@@ -921,8 +929,74 @@ function onTimetreeCalendarChange() {
   const opt = sel.options[sel.selectedIndex];
   document.getElementById('timetreeCalendarName').value = (opt && opt.dataset.name) || (opt && opt.textContent) || '';
   document.getElementById('timetreeCalendarCode').value = (opt && opt.dataset.code) || '';
+  loadTimetreeLabels();
 }
-document.getElementById('timetreeCalendar').addEventListener('change', onTimetreeCalendarChange);
+
+function renderTimetreeLabels(labels, selectedIds) {
+  const box = document.getElementById('timetreeLabels');
+  const hint = document.getElementById('timetreeLabelsHint');
+  const selected = new Set((selectedIds || []).map(Number));
+  box.innerHTML = '';
+  if (!labels || !labels.length) {
+    hint.textContent = labels ? 'This calendar has no custom tags (all events will show).' : 'Connect and pick a calendar to load its tags.';
+    return;
+  }
+  hint.textContent = 'Tick the tags you want on the public board. Leave all unchecked to show every event.';
+  labels.forEach(l => {
+    const id = 'ttl-' + l.id;
+    const lab = document.createElement('label');
+    lab.className = 'check';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.value = String(l.id);
+    cb.id = id;
+    if (selected.has(Number(l.id))) cb.checked = true;
+    lab.appendChild(cb);
+    const swatch = l.color ? (' <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:' + l.color + ';margin-right:4px"></span>') : '';
+    lab.insertAdjacentHTML('beforeend', swatch + (l.name || ('Tag ' + l.id)));
+    box.appendChild(lab);
+  });
+}
+
+async function loadTimetreeLabels() {
+  const hint = document.getElementById('timetreeLabelsHint');
+  const email = document.getElementById('timetreeEmail').value.trim();
+  const password = document.getElementById('timetreePassword').value;
+  const calendarId = document.getElementById('timetreeCalendar').value;
+  if (!calendarId) {
+    renderTimetreeLabels(null, window._savedTimetreeLabelIds || []);
+    return;
+  }
+  if (!email || !password || password === '********') {
+    hint.textContent = 'Enter password and click Connect, then pick a calendar to load tags.';
+    // keep any saved selection visible as empty-name placeholders
+    const saved = window._savedTimetreeLabelIds || [];
+    if (saved.length) {
+      renderTimetreeLabels(saved.map(id => ({ id, name: 'Tag ' + id, color: '' })), saved);
+    }
+    return;
+  }
+  hint.textContent = 'Loading tags…';
+  try {
+    const r = await fetch('/api/timetree/labels', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, calendarId })
+    });
+    const data = await r.json();
+    if (!data.ok) {
+      hint.style.color = 'var(--raf-red)';
+      hint.textContent = data.error || 'Could not load tags';
+      return;
+    }
+    hint.style.color = '';
+    const selected = window._savedTimetreeLabelIds || [];
+    renderTimetreeLabels(data.labels || [], selected);
+  } catch (e) {
+    hint.style.color = 'var(--raf-red)';
+    hint.textContent = e.message || String(e);
+  }
+}
 
 async function testCalendar() {
   const el = document.getElementById('calendarTestResult');

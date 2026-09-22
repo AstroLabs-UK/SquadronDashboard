@@ -161,7 +161,8 @@ TimeTree is built in — no sidecar required.
 1. On `/edit`, set **Calendar source** to **TimeTree**.
 2. Enter your TimeTree **email** and **password**.
 3. Click **Connect & list calendars** — the dashboard logs into TimeTree and lists your active calendars.
-4. Pick the calendar from the dropdown, **Save**, then **Test calendar**.
+4. Pick the **calendar**, then tick the **tags** you want on the public board (leave all unchecked to show every event).
+5. **Save**, then **Test calendar**.
 
 Credentials are stored only in `data/data.json` on the device (never sent to the public display). Events are refreshed at most every 10 minutes; if TimeTree is briefly unreachable the last good copy is kept for up to 24 hours.
 

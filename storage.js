@@ -188,6 +188,12 @@ function createStore({ dir, defaults, legacyDir, snapDir }) {
     }
     if (isStr(incoming.timetreeCalendarName)) out.timetreeCalendarName = incoming.timetreeCalendarName.trim().slice(0, 120);
     if (isStr(incoming.timetreeCalendarCode)) out.timetreeCalendarCode = incoming.timetreeCalendarCode.trim().slice(0, 80);
+    if (Array.isArray(incoming.timetreeLabelIds)) {
+      out.timetreeLabelIds = incoming.timetreeLabelIds
+        .map(x => Number(x))
+        .filter(n => Number.isFinite(n))
+        .slice(0, 20);
+    }
     for (const k of ['instagramEmbedCode', 'weatherEmbedCode']) {
       if (isStr(incoming[k])) out[k] = incoming[k];
     }
