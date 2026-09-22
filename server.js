@@ -46,7 +46,9 @@ const DEFAULT_DATA = {
   leaderboardCsvUrl: "",
   eventsSeeMoreUrl: "https://cadets.bader.mod.uk/events",
   // Calendar feed: Google Calendar > Settings > your calendar > "Secret address in iCal format"
+  // (or a TimeTree calendar exported to .ics by the timetree-live-ics sidecar - see README)
   icsUrl: "",
+  calendarSource: "ics",
   calendarTimezone: "Europe/London",
   calendarDays: 60,
   uniform: { items: [] },
