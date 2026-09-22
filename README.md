@@ -13,7 +13,7 @@ A self-hosted room display for RAF Air Cadets (and similar organisations): clock
 One command on a fresh Raspberry Pi OS install:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/AstroLabs-UK/SquadronDashboard/refs/heads/release/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/AstroLabs-UK/SquadronDashboard/refs/heads/Stable/install.sh | bash
 ```
 
 Then reboot:
@@ -100,7 +100,7 @@ Devices follow the newest tagged release (`v1.6.0`, `v1.7.0`, …) by default, n
 
 Auto-update runs on its own too: a Pi checks shortly after boot and every 30 minutes via a host timer; Windows/bare Node checks at launch and every 5 minutes (disable with `AUTO_UPDATE=0`). Every update is tested before it goes live — the new version has to answer a health check, or the previous one is restored automatically and the failed release is remembered so it isn't retried every few minutes.
 
-A test device that should always run the very latest code can follow the default branch instead of tagged releases with `sqndash --channel main`; switch back with `sqndash --channel release`.
+A test device that should always run the very latest code can follow the **Update** branch instead of tagged releases with `sqndash --channel update`; switch back with `sqndash --channel stable`.
 
 Full details, manual/CLI update commands, and cutting a new release are in [Updating](#updating-in-depth) below.
 
@@ -158,11 +158,15 @@ On `/edit`, above the calendar settings there's a **Calendar source** dropdown: 
 
 TimeTree doesn't publish a public `.ics` link itself, so this dashboard doesn't talk to TimeTree directly. Instead it relies on a small companion project, [timetree-live-ics](https://github.com/mr-onadasky/timetree-live-ics), which logs into TimeTree on a schedule and republishes the calendar as an ordinary `.ics` URL — at that point it's just another calendar link.
 
+We only need the **simple single-calendar** mode of that project (email + password + calendar code via environment variables). Its multi-calendar YAML config, birthday/memo split outputs, per-file Basic Auth, and random token filenames are not required for the squadron dashboard and are left unused so the sidecar stays as light as possible.
+
 1. Run the sidecar next to the dashboard (see below).
 2. Set **Calendar source** to **TimeTree** on `/edit`.
 3. Paste the sidecar's live ICS URL (e.g. `http://localhost:8080/timetree.ics`) into the link field, **Save**, then **Test calendar**.
 
-*Running it alongside the dashboard on a Pi:* it's a small Node service that calls the TimeTree API directly — no browser automation — so its footprint is comparable to any other small Node app (tens of MB of RAM, negligible CPU outside its sync runs). It's fine to run next to the dashboard on any Pi that can already run this project. Two ways to do it:
+*Is it too heavy to run side-by-side on a Pi?* No. It is a small Node service that calls the TimeTree web API directly — no browser automation, no Chromium, no Playwright. Typical footprint is tens of MB of RAM and negligible CPU outside its brief sync runs (default every 30 minutes). Any Pi that can already run this dashboard can run the sidecar next to it without issue.
+
+Two ways to run it:
 
 - **Dashboard installed natively on the Pi (the usual `install.sh` setup):** run the sidecar as its own Docker container alongside it —
   ```bash
@@ -201,10 +205,10 @@ Panels appear in this order: **Leaderboard → News → Events → Uniform → I
 
 | Channel | Follows | Use for |
 |---------|---------|---------|
-| **release** (default) | The newest tag like `v1.6.0` | Room screens |
-| **main** | The tip of the default branch | A test device that should always be latest |
+| **stable** (default) | The newest tag like `v1.7.0` (falls back to the **Stable** branch if no tags yet) | Room screens |
+| **update** | The tip of the **Update** branch | A test device that should always be latest |
 
-Change it with `sqndash --channel release` / `sqndash --channel main` (or the `UPDATE_CHANNEL` environment variable). A device that's already at or ahead of its target is left alone rather than downgraded.
+Change it with `sqndash --channel stable` / `sqndash --channel update` (or the `UPDATE_CHANNEL` environment variable). Legacy aliases `release`→`stable` and `main`→`update` still work. A device that's already at or ahead of its target is left alone rather than downgraded.
 
 ### The safety net
 
@@ -218,7 +222,7 @@ Change it with `sqndash --channel release` / `sqndash --channel main` (or the `U
 ```bash
 cd /path/to/SquadronDashboard
 git fetch --tags origin
-git reset --hard v1.6.0        # or the tag you want, or origin/release
+git reset --hard v1.7.0        # or the tag you want, or origin/Stable
 git clean -fd
 npm install --omit=dev
 # restart: npm start   or   docker compose up -d --build
@@ -227,13 +231,13 @@ npm install --omit=dev
 ### Cutting a release (maintainers)
 
 ```bash
-git checkout release && git pull
+git checkout Stable && git pull
 # bump "version" in package.json, update this README, merge, then:
 git tag v1.7.0
 git push origin v1.7.0
 ```
 
-Tags must look like `vMAJOR.MINOR.PATCH` — anything else (`v1.7.0-beta`) is ignored by the release channel.
+Tags must look like `vMAJOR.MINOR.PATCH` — anything else (`v1.7.0-beta`) is ignored by the stable channel. Experimental work lives on the **Update** branch.
 
 ---
 
@@ -247,7 +251,7 @@ Tags must look like `vMAJOR.MINOR.PATCH` — anything else (`v1.7.0-beta`) is ig
 | `sqndash --restart` | Restart only |
 | `sqndash --set-pin [PIN]` | Set the `/edit` PIN |
 | `sqndash --clear-pin` | Remove the PIN |
-| `sqndash --channel [release\|main]` | Show or change the update channel |
+| `sqndash --channel [stable\|update]` | Show or change the update channel |
 | `sqndash --help` | Help |
 
 **Windows:** use `sqndash.cmd` or `.\sqndash.ps1` from the project directory (or add the folder to PATH).
@@ -275,7 +279,7 @@ SquadronDashboard/
     leaderboard.js   Sheet table -> top 5 / top 3
     cache.js         TTL cache with serve-stale-on-error
     git.js           Run git without a shell
-    release.js       Which version to follow (release tag vs default branch), skip list
+    release.js       Which version to follow (stable tags / Stable branch vs Update branch), skip list
     canary.js        Start-and-check a new version before switching
     cleanup.js       Silent start-up deletion of stray files named "temp"
     tz.js            Time-zone / date helpers (Intl, no dependencies)
@@ -355,7 +359,7 @@ Outbound HTTPS is required for weather, sheet CSV, and most embed widgets.
 | "Too many wrong PIN attempts" | Wait 5 minutes |
 | `sqndash` not found (Windows) | Run from project folder: `.\sqndash.cmd --check` |
 | Update says the release "failed its safety check" | The new version didn't start, so the old one was kept. Check the logs, fix, and tag a new release. `sqndash --force-update` retries the same one |
-| Devices aren't getting a new release | Is it tagged (`vX.Y.Z`) and pushed? `sqndash --check` shows the target. A device on the `main` channel ignores tags |
+| Devices aren't getting a new release | Is it tagged (`vX.Y.Z`) and pushed? `sqndash --check` shows the target. A device on the `update` channel ignores tags |
 | Force update "could not determine remote" | `git remote -v`, then `git fetch --tags origin`; ensure the default branch exists on `origin` |
 | Leaderboard empty | Publish the sheet as CSV; check Name/Points headers; open `/api/leaderboard` |
 | News empty | On `/edit`, ensure News is ticked; check `/api/news` |

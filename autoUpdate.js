@@ -5,7 +5,7 @@
 //
 // What it does, in order:
 //   1. Fetch from GitHub and work out the target version (see lib/release.js - by default
-//      the newest release tag, not the tip of main).
+//      the newest release tag, not the tip of Update).
 //   2. Never downgrade a device that is already at or ahead of the target (unless forced).
 //   3. Reset to the target, and only run `npm install` if package.json actually changed.
 //   4. CANARY: start a throw-away copy of the new code and wait for it to answer /healthz.
@@ -103,7 +103,7 @@ async function checkAndUpdate({ cwd, dataDir, force = false, canary = runCanary,
 
   const target = await release.resolveTarget({ cwd, dataDir });
   if (!target) {
-    writeStatus(dataDir, 'error', 'No release tag or origin/release found on GitHub');
+    writeStatus(dataDir, 'error', 'No release tag or origin/Stable found on GitHub');
     return { updated: false, reason: 'no remote ref' };
   }
 

@@ -22,8 +22,8 @@ Squadron Dashboard (Windows)
   sqndash --set-pin [PIN]    set the PIN that protects the /edit page (4+ characters)
   sqndash --clear-pin        remove the PIN (anyone on the network can then edit)
   sqndash --channel [name]   show, or set, the update channel:
-                               release = newest tagged release (default, safest)
-                               main    = tip of the main branch (for a test device)
+                               stable = newest tagged release (default, safest)
+                               update = tip of the Update branch (for a test device)
   sqndash --help             this help
 
 Settings from /edit (data\) are never changed by an update.
@@ -245,12 +245,14 @@ function Set-Pin([string]$Pin) {
 function Set-Channel([string]$Name) {
   $file = Join-Path $Dir 'data\update-channel'
   if (-not $Name) {
-    $cur = 'release'
+    $cur = 'stable'
     if (Test-Path $file) { $cur = (Get-Content $file -Raw).Trim() }
     Write-Host "Update channel: $cur"
     return
   }
-  if ($Name -notin @('release', 'main')) { Write-Host "Channel must be 'release' or 'main'."; exit 1 }
+  if ($Name -notin @('stable', 'update', 'release', 'main')) { Write-Host "Channel must be 'stable' or 'update'."; exit 1 }
+  if ($Name -eq 'release') { $Name = 'stable' }
+  if ($Name -eq 'main') { $Name = 'update' }
   Ensure-DataFolder
   [System.IO.File]::WriteAllText($file, $Name + "`n")
   Write-Host "Update channel set to: $Name"

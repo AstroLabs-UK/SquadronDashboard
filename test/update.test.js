@@ -45,7 +45,7 @@ test('pickLatestTag sorts numerically and ignores pre-release tags', () => {
   assert.equal(release.pickLatestTag(['nightly']), null);
 });
 
-test('release channel: updates to the newest tag, NOT to untagged commits on main', async () => {
+test('stable channel: updates to the newest tag, NOT to untagged commits on Update', async () => {
   const w = makeWorld();
   w.publish('v1.1.0');
   w.publish('work-in-progress', { doTag: false });
@@ -68,10 +68,10 @@ test('a copy that is already ahead of the target is never downgraded', async () 
   assert.equal(head(w.device), before);
 });
 
-test('main channel follows the tip of main', async () => {
+test('update channel follows the tip of Update', async () => {
   const w = makeWorld();
   w.publish('tip', { doTag: false });
-  process.env.UPDATE_CHANNEL = 'main';
+  process.env.UPDATE_CHANNEL = 'update';
   try {
     const r = await checkAndUpdate({ cwd: w.device, dataDir: w.dataDir });
     assert.equal(r.updated, true, JSON.stringify(r));
@@ -82,10 +82,10 @@ test('main channel follows the tip of main', async () => {
 test('the channel can also be set with data/update-channel', async () => {
   const w = makeWorld();
   fs.mkdirSync(w.dataDir, { recursive: true });
-  fs.writeFileSync(path.join(w.dataDir, 'update-channel'), 'main\n');
-  assert.equal(release.readChannel(w.dataDir), 'main');
+  fs.writeFileSync(path.join(w.dataDir, 'update-channel'), 'update\n');
+  assert.equal(release.readChannel(w.dataDir), 'update');
   fs.writeFileSync(path.join(w.dataDir, 'update-channel'), 'nonsense\n');
-  assert.equal(release.readChannel(w.dataDir), 'release');
+  assert.equal(release.readChannel(w.dataDir), 'stable');
 });
 
 test('no release tags yet: falls back to main so devices are not stranded', async () => {

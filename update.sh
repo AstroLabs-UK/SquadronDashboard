@@ -10,8 +10,8 @@
 # in force mode whenever "Force update" is pressed on the /edit page.
 #
 # WHICH version? By default the newest release tag on GitHub (v1.5.0, v1.6.0 ...), not the
-# tip of main, so unfinished work can't reach a room screen. `sqndash --channel main` makes
-# a test device follow main instead. A device that is already ahead of the target is left alone.
+# tip of Update, so unfinished work can't reach a room screen. `sqndash --channel update` makes
+# a test device follow the Update branch instead. A device that is already ahead of the target is left alone.
 #
 # SAFETY NET: after the restart the script waits for /healthz to answer. If the new version
 # doesn't come up it goes back to the previous version, restarts that, and remembers the
@@ -73,21 +73,32 @@ resolve_target() {
   CHANNEL="${UPDATE_CHANNEL:-}"
   if [ -z "$CHANNEL" ] && [ -f data/update-channel ]; then CHANNEL="$(tr -d '[:space:]' < data/update-channel)"; fi
   CHANNEL="$(printf '%s' "$CHANNEL" | tr 'A-Z' 'a-z')"
-  [ "$CHANNEL" = "main" ] || CHANNEL="release"
+  # stable (default) follows tags / Stable branch; update follows Update branch.
+  # Legacy aliases: release → stable, main → update.
+  case "$CHANNEL" in
+    update|main) CHANNEL="update" ;;
+    *) CHANNEL="stable" ;;
+  esac
   TARGET_REF=""; TARGET_LABEL=""
-  if [ "$CHANNEL" = "release" ]; then
+  if [ "$CHANNEL" = "stable" ]; then
     local TAG
     TAG="$(git tag -l 'v*' 2>/dev/null | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -t. -k1.2,1n -k2,2n -k3,3n | tail -1)"
     if [ -n "$TAG" ]; then TARGET_REF="$TAG"; TARGET_LABEL="release $TAG"; fi
   fi
   if [ -z "$TARGET_REF" ]; then
     local r
-    for r in origin/main origin/master origin/HEAD; do
-      if git rev-parse --verify --quiet "$r^{commit}" >/dev/null 2>&1; then TARGET_REF="$r"; break; fi
-    done
+    if [ "$CHANNEL" = "update" ]; then
+      for r in origin/Update origin/update origin/main origin/master origin/HEAD; do
+        if git rev-parse --verify --quiet "$r^{commit}" >/dev/null 2>&1; then TARGET_REF="$r"; break; fi
+      done
+    else
+      for r in origin/Stable origin/stable origin/release origin/main origin/master origin/HEAD; do
+        if git rev-parse --verify --quiet "$r^{commit}" >/dev/null 2>&1; then TARGET_REF="$r"; break; fi
+      done
+    fi
     [ -n "$TARGET_REF" ] || return 1
     TARGET_LABEL="$TARGET_REF"
-    [ "$CHANNEL" = "release" ] && TARGET_LABEL="$TARGET_REF (no release tags yet)"
+    [ "$CHANNEL" = "stable" ] && TARGET_LABEL="$TARGET_REF (no release tags yet)"
   fi
   TARGET_SHA="$(git rev-parse "$TARGET_REF^{commit}" 2>/dev/null)" || return 1
   TARGET_SHORT="$(git rev-parse --short "$TARGET_SHA" 2>/dev/null)"
@@ -109,7 +120,7 @@ check_only() {
   local LOCAL
   LOCAL="$(git rev-parse HEAD 2>/dev/null)"
   echo "Local:   $(git rev-parse --short HEAD 2>/dev/null)  $(git log -1 --pretty=%s 2>/dev/null)"
-  if ! resolve_target; then echo "Target:  (no release tag or origin/main found)"; return 3; fi
+  if ! resolve_target; then echo "Target:  (no release tag or origin/Stable found)"; return 3; fi
   echo "Target:  $TARGET_SHORT  $TARGET_MSG  ($TARGET_LABEL, $CHANNEL channel)"
   if [ "$LOCAL" = "$TARGET_SHA" ]; then echo "Status: up to date"; return 0; fi
   if git merge-base --is-ancestor "$TARGET_SHA" "$LOCAL" 2>/dev/null; then
@@ -161,7 +172,7 @@ sync_code() {
   local LOCAL RC=10
   LOCAL="$(git rev-parse HEAD 2>/dev/null)" || LOCAL=""
   if ! resolve_target; then
-    echo "[update] could not find a release tag or origin/main - is the remote configured?"
+    echo "[update] could not find a release tag or origin/Stable - is the remote configured?"
     return 3
   fi
   echo "[update] target: $TARGET_LABEL ($TARGET_SHORT) on the $CHANNEL channel"

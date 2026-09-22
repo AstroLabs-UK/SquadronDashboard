@@ -11,6 +11,10 @@
   "autoShutdownMinutes": 165,
   "instagramEmbedCode": "",
   "weatherEmbedCode": "",
+  "icsUrl": "",
+  "calendarSource": "ics",
+  "calendarTimezone": "Europe/London",
+  "calendarDays": 60,
   "importantInfo": {
     "enabled": false,
     "title": "IMPORTANT INFORMATION",
