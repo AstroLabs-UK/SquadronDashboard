@@ -332,6 +332,69 @@
   @media (min-width: 480px) {
     .save-bar #status { flex: 1 1 auto; text-align: right; }
   }
+  /* Session timeout prompt */
+  #sessionPrompt {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(7, 21, 37, 0.55);
+    align-items: center; justify-content: center;
+    padding: 20px;
+    z-index: 1000;
+  }
+  #sessionPrompt.open { display: flex; }
+  #sessionPrompt .sp-panel {
+    width: 100%; max-width: 360px;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 22px 20px 20px;
+    box-shadow: 0 8px 28px rgba(7, 21, 37, 0.28);
+  }
+  #sessionPrompt .sp-eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--raf-blue);
+  }
+  #sessionPrompt h2 {
+    margin: 6px 0 10px 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--raf-navy);
+    border-bottom: 2px solid var(--raf-navy);
+    padding-bottom: 8px;
+  }
+  #sessionPrompt .sp-hint {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.45;
+    margin: 0 0 18px 0;
+  }
+  #sessionPrompt #spCount { color: var(--raf-red); font-weight: 700; }
+  #sessionPrompt .sp-actions { display: flex; flex-direction: column; gap: 8px; }
+  #sessionPrompt button {
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 12px 18px;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  #sessionPrompt button.primary {
+    background: var(--raf-navy);
+    color: var(--white);
+    border: 1px solid transparent;
+  }
+  #sessionPrompt button.primary:hover { background: var(--raf-blue); }
+  #sessionPrompt button.sp-secondary {
+    background: var(--white);
+    color: var(--raf-navy);
+    border: 1px solid var(--border);
+  }
+  #sessionPrompt button.sp-secondary:hover { border-color: var(--raf-navy); }
 </style>
 </head>
 <body>
@@ -942,6 +1005,88 @@ async function forceUpdate() {
 }
 
 load();
+
+// --- Session timeout: sign out on refresh/close, and prompt after 5 minutes open ---
+(function () {
+  const IDLE_MS = 5 * 60 * 1000;   // ask after the page has been open this long
+  const PROMPT_MS = 30 * 1000;     // seconds to answer before signing out
+
+  // Always require the PIN again on a fresh load: drop the session as this tab
+  // goes away, whether by refresh, closing, or navigating elsewhere.
+  function signOutOnLeave() {
+    try {
+      navigator.sendBeacon && navigator.sendBeacon('/api/auth/logout');
+    } catch (e) {}
+    try {
+      fetch('/api/auth/logout', { method: 'POST', keepalive: true, credentials: 'same-origin' });
+    } catch (e) {}
+  }
+  window.addEventListener('pagehide', signOutOnLeave);
+  window.addEventListener('beforeunload', signOutOnLeave);
+
+  let idleTimer = null;
+  let countdownTimer = null;
+  let overlay = null;
+
+  function buildOverlay() {
+    const wrap = document.createElement('div');
+    wrap.id = 'sessionPrompt';
+    wrap.innerHTML =
+      '<div class="sp-panel">' +
+        '<div class="sp-eyebrow">Squadron Dashboard</div>' +
+        '<h2>Still there?</h2>' +
+        '<p class="sp-hint">You\'ve had the editor open for a while. Stay signed in, or you\'ll be returned to the PIN screen in <span id="spCount">30</span>s.</p>' +
+        '<div class="sp-actions">' +
+          '<button type="button" class="primary" id="spStay">Stay signed in</button>' +
+          '<button type="button" class="sp-secondary" id="spLeave">Sign out now</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(wrap);
+    document.getElementById('spStay').addEventListener('click', stayOpen);
+    document.getElementById('spLeave').addEventListener('click', expireNow);
+    return wrap;
+  }
+
+  function showPrompt() {
+    if (!overlay) overlay = buildOverlay();
+    overlay.classList.add('open');
+    let remaining = PROMPT_MS / 1000;
+    const countEl = document.getElementById('spCount');
+    countEl.textContent = String(remaining);
+    countdownTimer = setInterval(() => {
+      remaining -= 1;
+      countEl.textContent = String(Math.max(remaining, 0));
+      if (remaining <= 0) {
+        clearInterval(countdownTimer);
+        expireNow();
+      }
+    }, 1000);
+  }
+
+  function hidePrompt() {
+    if (overlay) overlay.classList.remove('open');
+    if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+  }
+
+  function stayOpen() {
+    hidePrompt();
+    // Confirmed present - restart the 5 minute clock for the next check.
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = setTimeout(showPrompt, IDLE_MS);
+  }
+
+  async function expireNow() {
+    hidePrompt();
+    window.removeEventListener('pagehide', signOutOnLeave);
+    window.removeEventListener('beforeunload', signOutOnLeave);
+    try {
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
+    } catch (e) {}
+    window.location.replace('/pin?next=' + encodeURIComponent('/edit'));
+  }
+
+  idleTimer = setTimeout(showPrompt, IDLE_MS);
+})();
 </script>
 </body>
 </html>
