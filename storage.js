@@ -171,6 +171,9 @@ function createStore({ dir, defaults, legacyDir, snapDir }) {
       const v = incoming.icsUrl.trim().replace(/^webcal:\/\//i, 'https://');
       if (v === '' || isHttpUrl(v)) out.icsUrl = v;
     }
+    // Which calendar source the /edit dropdown is showing (purely a UI label - both feed icsUrl
+    // the same way, since a TimeTree sidecar just serves its own .ics link).
+    if (incoming.calendarSource === 'ics' || incoming.calendarSource === 'timetree') out.calendarSource = incoming.calendarSource;
     if (isStr(incoming.calendarTimezone) && isValidTimeZone(incoming.calendarTimezone.trim())) out.calendarTimezone = incoming.calendarTimezone.trim();
     const calDays = Number(incoming.calendarDays);
     if (Number.isFinite(calDays) && calDays >= 14 && calDays <= 365) out.calendarDays = Math.round(calDays);

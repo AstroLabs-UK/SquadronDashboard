@@ -1,0 +1,14 @@
+node_modules/
+npm-debug.log*
+
+# Runtime settings - never tracked, and the updater's `git clean` is told to leave this alone
+data/
+
+# Local env files (TimeTree credentials etc.)
+.env
+.env.local
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+*.swp

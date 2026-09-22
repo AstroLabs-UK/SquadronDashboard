@@ -443,7 +443,13 @@
 <textarea id="weatherEmbedCode" rows="2" placeholder="Optional — blank uses built-in weather"></textarea>
 
 <h2>Calendar</h2>
-<label for="icsUrl">Secret iCal link</label>
+<label for="calendarSource">Calendar source</label>
+<select id="calendarSource" onchange="applyCalendarSource()">
+  <option value="ics">ICS import (Google / Outlook / iCloud…)</option>
+  <option value="timetree">TimeTree</option>
+</select>
+<p class="hint" id="calendarSourceHint"></p>
+<label for="icsUrl" id="icsUrlLabel">Secret iCal link</label>
 <input id="icsUrl" autocomplete="off" placeholder="Google Calendar secret address" inputmode="url">
 <div class="grid cols-2">
   <div>
@@ -659,6 +665,7 @@ function collectPayload() {
     eventsSeeMoreUrl: document.getElementById('eventsSeeMoreUrl').value,
     errorReportUrl: document.getElementById('errorReportUrl').value,
     icsUrl: document.getElementById('icsUrl').value,
+    calendarSource: document.getElementById('calendarSource').value,
     calendarTimezone: document.getElementById('calendarTimezone').value,
     calendarDays: parseInt(document.getElementById('calendarDays').value, 10) || 60,
     autoShutdownMinutes: parseInt(document.getElementById('autoShutdownMinutes').value, 10) || 165,
@@ -726,6 +733,8 @@ async function load() {
   document.getElementById('eventsSeeMoreUrl').value = data.eventsSeeMoreUrl || '';
   document.getElementById('errorReportUrl').value = data.errorReportUrl || '';
   document.getElementById('icsUrl').value = data.icsUrl || '';
+  document.getElementById('calendarSource').value = (data.calendarSource === 'timetree') ? 'timetree' : 'ics';
+  applyCalendarSource();
   document.getElementById('calendarTimezone').value = data.calendarTimezone || 'Europe/London';
   document.getElementById('calendarDays').value = data.calendarDays || 60;
   document.getElementById('autoShutdownMinutes').value = data.autoShutdownMinutes || 165;
@@ -802,6 +811,25 @@ async function save(opts) {
     statusTimer = setTimeout(() => { statusEl.textContent = ''; }, 2500);
   } finally {
     saveInFlight = false;
+  }
+}
+
+// Purely a label/placeholder swap - both options ultimately just fetch icsUrl as a calendar feed.
+// TimeTree isn't read directly; run the timetree-live-ics sidecar (see README) and paste its
+// live ICS URL below, the same as any other calendar link.
+function applyCalendarSource() {
+  const source = document.getElementById('calendarSource').value;
+  const label = document.getElementById('icsUrlLabel');
+  const input = document.getElementById('icsUrl');
+  const hint = document.getElementById('calendarSourceHint');
+  if (source === 'timetree') {
+    label.textContent = 'TimeTree live ICS link';
+    input.placeholder = 'e.g. http://localhost:8080/timetree.ics';
+    hint.textContent = 'Run the timetree-live-ics sidecar alongside the dashboard (see README), then paste the live ICS URL it prints here.';
+  } else {
+    label.textContent = 'Secret iCal link';
+    input.placeholder = 'Google Calendar secret address';
+    hint.textContent = 'Paste a Google/Outlook/iCloud "secret address in iCal format" link.';
   }
 }
 
