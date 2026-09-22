@@ -103,7 +103,7 @@ async function checkAndUpdate({ cwd, dataDir, force = false, canary = runCanary,
 
   const target = await release.resolveTarget({ cwd, dataDir });
   if (!target) {
-    writeStatus(dataDir, 'error', 'No release tag or origin/main found on GitHub');
+    writeStatus(dataDir, 'error', 'No release tag or origin/release found on GitHub');
     return { updated: false, reason: 'no remote ref' };
   }
 
