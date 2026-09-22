@@ -45,12 +45,16 @@ const DEFAULT_DATA = {
   location: { name: "Your Town", lat: 51.5074, lon: -0.1278 },
   leaderboardCsvUrl: "",
   eventsSeeMoreUrl: "https://cadets.bader.mod.uk/events",
-  // Calendar feed: Google Calendar > Settings > your calendar > "Secret address in iCal format"
-  // (or a TimeTree calendar exported to .ics by the timetree-live-ics sidecar - see README)
+  // Calendar: ICS URL (Google/Outlook/iCloud) OR built-in TimeTree login
   icsUrl: "",
   calendarSource: "ics",
   calendarTimezone: "Europe/London",
   calendarDays: 60,
+  timetreeEmail: "",
+  timetreePassword: "",
+  timetreeCalendarId: "",
+  timetreeCalendarName: "",
+  timetreeCalendarCode: "",
   uniform: { items: [] },
   errorReportUrl: "",
   autoShutdownMinutes: 165,
@@ -164,8 +168,16 @@ app.get('/api/boot', (req, res) => {
 // The calendar's secret link is only sent to the editor - the public display never needs it.
 app.get('/api/data', apiLimiter, (req, res) => {
   const data = store.load();
-  const visible = requireEditor.isEditor(req) ? data : { ...data, icsUrl: '' };
-  const body = { ...visible, icsUrlSet: !!data.icsUrl };
+  const visible = requireEditor.isEditor(req)
+    ? data
+    : { ...data, icsUrl: '', timetreePassword: '', timetreeEmail: '' };
+  const body = {
+    ...visible,
+    icsUrlSet: !!data.icsUrl,
+    timetreeConfigured: !!(data.timetreeEmail && data.timetreePassword),
+    // never echo the real password back even to the editor — UI keeps a "unchanged" blank
+    timetreePassword: requireEditor.isEditor(req) ? (data.timetreePassword ? '********' : '') : ''
+  };
   const etag = '"' + crypto.createHash('sha1').update(JSON.stringify(body)).digest('hex') + '"';
   res.set('ETag', etag);
   // Always send the body. A bare 304 with no body breaks dashboard/edit fetch().json().
@@ -181,10 +193,13 @@ app.post('/api/data', requireEditor, sensitiveLimiter, (req, res) => {
     const previous = store.load();
     const updated = store.sanitize(previous, req.body);
     store.save(updated);
+    try { calendar.clear(); } catch (e) { /* best effort */ }
     try { guard.snapshot(DATA_DIR, SNAP_DIR); } catch (snapErr) {
       console.warn('[storage] external snapshot failed after save', snapErr && snapErr.message ? snapErr.message : snapErr);
     }
-    res.json({ ok: true, data: updated });
+    // Don't echo the real password back to the editor
+    const safe = { ...updated, timetreePassword: updated.timetreePassword ? '********' : '' };
+    res.json({ ok: true, data: safe });
   } catch (e) {
     console.error('[storage] save failed', e);
     // Previous valid configuration remains on disk; do not wipe it.
@@ -202,6 +217,7 @@ app.use(require('./routes/schedule')({ store, calendar }));
 app.use(control.router);
 app.use(require('./routes/config')({ store, dataDir: DATA_DIR, snapDir: SNAP_DIR, requireEditor, limiter: sensitiveLimiter }));
 app.use(require('./routes/update')({ cwd: __dirname, dataDir: DATA_DIR, requireEditor, limiter: sensitiveLimiter }));
+app.use(require('./routes/timetree')({ requireEditor, limiter: sensitiveLimiter, calendar }));
 
 // Never let an unexpected handler crash the process; log and return a safe response.
 app.use((err, req, res, next) => {

@@ -13,24 +13,3 @@ services:
       # updates and power cuts, and stay inspectable on the host (./data).
       # (A folder, not single files: single-file mounts can't be atomically replaced.)
       - ./data:/app/data
-
-  # Optional sidecar: turns a TimeTree calendar into a live .ics link the dashboard can read,
-  # the same way it reads a Google/Outlook/iCloud calendar. Off by default - start it with:
-  #   docker compose --profile timetree up -d
-  # Then paste http://localhost:8080/timetree.ics into /edit's Calendar source (TimeTree).
-  # Lightweight: it calls the TimeTree web API directly (no browser automation), so it's fine
-  # to run alongside the dashboard on a Pi. See README > "TimeTree calendars".
-  timetree:
-    image: ghcr.io/mr-onadasky/timetree-live-ics:latest
-    container_name: timetree-live-ics
-    restart: unless-stopped
-    profiles: ["timetree"]
-    ports:
-      - "8080:8080"
-    environment:
-      - TIMETREE_EMAIL=${TIMETREE_EMAIL:-}
-      - TIMETREE_PASSWORD=${TIMETREE_PASSWORD:-}
-      - TIMETREE_CALENDAR_CODE=${TIMETREE_CALENDAR_CODE:-}
-      - CRON_SCHEDULE=${TIMETREE_CRON_SCHEDULE:-*/30 * * * *}
-    volumes:
-      - ./data/timetree:/data

@@ -118,7 +118,7 @@ Full details, manual/CLI update commands, and cutting a new release are in [Upda
 
 The dashboard is built around content that looks after itself once it's set up:
 
-- **Calendar feed.** Paste a calendar's `.ics` link (Google, Outlook, iCloud, or a TimeTree calendar via the [timetree-live-ics](https://github.com/mr-onadasky/timetree-live-ics) sidecar — pick which from a dropdown on `/edit`) and upcoming events, plus the uniform of the week, show up on their own. Repeating events, cancelled dates, all-day/multi-day events and time zones are all handled.
+- **Calendar feed.** Paste a calendar's `.ics` link (Google, Outlook, iCloud, or a TimeTree calendar (sign in on `/edit` and pick which calendar) — choose the source from a dropdown on `/edit`) and upcoming events, plus the uniform of the week, show up on their own. Repeating events, cancelled dates, all-day/multi-day events and time zones are all handled.
 - **Uniform panel.** Shows what to wear this week and next, taken from a `Uniform: Working blues` line in the calendar and/or a typed list.
 - **Leaderboard.** Reads a published Google Sheets CSV — individual top 5, flight top 3.
 - **News, weather, Instagram and custom embeds** as carousel panels, each with its own on/off switch.
@@ -147,7 +147,7 @@ Open **`http://<device-IP>:3000/edit`** on any device on the same network.
 
 ### Calendar
 
-On `/edit`, above the calendar settings there's a **Calendar source** dropdown: **ICS import** or **TimeTree**. Both end up doing the same thing — reading a live `.ics` link — the dropdown just changes the label and help text underneath so it's obvious what to paste.
+On `/edit`, above the calendar settings there's a **Calendar source** dropdown: **ICS import** or **TimeTree**. ICS asks for a secret calendar link; TimeTree asks for your email/password and then lets you pick a calendar from a list.
 
 **ICS import** (Google, Outlook, iCloud, or anything else that gives out a calendar link):
 
@@ -156,35 +156,18 @@ On `/edit`, above the calendar settings there's a **Calendar source** dropdown: 
 
 **TimeTree:**
 
-TimeTree doesn't publish a public `.ics` link itself, so this dashboard doesn't talk to TimeTree directly. Instead it relies on a small companion project, [timetree-live-ics](https://github.com/mr-onadasky/timetree-live-ics), which logs into TimeTree on a schedule and republishes the calendar as an ordinary `.ics` URL — at that point it's just another calendar link.
+TimeTree is built in — no sidecar required.
 
-We only need the **simple single-calendar** mode of that project (email + password + calendar code via environment variables). Its multi-calendar YAML config, birthday/memo split outputs, per-file Basic Auth, and random token filenames are not required for the squadron dashboard and are left unused so the sidecar stays as light as possible.
+1. On `/edit`, set **Calendar source** to **TimeTree**.
+2. Enter your TimeTree **email** and **password**.
+3. Click **Connect & list calendars** — the dashboard logs into TimeTree and lists your active calendars.
+4. Pick the calendar from the dropdown, **Save**, then **Test calendar**.
 
-1. Run the sidecar next to the dashboard (see below).
-2. Set **Calendar source** to **TimeTree** on `/edit`.
-3. Paste the sidecar's live ICS URL (e.g. `http://localhost:8080/timetree.ics`) into the link field, **Save**, then **Test calendar**.
+Credentials are stored only in `data/data.json` on the device (never sent to the public display). Events are refreshed at most every 10 minutes; if TimeTree is briefly unreachable the last good copy is kept for up to 24 hours.
 
-*Is it too heavy to run side-by-side on a Pi?* No. It is a small Node service that calls the TimeTree web API directly — no browser automation, no Chromium, no Playwright. Typical footprint is tens of MB of RAM and negligible CPU outside its brief sync runs (default every 30 minutes). Any Pi that can already run this dashboard can run the sidecar next to it without issue.
+This uses the same unofficial TimeTree web API as [timetree-live-ics](https://github.com/mr-onadasky/timetree-live-ics) (login + calendar sync). It is lightweight: a few extra HTTP calls on a timer, no browser automation. Fine on a Pi next to the rest of the dashboard.
 
-Two ways to run it:
-
-- **Dashboard installed natively on the Pi (the usual `install.sh` setup):** run the sidecar as its own Docker container alongside it —
-  ```bash
-  docker run -d --name timetree-live-ics \
-    -p 8080:8080 \
-    -e TIMETREE_EMAIL="you@example.com" \
-    -e TIMETREE_PASSWORD="app-password" \
-    -e TIMETREE_CALENDAR_CODE="your-calendar-code" \
-    ghcr.io/mr-onadasky/timetree-live-ics:latest
-  ```
-- **Dashboard running via `docker compose`:** the included `docker-compose.yml` has a `timetree` service, off by default. Set `TIMETREE_EMAIL`, `TIMETREE_PASSWORD` and `TIMETREE_CALENDAR_CODE` in a `.env` file next to it, then start both with:
-  ```bash
-  docker compose --profile timetree up -d
-  ```
-
-Either way, the sidecar refreshes on its own `CRON_SCHEDULE` (every 30 minutes by default) and the dashboard then reads its `.ics` output the normal way — at most every 10 minutes, with the last good copy kept for up to 24 hours if it's briefly unreachable.
-
-Outlook, iCloud and most other calendars work with their own `.ics` / "subscribe" link under **ICS import**.
+Outlook, iCloud and most other calendars still use their own `.ics` / "subscribe" link under **ICS import**.
 
 ### Carousel widgets
 

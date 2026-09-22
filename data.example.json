@@ -39,5 +39,10 @@
       "date": "Edit me on /edit",
       "detail": "Add real events on the edit page"
     }
-  ]
+  ],
+  "timetreeEmail": "",
+  "timetreePassword": "",
+  "timetreeCalendarId": "",
+  "timetreeCalendarName": "",
+  "timetreeCalendarCode": ""
 }

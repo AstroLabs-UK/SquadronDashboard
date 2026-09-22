@@ -449,8 +449,29 @@
   <option value="timetree">TimeTree</option>
 </select>
 <p class="hint" id="calendarSourceHint"></p>
-<label for="icsUrl" id="icsUrlLabel">Secret iCal link</label>
-<input id="icsUrl" autocomplete="off" placeholder="Google Calendar secret address" inputmode="url">
+
+<div id="icsPanel">
+  <label for="icsUrl">Secret iCal link</label>
+  <input id="icsUrl" autocomplete="off" placeholder="Google Calendar secret address" inputmode="url">
+</div>
+
+<div id="timetreePanel" style="display:none">
+  <label for="timetreeEmail">TimeTree email</label>
+  <input id="timetreeEmail" autocomplete="username" placeholder="you@example.com" inputmode="email">
+  <label for="timetreePassword">TimeTree password</label>
+  <input id="timetreePassword" type="password" autocomplete="current-password" placeholder="App password or account password">
+  <div class="actions">
+    <button class="add" type="button" onclick="connectTimetree()">Connect &amp; list calendars</button>
+  </div>
+  <p class="hint" id="timetreeConnectResult"></p>
+  <label for="timetreeCalendar">Calendar</label>
+  <select id="timetreeCalendar">
+    <option value="">— connect first —</option>
+  </select>
+  <input type="hidden" id="timetreeCalendarName" value="">
+  <input type="hidden" id="timetreeCalendarCode" value="">
+</div>
+
 <div class="grid cols-2">
   <div>
     <label for="calendarTimezone">Time zone</label>
@@ -668,6 +689,11 @@ function collectPayload() {
     calendarSource: document.getElementById('calendarSource').value,
     calendarTimezone: document.getElementById('calendarTimezone').value,
     calendarDays: parseInt(document.getElementById('calendarDays').value, 10) || 60,
+    timetreeEmail: document.getElementById('timetreeEmail').value,
+    timetreePassword: document.getElementById('timetreePassword').value,
+    timetreeCalendarId: document.getElementById('timetreeCalendar').value,
+    timetreeCalendarName: document.getElementById('timetreeCalendarName').value,
+    timetreeCalendarCode: document.getElementById('timetreeCalendarCode').value,
     autoShutdownMinutes: parseInt(document.getElementById('autoShutdownMinutes').value, 10) || 165,
     instagramEmbedCode: document.getElementById('instagramEmbedCode').value,
     weatherEmbedCode: document.getElementById('weatherEmbedCode').value,
@@ -734,6 +760,25 @@ async function load() {
   document.getElementById('errorReportUrl').value = data.errorReportUrl || '';
   document.getElementById('icsUrl').value = data.icsUrl || '';
   document.getElementById('calendarSource').value = (data.calendarSource === 'timetree') ? 'timetree' : 'ics';
+  document.getElementById('timetreeEmail').value = data.timetreeEmail || '';
+  document.getElementById('timetreePassword').value = data.timetreePassword || '';
+  // restore chosen calendar option if we have an id saved
+  const calSel = document.getElementById('timetreeCalendar');
+  calSel.innerHTML = '';
+  if (data.timetreeCalendarId) {
+    const opt = document.createElement('option');
+    opt.value = data.timetreeCalendarId;
+    opt.textContent = data.timetreeCalendarName || ('Calendar ' + data.timetreeCalendarId);
+    opt.selected = true;
+    calSel.appendChild(opt);
+  } else {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = '— connect first —';
+    calSel.appendChild(opt);
+  }
+  document.getElementById('timetreeCalendarName').value = data.timetreeCalendarName || '';
+  document.getElementById('timetreeCalendarCode').value = data.timetreeCalendarCode || '';
   applyCalendarSource();
   document.getElementById('calendarTimezone').value = data.calendarTimezone || 'Europe/London';
   document.getElementById('calendarDays').value = data.calendarDays || 60;
@@ -814,24 +859,70 @@ async function save(opts) {
   }
 }
 
-// Purely a label/placeholder swap - both options ultimately just fetch icsUrl as a calendar feed.
-// TimeTree isn't read directly; run the timetree-live-ics sidecar (see README) and paste its
-// live ICS URL below, the same as any other calendar link.
+// Show ICS fields or TimeTree login + calendar picker depending on the dropdown.
 function applyCalendarSource() {
   const source = document.getElementById('calendarSource').value;
-  const label = document.getElementById('icsUrlLabel');
-  const input = document.getElementById('icsUrl');
+  const icsPanel = document.getElementById('icsPanel');
+  const ttPanel = document.getElementById('timetreePanel');
   const hint = document.getElementById('calendarSourceHint');
   if (source === 'timetree') {
-    label.textContent = 'TimeTree live ICS link';
-    input.placeholder = 'e.g. http://localhost:8080/timetree.ics';
-    hint.textContent = 'Run the timetree-live-ics sidecar alongside the dashboard (see README), then paste the live ICS URL it prints here.';
+    icsPanel.style.display = 'none';
+    ttPanel.style.display = '';
+    hint.textContent = 'Sign in with your TimeTree account, pick a calendar, then Save. The dashboard fetches events itself — no sidecar needed.';
   } else {
-    label.textContent = 'Secret iCal link';
-    input.placeholder = 'Google Calendar secret address';
+    icsPanel.style.display = '';
+    ttPanel.style.display = 'none';
     hint.textContent = 'Paste a Google/Outlook/iCloud "secret address in iCal format" link.';
   }
 }
+
+async function connectTimetree() {
+  const el = document.getElementById('timetreeConnectResult');
+  const email = document.getElementById('timetreeEmail').value.trim();
+  const password = document.getElementById('timetreePassword').value;
+  el.style.color = '';
+  el.textContent = 'Connecting…';
+  try {
+    const r = await fetch('/api/timetree/connect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await r.json();
+    if (!data.ok) {
+      el.style.color = 'var(--raf-red)';
+      el.textContent = data.error || 'Connect failed';
+      return;
+    }
+    const sel = document.getElementById('timetreeCalendar');
+    const prev = sel.value;
+    sel.innerHTML = '';
+    (data.calendars || []).forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = String(c.id);
+      opt.textContent = c.name + (c.code ? ' (' + c.code + ')' : '');
+      opt.dataset.code = c.code || '';
+      opt.dataset.name = c.name || '';
+      if (String(c.id) === String(prev)) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    if (!sel.value && sel.options.length) sel.selectedIndex = 0;
+    onTimetreeCalendarChange();
+    el.style.color = 'var(--raf-navy)';
+    el.textContent = 'Connected — ' + (data.calendars || []).length + ' calendar(s). Pick one and Save.';
+  } catch (e) {
+    el.style.color = 'var(--raf-red)';
+    el.textContent = e.message || String(e);
+  }
+}
+
+function onTimetreeCalendarChange() {
+  const sel = document.getElementById('timetreeCalendar');
+  const opt = sel.options[sel.selectedIndex];
+  document.getElementById('timetreeCalendarName').value = (opt && opt.dataset.name) || (opt && opt.textContent) || '';
+  document.getElementById('timetreeCalendarCode').value = (opt && opt.dataset.code) || '';
+}
+document.getElementById('timetreeCalendar').addEventListener('change', onTimetreeCalendarChange);
 
 async function testCalendar() {
   const el = document.getElementById('calendarTestResult');
