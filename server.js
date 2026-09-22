@@ -56,6 +56,7 @@ const DEFAULT_DATA = {
   timetreeCalendarName: "",
   timetreeCalendarCode: "",
   timetreeLabelIds: [],
+  timetreeLabels: [],
   uniform: { items: [] },
   errorReportUrl: "",
   autoShutdownMinutes: 165,
@@ -218,7 +219,7 @@ app.use(require('./routes/schedule')({ store, calendar }));
 app.use(control.router);
 app.use(require('./routes/config')({ store, dataDir: DATA_DIR, snapDir: SNAP_DIR, requireEditor, limiter: sensitiveLimiter }));
 app.use(require('./routes/update')({ cwd: __dirname, dataDir: DATA_DIR, requireEditor, limiter: sensitiveLimiter }));
-app.use(require('./routes/timetree')({ requireEditor, limiter: sensitiveLimiter, calendar }));
+app.use(require('./routes/timetree')({ requireEditor, limiter: sensitiveLimiter, calendar, store }));
 
 // Never let an unexpected handler crash the process; log and return a safe response.
 app.use((err, req, res, next) => {

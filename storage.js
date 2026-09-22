@@ -194,6 +194,17 @@ function createStore({ dir, defaults, legacyDir, snapDir }) {
         .filter(n => Number.isFinite(n))
         .slice(0, 20);
     }
+    if (Array.isArray(incoming.timetreeLabels)) {
+      out.timetreeLabels = incoming.timetreeLabels
+        .filter(l => l && (l.id != null))
+        .map(l => ({
+          id: Number(l.id),
+          name: String(l.name || ('Tag ' + l.id)).slice(0, 80),
+          color: String(l.color || '').slice(0, 30)
+        }))
+        .filter(l => Number.isFinite(l.id))
+        .slice(0, 30);
+    }
     for (const k of ['instagramEmbedCode', 'weatherEmbedCode']) {
       if (isStr(incoming[k])) out[k] = incoming[k];
     }

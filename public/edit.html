@@ -699,6 +699,7 @@ function collectPayload() {
     timetreeCalendarName: document.getElementById('timetreeCalendarName').value,
     timetreeCalendarCode: document.getElementById('timetreeCalendarCode').value,
     timetreeLabelIds: [...document.querySelectorAll('#timetreeLabels input[type=checkbox]:checked')].map(c => Number(c.value)),
+    timetreeLabels: Array.isArray(window._savedTimetreeLabels) ? window._savedTimetreeLabels : [],
     autoShutdownMinutes: parseInt(document.getElementById('autoShutdownMinutes').value, 10) || 165,
     instagramEmbedCode: document.getElementById('instagramEmbedCode').value,
     weatherEmbedCode: document.getElementById('weatherEmbedCode').value,
@@ -784,10 +785,18 @@ async function load() {
   }
   document.getElementById('timetreeCalendarName').value = data.timetreeCalendarName || '';
   document.getElementById('timetreeCalendarCode').value = data.timetreeCalendarCode || '';
-  // restore selected tags as checkboxes (names filled when labels are loaded)
+  // restore tags from the last saved catalogue so they survive a page refresh
   window._savedTimetreeLabelIds = Array.isArray(data.timetreeLabelIds) ? data.timetreeLabelIds.map(Number) : [];
-  renderTimetreeLabels([], window._savedTimetreeLabelIds);
+  window._savedTimetreeLabels = Array.isArray(data.timetreeLabels) ? data.timetreeLabels : [];
+  renderTimetreeLabels(window._savedTimetreeLabels, window._savedTimetreeLabelIds);
   applyCalendarSource();
+  // If we have credentials + a calendar but no cached labels yet, quietly fetch them
+  // using the password already on disk (UI shows ********).
+  if (data.calendarSource === 'timetree' && data.timetreeEmail && data.timetreePassword && data.timetreeCalendarId) {
+    if (!window._savedTimetreeLabels.length) {
+      setTimeout(function() { loadTimetreeLabels(); }, 100);
+    }
+  }
   document.getElementById('calendarTimezone').value = data.calendarTimezone || 'Europe/London';
   document.getElementById('calendarDays').value = data.calendarDays || 60;
   document.getElementById('autoShutdownMinutes').value = data.autoShutdownMinutes || 165;
@@ -887,7 +896,7 @@ function applyCalendarSource() {
 async function connectTimetree() {
   const el = document.getElementById('timetreeConnectResult');
   const email = document.getElementById('timetreeEmail').value.trim();
-  const password = document.getElementById('timetreePassword').value;
+  const password = document.getElementById('timetreePassword').value || '********';
   el.style.color = '';
   el.textContent = 'Connecting…';
   try {
@@ -938,10 +947,14 @@ function renderTimetreeLabels(labels, selectedIds) {
   const selected = new Set((selectedIds || []).map(Number));
   box.innerHTML = '';
   if (!labels || !labels.length) {
-    hint.textContent = labels ? 'This calendar has no custom tags (all events will show).' : 'Connect and pick a calendar to load its tags.';
+    if (Array.isArray(labels) && labels.length === 0) {
+      hint.textContent = 'This calendar has no custom tags (all events will show).';
+    } else {
+      hint.textContent = 'Connect and pick a calendar to load its tags.';
+    }
     return;
   }
-  hint.textContent = 'Tick the tags you want on the public board. Leave all unchecked to show every event.';
+  hint.textContent = 'Tick the tags you want on the public board. Leave all unchecked to show every event. Changes apply after Save — no password needed.';
   labels.forEach(l => {
     const id = 'ttl-' + l.id;
     const lab = document.createElement('label');
@@ -951,8 +964,13 @@ function renderTimetreeLabels(labels, selectedIds) {
     cb.value = String(l.id);
     cb.id = id;
     if (selected.has(Number(l.id))) cb.checked = true;
+    cb.addEventListener('change', function() {
+      window._savedTimetreeLabelIds = [...document.querySelectorAll('#timetreeLabels input[type=checkbox]:checked')].map(c => Number(c.value));
+    });
     lab.appendChild(cb);
-    const swatch = l.color ? (' <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:' + l.color + ';margin-right:4px"></span>') : '';
+    const swatch = l.color
+      ? (' <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:' + l.color + ';margin-right:4px"></span>')
+      : '';
     lab.insertAdjacentHTML('beforeend', swatch + (l.name || ('Tag ' + l.id)));
     box.appendChild(lab);
   });
@@ -961,40 +979,60 @@ function renderTimetreeLabels(labels, selectedIds) {
 async function loadTimetreeLabels() {
   const hint = document.getElementById('timetreeLabelsHint');
   const email = document.getElementById('timetreeEmail').value.trim();
-  const password = document.getElementById('timetreePassword').value;
+  const password = document.getElementById('timetreePassword').value || '********';
   const calendarId = document.getElementById('timetreeCalendar').value;
   if (!calendarId) {
-    renderTimetreeLabels(null, window._savedTimetreeLabelIds || []);
+    renderTimetreeLabels(window._savedTimetreeLabels || [], window._savedTimetreeLabelIds || []);
     return;
   }
-  if (!email || !password || password === '********') {
-    hint.textContent = 'Enter password and click Connect, then pick a calendar to load tags.';
-    // keep any saved selection visible as empty-name placeholders
-    const saved = window._savedTimetreeLabelIds || [];
-    if (saved.length) {
-      renderTimetreeLabels(saved.map(id => ({ id, name: 'Tag ' + id, color: '' })), saved);
-    }
+  // No email yet — show whatever we already saved
+  if (!email) {
+    renderTimetreeLabels(window._savedTimetreeLabels || [], window._savedTimetreeLabelIds || []);
+    hint.textContent = 'Enter email and password once, then Connect.';
     return;
   }
+  hint.style.color = '';
   hint.textContent = 'Loading tags…';
   try {
     const r = await fetch('/api/timetree/labels', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, calendarId })
+      body: JSON.stringify({
+        email,
+        password,
+        calendarId,
+        calendarName: document.getElementById('timetreeCalendarName').value,
+        calendarCode: document.getElementById('timetreeCalendarCode').value
+      })
     });
     const data = await r.json();
     if (!data.ok) {
-      hint.style.color = 'var(--raf-red)';
-      hint.textContent = data.error || 'Could not load tags';
+      // Fall back to last saved catalogue so tags never vanish on refresh
+      if (window._savedTimetreeLabels && window._savedTimetreeLabels.length) {
+        renderTimetreeLabels(window._savedTimetreeLabels, window._savedTimetreeLabelIds || []);
+        hint.style.color = '';
+        hint.textContent = 'Showing saved tags. (' + (data.error || 'could not refresh') + ')';
+      } else {
+        hint.style.color = 'var(--raf-red)';
+        hint.textContent = data.error || 'Could not load tags';
+      }
       return;
     }
     hint.style.color = '';
+    window._savedTimetreeLabels = data.labels || [];
     const selected = window._savedTimetreeLabelIds || [];
-    renderTimetreeLabels(data.labels || [], selected);
+    renderTimetreeLabels(window._savedTimetreeLabels, selected);
+    hint.textContent = (window._savedTimetreeLabels.length
+      ? 'Tick the tags for the board, then Save. You can change this anytime without re-entering your password.'
+      : 'This calendar has no custom tags — all events will show.');
   } catch (e) {
-    hint.style.color = 'var(--raf-red)';
-    hint.textContent = e.message || String(e);
+    if (window._savedTimetreeLabels && window._savedTimetreeLabels.length) {
+      renderTimetreeLabels(window._savedTimetreeLabels, window._savedTimetreeLabelIds || []);
+      hint.textContent = 'Showing saved tags.';
+    } else {
+      hint.style.color = 'var(--raf-red)';
+      hint.textContent = e.message || String(e);
+    }
   }
 }
 
