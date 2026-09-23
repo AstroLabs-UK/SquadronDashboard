@@ -57,6 +57,9 @@ const DEFAULT_DATA = {
   timetreeCalendarCode: "",
   timetreeLabelIds: [],
   timetreeLabels: [],
+  timetreeHighlightLabelIds: [],
+  timetreeUniformLabelIds: [],
+  timetreeLabelsRefreshedAt: null,
   uniform: { items: [] },
   errorReportUrl: "",
   autoShutdownMinutes: 165,
@@ -237,7 +240,32 @@ process.on('unhandledRejection', (reason) => {
 
 if (require.main === module) {
   if (!process.env.CANARY) removeTempFiles(__dirname); // silent start-up housekeeping
-  app.listen(PORT, HOST, () => {
+  
+// ---- TimeTree label catalogue: refresh about weekly so renamed tags stay current ----
+const LABEL_REFRESH_MS = 7 * 24 * 60 * 60 * 1000;
+async function refreshTimetreeLabels() {
+  try {
+    const s = store.load();
+    if (s.calendarSource !== 'timetree') return;
+    if (!s.timetreeEmail || !s.timetreePassword || !s.timetreeCalendarId) return;
+    const last = Number(s.timetreeLabelsRefreshedAt) || 0;
+    if (last && Date.now() - last < LABEL_REFRESH_MS - 60 * 60 * 1000) return; // within ~week
+    const timetree = require('./lib/timetree');
+    const sessionId = await timetree.login(s.timetreeEmail, s.timetreePassword);
+    const labels = await timetree.fetchLabels(sessionId, Number(s.timetreeCalendarId));
+    store.save(store.sanitize(s, {
+      timetreeLabels: labels,
+      timetreeLabelsRefreshedAt: Date.now()
+    }));
+    console.log('[timetree] refreshed', labels.length, 'label(s) for calendar', s.timetreeCalendarId);
+  } catch (e) {
+    console.warn('[timetree] label refresh failed:', e && e.message ? e.message : e);
+  }
+}
+setTimeout(refreshTimetreeLabels, 90 * 1000); // after boot settles
+setInterval(refreshTimetreeLabels, 24 * 60 * 60 * 1000); // check daily; no-op if still fresh
+
+app.listen(PORT, HOST, () => {
     console.log(`Squadron dashboard running:`);
     console.log(`  Display:  http://localhost:${PORT}`);
     console.log(`  Edit:     http://localhost:${PORT}/edit${requireEditor.isProtected() ? '  (PIN protected)' : '  (NO PIN SET - run: sqndash --set-pin)'}`);

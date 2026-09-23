@@ -164,11 +164,23 @@ async function refreshStatus() {
 
     document.getElementById('calendarFeed').innerHTML = dot(data.calendar || 'WARNING');
     const ci = data.calendarInfo || {};
-    document.getElementById('calendarDetail').textContent = !ci.configured ? 'No calendar link set'
+    let calDetail = !ci.configured ? 'No calendar configured'
       : ci.error ? ci.error
       : ((ci.usingCachedData ? 'using cached data · ' : '') +
          (ci.events != null ? ci.events + ' events in range' : '') +
          (ci.updatedAt ? ', fetched ' + new Date(ci.updatedAt).toLocaleTimeString() : ''));
+    if (ci.configured && ci.source === 'timetree') {
+      const bits = ['TimeTree'];
+      if (ci.calendarName) bits.push(ci.calendarName);
+      if (ci.timetreeEmail) bits.push(ci.timetreeEmail);
+      if (ci.selectedLabelCount) bits.push(ci.selectedLabelCount + ' tag filter(s)');
+      else if (ci.labelCount) bits.push(ci.labelCount + ' tags known');
+      if (ci.lastLabelRefreshAt) bits.push('tags refreshed ' + new Date(ci.lastLabelRefreshAt).toLocaleDateString());
+      calDetail = bits.join(' · ') + (calDetail ? ' — ' + calDetail : '');
+    } else if (ci.configured && ci.source === 'ics') {
+      calDetail = 'ICS feed' + (calDetail ? ' — ' + calDetail : '');
+    }
+    document.getElementById('calendarDetail').textContent = calDetail;
 
     const sys = data.system || {};
     const na = '<span class="plain">Not available</span>';

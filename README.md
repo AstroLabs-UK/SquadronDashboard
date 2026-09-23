@@ -170,6 +170,19 @@ This uses the same unofficial TimeTree web API as [timetree-live-ics](https://gi
 
 Outlook, iCloud and most other calendars still use their own `.ics` / "subscribe" link under **ICS import**.
 
+### Display extras (1.8)
+
+- **Up next** card on the events panel (optionally driven by selected TimeTree highlight tags).
+- **Uniform from tags** — designate TimeTree tags whose event titles feed the Uniform panel.
+- **Stale calendar banner** on the public board when the feed is offline or cached.
+- **Safe backup** — TimeTree password is never included in downloaded config files.
+- **Weekly tag refresh** — the label catalogue is refreshed automatically about once a week.
+
+### Wake-on-LAN
+
+Visiting `http://<pi-ip>:3000/edit` **cannot** wake a powered-off or sleeping Pi. If the Pi is asleep, nothing is listening on port 3000, so the request never arrives. Wake-on-LAN must be sent **to** the Pi’s MAC address from another always-on device (router, phone app, or another PC). Enable WoL in the Pi’s firmware/OS if you use that path; the dashboard itself is not involved.
+
+
 ### Carousel widgets
 
 Panels appear in this order: **Leaderboard → News → Events → Uniform → Instagram → any extra embeds.** Each has its own tick box on `/edit`; leaving a widget's embed code blank hides that panel instead of showing an error.

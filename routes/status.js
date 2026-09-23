@@ -84,7 +84,15 @@ module.exports = function statusRoutes({ store, cwd, requireEditor, calendar }) 
       events: cal.configured && cal.ok ? cal.events.length : null,
       updatedAt: cal.updatedAt || null,
       error: cal.error || undefined,
-      usingCachedData: !!cal.stale
+      usingCachedData: !!cal.stale,
+      source: cal.source || data.calendarSource || 'ics',
+      calendarName: data.timetreeCalendarName || '',
+      labelCount: Array.isArray(data.timetreeLabels) ? data.timetreeLabels.length : 0,
+      selectedLabelCount: Array.isArray(data.timetreeLabelIds) ? data.timetreeLabelIds.length : 0,
+      lastLabelRefreshAt: data.timetreeLabelsRefreshedAt || null,
+      timetreeEmail: data.calendarSource === 'timetree' && data.timetreeEmail
+        ? String(data.timetreeEmail).replace(/(.{2}).+(@.+)/, '$1…$2')
+        : ''
     };
     status.system = sysinfo.collect({ dir: cwd });
     status.instagramWidget = (data.instagramEmbedCode && data.instagramEmbedCode.trim()) ? 'ONLINE' : 'WARNING';

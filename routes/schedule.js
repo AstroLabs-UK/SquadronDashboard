@@ -1,15 +1,25 @@
 const express = require('express');
-const { buildEventList } = require('../lib/events');
+const { buildEventList, pickHighlight } = require('../lib/events');
 const { buildUniform } = require('../lib/uniform');
 
-// Events shown on the display = the hand-typed list from /edit + upcoming items from the calendar
-// feed. Uniform = "Uniform:" lines from calendar events + the uniform list from /edit.
-// If the calendar can't be reached the typed events still work, and the reply says why.
 module.exports = function eventsRoutes({ store, calendar }) {
   const router = express.Router();
 
-  const calendarInfo = cal => ({
-    configured: cal.configured, ok: cal.ok, stale: cal.stale, updatedAt: cal.updatedAt,
+  function labelNamesFromSettings(s, idKey) {
+    const ids = Array.isArray(s[idKey]) ? s[idKey].map(Number) : [];
+    if (!ids.length) return [];
+    const catalogue = Array.isArray(s.timetreeLabels) ? s.timetreeLabels : [];
+    const byId = new Map(catalogue.map(l => [Number(l.id), String(l.name || '')]));
+    return ids.map(id => byId.get(id)).filter(Boolean);
+  }
+
+  const calendarInfo = (cal, s) => ({
+    configured: cal.configured,
+    ok: cal.ok,
+    stale: cal.stale,
+    updatedAt: cal.updatedAt,
+    source: cal.source || (s && s.calendarSource) || 'ics',
+    calendarName: (s && s.timetreeCalendarName) || '',
     ...(cal.error ? { error: cal.error } : {})
   });
 
@@ -17,8 +27,20 @@ module.exports = function eventsRoutes({ store, calendar }) {
     try {
       const s = store.load();
       const cal = await calendar.get();
+      const highlightNames = labelNamesFromSettings(s, 'timetreeHighlightLabelIds');
       const events = buildEventList({ manual: s.events, calendar: cal.events, tz: cal.tz, now: Date.now() });
-      res.json({ events, calendar: calendarInfo(cal), updatedAt: cal.updatedAt });
+      const highlight = pickHighlight({
+        calendar: cal.events,
+        tz: cal.tz,
+        now: Date.now(),
+        highlightLabelNames: highlightNames
+      });
+      res.json({
+        events,
+        highlight,
+        calendar: calendarInfo(cal, s),
+        updatedAt: cal.updatedAt
+      });
     } catch (e) {
       res.status(500).json({ error: 'events failed', detail: String(e && e.message ? e.message : e) });
     }
@@ -28,8 +50,16 @@ module.exports = function eventsRoutes({ store, calendar }) {
     try {
       const s = store.load();
       const cal = await calendar.get();
-      const uniform = buildUniform({ calendar: cal.events, manual: (s.uniform || {}).items, tz: cal.tz, now: Date.now() });
-      res.json({ ...uniform, calendar: calendarInfo(cal), updatedAt: cal.updatedAt });
+      const uniformLabelNames = labelNamesFromSettings(s, 'timetreeUniformLabelIds')
+        .map(n => n.toLowerCase());
+      const uniform = buildUniform({
+        calendar: cal.events,
+        manual: (s.uniform || {}).items,
+        tz: cal.tz,
+        now: Date.now(),
+        uniformLabelNames
+      });
+      res.json({ ...uniform, calendar: calendarInfo(cal, s), updatedAt: cal.updatedAt });
     } catch (e) {
       res.status(500).json({ error: 'uniform failed', detail: String(e && e.message ? e.message : e) });
     }
