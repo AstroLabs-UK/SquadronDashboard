@@ -44,7 +44,7 @@ async function check() {
   const localShort = firstWord((await git(['rev-parse', '--short', 'HEAD'], { cwd })).out);
   const localMsg = (await git(['log', '-1', '--pretty=%s'], { cwd })).out;
   say('Local:   ' + localShort + '  ' + localMsg);
-  if (!target) { say('Target:  (no release tag or origin/release found)'); return 3; }
+  if (!target) { say('Target:  (no release tag or origin/Stable found)'); return 3; }
   say('Target:  ' + target.short + '  ' + target.message + '  (' + target.label + ', ' + target.channel + ' channel)');
   if (localSha === target.sha) { say('Status: up to date'); return 0; }
   if (await release.isAncestor(cwd, target.sha, localSha)) { say('Status: this copy is newer than the target - nothing to update'); return 0; }

@@ -2,7 +2,7 @@
 # Squadron Dashboard - one-command setup (setup.sh just calls this script)
 #
 # Works two ways:
-#   1. curl -fsSL https://raw.githubusercontent.com/AstroLabs-UK/SquadronDashboard/refs/heads/main/install.sh | bash
+#   1. curl -fsSL https://raw.githubusercontent.com/AstroLabs-UK/SquadronDashboard/refs/heads/Stable/install.sh | bash
 #      (clones the repo for you, then installs and configures everything)
 #   2. git clone https://github.com/AstroLabs-UK/SquadronDashboard.git && cd SquadronDashboard && ./install.sh
 #      (already have the repo - just installs and configures)

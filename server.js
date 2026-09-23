@@ -45,12 +45,20 @@ const DEFAULT_DATA = {
   location: { name: "Your Town", lat: 51.5074, lon: -0.1278 },
   leaderboardCsvUrl: "",
   eventsSeeMoreUrl: "https://cadets.bader.mod.uk/events",
-  // Calendar feed: Google Calendar > Settings > your calendar > "Secret address in iCal format"
-  // (or a TimeTree calendar exported to .ics by the timetree-live-ics sidecar - see README)
+  // Calendar: ICS URL (Google/Outlook/iCloud) OR built-in TimeTree login
   icsUrl: "",
   calendarSource: "ics",
   calendarTimezone: "Europe/London",
   calendarDays: 60,
+  timetreeEmail: "",
+  timetreePassword: "",
+  timetreeCalendarId: "",
+  timetreeCalendarName: "",
+  timetreeCalendarCode: "",
+  timetreeLabelIds: [],
+  timetreeLabels: [],
+  timetreeUniformLabelIds: [],
+  timetreeLabelsRefreshedAt: null,
   uniform: { items: [] },
   errorReportUrl: "",
   autoShutdownMinutes: 165,
@@ -164,8 +172,16 @@ app.get('/api/boot', (req, res) => {
 // The calendar's secret link is only sent to the editor - the public display never needs it.
 app.get('/api/data', apiLimiter, (req, res) => {
   const data = store.load();
-  const visible = requireEditor.isEditor(req) ? data : { ...data, icsUrl: '' };
-  const body = { ...visible, icsUrlSet: !!data.icsUrl };
+  const visible = requireEditor.isEditor(req)
+    ? data
+    : { ...data, icsUrl: '', timetreePassword: '', timetreeEmail: '' };
+  const body = {
+    ...visible,
+    icsUrlSet: !!data.icsUrl,
+    timetreeConfigured: !!(data.timetreeEmail && data.timetreePassword),
+    // never echo the real password back even to the editor — UI keeps a "unchanged" blank
+    timetreePassword: requireEditor.isEditor(req) ? (data.timetreePassword ? '********' : '') : ''
+  };
   const etag = '"' + crypto.createHash('sha1').update(JSON.stringify(body)).digest('hex') + '"';
   res.set('ETag', etag);
   // Always send the body. A bare 304 with no body breaks dashboard/edit fetch().json().
@@ -181,10 +197,13 @@ app.post('/api/data', requireEditor, sensitiveLimiter, (req, res) => {
     const previous = store.load();
     const updated = store.sanitize(previous, req.body);
     store.save(updated);
+    try { calendar.clear(); } catch (e) { /* best effort */ }
     try { guard.snapshot(DATA_DIR, SNAP_DIR); } catch (snapErr) {
       console.warn('[storage] external snapshot failed after save', snapErr && snapErr.message ? snapErr.message : snapErr);
     }
-    res.json({ ok: true, data: updated });
+    // Don't echo the real password back to the editor
+    const safe = { ...updated, timetreePassword: updated.timetreePassword ? '********' : '' };
+    res.json({ ok: true, data: safe });
   } catch (e) {
     console.error('[storage] save failed', e);
     // Previous valid configuration remains on disk; do not wipe it.
@@ -202,6 +221,7 @@ app.use(require('./routes/schedule')({ store, calendar }));
 app.use(control.router);
 app.use(require('./routes/config')({ store, dataDir: DATA_DIR, snapDir: SNAP_DIR, requireEditor, limiter: sensitiveLimiter }));
 app.use(require('./routes/update')({ cwd: __dirname, dataDir: DATA_DIR, requireEditor, limiter: sensitiveLimiter }));
+app.use(require('./routes/timetree')({ requireEditor, limiter: sensitiveLimiter, calendar, store }));
 
 // Never let an unexpected handler crash the process; log and return a safe response.
 app.use((err, req, res, next) => {
@@ -219,7 +239,32 @@ process.on('unhandledRejection', (reason) => {
 
 if (require.main === module) {
   if (!process.env.CANARY) removeTempFiles(__dirname); // silent start-up housekeeping
-  app.listen(PORT, HOST, () => {
+  
+// ---- TimeTree label catalogue: refresh about weekly so renamed tags stay current ----
+const LABEL_REFRESH_MS = 7 * 24 * 60 * 60 * 1000;
+async function refreshTimetreeLabels() {
+  try {
+    const s = store.load();
+    if (s.calendarSource !== 'timetree') return;
+    if (!s.timetreeEmail || !s.timetreePassword || !s.timetreeCalendarId) return;
+    const last = Number(s.timetreeLabelsRefreshedAt) || 0;
+    if (last && Date.now() - last < LABEL_REFRESH_MS - 60 * 60 * 1000) return; // within ~week
+    const timetree = require('./lib/timetree');
+    const sessionId = await timetree.login(s.timetreeEmail, s.timetreePassword);
+    const labels = await timetree.fetchLabels(sessionId, Number(s.timetreeCalendarId));
+    store.save(store.sanitize(s, {
+      timetreeLabels: labels,
+      timetreeLabelsRefreshedAt: Date.now()
+    }));
+    console.log('[timetree] refreshed', labels.length, 'label(s) for calendar', s.timetreeCalendarId);
+  } catch (e) {
+    console.warn('[timetree] label refresh failed:', e && e.message ? e.message : e);
+  }
+}
+setTimeout(refreshTimetreeLabels, 90 * 1000); // after boot settles
+setInterval(refreshTimetreeLabels, 24 * 60 * 60 * 1000); // check daily; no-op if still fresh
+
+app.listen(PORT, HOST, () => {
     console.log(`Squadron dashboard running:`);
     console.log(`  Display:  http://localhost:${PORT}`);
     console.log(`  Edit:     http://localhost:${PORT}/edit${requireEditor.isProtected() ? '  (PIN protected)' : '  (NO PIN SET - run: sqndash --set-pin)'}`);

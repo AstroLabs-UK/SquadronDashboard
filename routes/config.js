@@ -35,7 +35,13 @@ module.exports = function configRoutes({ store, dataDir, snapDir, requireEditor,
     try { appVersion = require('../package.json').version; } catch (e) { /* ignore */ }
     res.setHeader('Content-Disposition', `attachment; filename="squadron-dashboard-config-${stamp}.json"`);
     res.setHeader('Cache-Control', 'no-store');
-    res.json({ format: FORMAT, version: 1, appVersion, exportedAt: new Date().toISOString(), settings: store.load() });
+    const settings = { ...store.load() };
+    // Never put the TimeTree password in a downloadable backup
+    if (settings.timetreePassword) {
+      settings.timetreePassword = '';
+      settings.timetreePasswordOmitted = true;
+    }
+    res.json({ format: FORMAT, version: 1, appVersion, exportedAt: new Date().toISOString(), settings });
   });
 
   // Force a snapshot of the current settings into the external backup folder (sqndash-data-backup).
@@ -65,13 +71,23 @@ module.exports = function configRoutes({ store, dataDir, snapDir, requireEditor,
       if (body.format !== FORMAT || !body.settings || typeof body.settings !== 'object') {
         return res.status(400).json({ ok: false, error: 'That is not a Squadron Dashboard config file' });
       }
-      const imported = store.sanitize(store.defaultData(), body.settings);
+      const previous = store.load();
+      const incoming = Object.assign({}, body.settings);
+      // Keep the device's TimeTree password when the backup omitted it (safe export)
+      if (incoming.timetreePasswordOmitted || !incoming.timetreePassword) {
+        incoming.timetreePassword = previous.timetreePassword || '';
+      }
+      delete incoming.timetreePasswordOmitted;
+      const imported = store.sanitize(store.defaultData(), incoming);
       try {
-        fs.writeFileSync(path.join(dataDir, 'data.before-import.json'), JSON.stringify(store.load(), null, 2));
+        fs.writeFileSync(path.join(dataDir, 'data.before-import.json'), JSON.stringify(previous, null, 2));
       } catch (e) { /* best effort */ }
       store.save(imported);
       try { guard.snapshot(dataDir, resolveSnapDir()); } catch (e) { /* best effort */ }
-      res.json({ ok: true, data: imported });
+      const safe = Object.assign({}, imported, {
+        timetreePassword: imported.timetreePassword ? '********' : ''
+      });
+      res.json({ ok: true, data: safe });
     } catch (e) {
       console.error('[config] import failed', e);
       res.status(500).json({ ok: false, error: 'import failed' });

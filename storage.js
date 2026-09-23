@@ -171,12 +171,47 @@ function createStore({ dir, defaults, legacyDir, snapDir }) {
       const v = incoming.icsUrl.trim().replace(/^webcal:\/\//i, 'https://');
       if (v === '' || isHttpUrl(v)) out.icsUrl = v;
     }
-    // Which calendar source the /edit dropdown is showing (purely a UI label - both feed icsUrl
-    // the same way, since a TimeTree sidecar just serves its own .ics link).
     if (incoming.calendarSource === 'ics' || incoming.calendarSource === 'timetree') out.calendarSource = incoming.calendarSource;
     if (isStr(incoming.calendarTimezone) && isValidTimeZone(incoming.calendarTimezone.trim())) out.calendarTimezone = incoming.calendarTimezone.trim();
     const calDays = Number(incoming.calendarDays);
     if (Number.isFinite(calDays) && calDays >= 14 && calDays <= 365) out.calendarDays = Math.round(calDays);
+    // Built-in TimeTree credentials + chosen calendar (password left unchanged if UI sent the mask)
+    if (isStr(incoming.timetreeEmail)) out.timetreeEmail = incoming.timetreeEmail.trim().slice(0, 200);
+    if (isStr(incoming.timetreePassword)) {
+      const pw = incoming.timetreePassword;
+      if (pw && pw !== '********') out.timetreePassword = pw.slice(0, 200);
+      if (pw === '') out.timetreePassword = '';
+    }
+    if (incoming.timetreeCalendarId != null) {
+      const id = String(incoming.timetreeCalendarId).trim();
+      out.timetreeCalendarId = id.slice(0, 40);
+    }
+    if (isStr(incoming.timetreeCalendarName)) out.timetreeCalendarName = incoming.timetreeCalendarName.trim().slice(0, 120);
+    if (isStr(incoming.timetreeCalendarCode)) out.timetreeCalendarCode = incoming.timetreeCalendarCode.trim().slice(0, 80);
+    if (Array.isArray(incoming.timetreeLabelIds)) {
+      out.timetreeLabelIds = incoming.timetreeLabelIds
+        .map(x => Number(x))
+        .filter(n => Number.isFinite(n))
+        .slice(0, 20);
+    }
+    if (Array.isArray(incoming.timetreeLabels)) {
+      out.timetreeLabels = incoming.timetreeLabels
+        .filter(l => l && (l.id != null))
+        .map(l => ({
+          id: Number(l.id),
+          name: String(l.name || ('Tag ' + l.id)).slice(0, 80),
+          color: String(l.color || '').slice(0, 30)
+        }))
+        .filter(l => Number.isFinite(l.id))
+        .slice(0, 30);
+    }
+    if (Array.isArray(incoming.timetreeUniformLabelIds)) {
+      out.timetreeUniformLabelIds = incoming.timetreeUniformLabelIds
+        .map(x => Number(x)).filter(n => Number.isFinite(n)).slice(0, 20);
+    }
+    if (typeof incoming.timetreeLabelsRefreshedAt === 'number' && Number.isFinite(incoming.timetreeLabelsRefreshedAt)) {
+      out.timetreeLabelsRefreshedAt = incoming.timetreeLabelsRefreshedAt;
+    }
     for (const k of ['instagramEmbedCode', 'weatherEmbedCode']) {
       if (isStr(incoming[k])) out[k] = incoming[k];
     }

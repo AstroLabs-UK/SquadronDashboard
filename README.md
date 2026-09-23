@@ -1,19 +1,15 @@
 # Squadron Dashboard
 
-A self-hosted room display for RAF Air Cadets (and similar organisations): clock, weather, news, an individual + flight leaderboard, events, Instagram, and custom embed widgets — plus a phone-friendly **edit** page for changing settings and a **status** page for health checks.
+Self-hosted room screen for RAF Air Cadets (or similar units). Clock, weather, BBC news, individual + flight leaderboard, events, Instagram, and a few embed slots. Settings live on a phone-friendly `/edit` page. `/status` is for health checks.
 
-**Repository:** [github.com/AstroLabs-UK/SquadronDashboard](https://github.com/AstroLabs-UK/SquadronDashboard)
+Repo: [github.com/AstroLabs-UK/SquadronDashboard](https://github.com/AstroLabs-UK/SquadronDashboard)
 
----
+## Install on a Raspberry Pi
 
-## Install
-
-### Raspberry Pi (recommended for a room screen)
-
-One command on a fresh Raspberry Pi OS install:
+One line on a fresh Pi OS box:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/AstroLabs-UK/SquadronDashboard/refs/heads/release/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/AstroLabs-UK/SquadronDashboard/refs/heads/Stable/install.sh | bash
 ```
 
 Then reboot:
@@ -22,7 +18,7 @@ Then reboot:
 sudo reboot
 ```
 
-Or if you already cloned the repo:
+If you already have the repo:
 
 ```bash
 git clone https://github.com/AstroLabs-UK/SquadronDashboard.git
@@ -30,42 +26,21 @@ cd SquadronDashboard
 ./install.sh
 ```
 
-`install.sh` is safe to re-run. It:
+`install.sh` is safe to run again. It installs Node if needed, runs the app as a systemd service (starts on boot, restarts on crash), sets up auto-update and auto-shutdown, and puts `sqndash` on your PATH. At the end it prints a random 6-digit editor PIN. Write that down.
 
-- Installs Node.js if needed and the app's dependencies
-- Runs the dashboard as a systemd service that starts on boot and restarts if it crashes
-- Sets up auto-update (a host timer, a couple of minutes after boot and every 30 minutes after that) and the Force update watcher
-- Sets up auto-shutdown (host systemd service; minutes are set on `/edit`)
-- Installs the `sqndash` command
-- **Creates a random 6-digit editor PIN and prints it at the end — write it down**
+### Kiosk mode
 
-### Kiosk autostart (Pi)
-
-Point Chromium at the dashboard in kiosk mode when the desktop starts:
+Point Chromium at the board when the desktop comes up:
 
 ```bash
 chromium-browser --kiosk --noerrdialogs --disable-infobars http://localhost:3000
 ```
 
-Add that line to your Pi OS desktop's autostart (the file depends on the Pi OS version — for example `~/.config/lxsession/LXDE-pi/autostart`, with an `@` in front of the command on older releases). The dashboard reloads itself after an update, so the screen never needs touching.
+Autostart file depends on your Pi OS version (often `~/.config/lxsession/LXDE-pi/autostart`, with `@` in front of the line on older setups). The app reloads itself after an update, so you rarely need to touch the screen.
 
-### Windows (dev / test PC)
+## Windows / Linux (no install script)
 
-1. Install [Node.js](https://nodejs.org/) (LTS) and [Git for Windows](https://git-scm.com/download/win).
-2. Clone and run:
-
-```powershell
-git clone https://github.com/AstroLabs-UK/SquadronDashboard.git
-cd SquadronDashboard
-npm install --omit=dev
-npm start
-```
-
-3. Open **http://localhost:3000** (display) and **http://localhost:3000/edit** (settings).
-
-Optional: Docker Desktop + `docker compose up -d --build`.
-
-### Linux (non-Pi, Node only)
+Install [Node.js LTS](https://nodejs.org/) and Git, then:
 
 ```bash
 git clone https://github.com/AstroLabs-UK/SquadronDashboard.git
@@ -74,318 +49,194 @@ npm install --omit=dev
 npm start
 ```
 
-### Docker (any OS)
+Open http://localhost:3000 for the display and http://localhost:3000/edit for settings.
+
+Docker works too:
 
 ```bash
 docker compose up -d --build
-docker compose logs -f
 ```
-
-Settings are bind-mounted from `./data` so they survive rebuilds. Set the editor PIN with the `EDIT_PIN` environment variable or by putting it in `./data/edit-pin`. The app runs as an unprivileged user inside the container, and there's a built-in health check (`docker ps` shows `healthy`).
-
----
-
-## Updating
-
-Settings live in the **`data/`** folder and are git-ignored — updates never overwrite them.
-
-Devices follow the newest tagged release (`v1.6.0`, `v1.7.0`, …) by default, not every commit on the default branch, so a half-finished change can't reach a room screen by accident.
-
-| How | Command |
-|-----|---------|
-| Check for an update | `sqndash --check` |
-| Update if behind | `sqndash --update` |
-| Re-apply the current target anyway | `sqndash --force-update` |
-| From the web UI | Open `/edit`, enter the PIN, click **Force update** |
-
-Auto-update runs on its own too: a Pi checks shortly after boot and every 30 minutes via a host timer; Windows/bare Node checks at launch and every 5 minutes (disable with `AUTO_UPDATE=0`). Every update is tested before it goes live — the new version has to answer a health check, or the previous one is restored automatically and the failed release is remembered so it isn't retried every few minutes.
-
-A test device that should always run the very latest code can follow the default branch instead of tagged releases with `sqndash --channel main`; switch back with `sqndash --channel release`.
-
-Full details, manual/CLI update commands, and cutting a new release are in [Updating](#updating-in-depth) below.
-
----
 
 ## What you get
 
-| Page | URL | Purpose |
-|------|-----|---------|
-| **Display** | `http://<host>:3000/` | Full-screen kiosk dashboard |
-| **Edit** | `http://<host>:3000/edit` | Configure everything from a phone or laptop (PIN protected) |
-| **Status** | `http://<host>:3000/status` | Health checks, uptime, git/version info |
+| Page | URL |
+|------|-----|
+| Display | `http://<host>:3000/` |
+| Edit | `http://<host>:3000/edit` (PIN protected once you set one) |
+| Status | `http://<host>:3000/status` |
 
-**Default port:** `3000` (override with env `PORT`; bind address with `SQNDASH_HOST`, default all interfaces)
+Default port is 3000. Override with `PORT`. Bind address with `SQNDASH_HOST` (default is all interfaces).
 
-The dashboard is built around content that looks after itself once it's set up:
+Once configured, most content looks after itself:
 
-- **Calendar feed.** Paste a calendar's `.ics` link (Google, Outlook, iCloud, or a TimeTree calendar via the [timetree-live-ics](https://github.com/mr-onadasky/timetree-live-ics) sidecar — pick which from a dropdown on `/edit`) and upcoming events, plus the uniform of the week, show up on their own. Repeating events, cancelled dates, all-day/multi-day events and time zones are all handled.
-- **Uniform panel.** Shows what to wear this week and next, taken from a `Uniform: Working blues` line in the calendar and/or a typed list.
-- **Leaderboard.** Reads a published Google Sheets CSV — individual top 5, flight top 3.
-- **News, weather, Instagram and custom embeds** as carousel panels, each with its own on/off switch.
-- **Auto-hide expired events**, "last updated" stamps that go amber when a source is offline, and cached data so a panel never just goes blank.
-- **Screen controls.** Push a full-screen message to every display, clear it, or force a reload, all from `/edit`.
-- **Backup & restore.** Download every setting as one file and restore it on another device.
-- **An editor PIN** protects `/edit` and anything that changes settings; the public display never needs a login.
+- Calendar from an ICS link or TimeTree (sign in on `/edit`, pick a calendar, optionally filter by tags)
+- Uniform panel from `Uniform: …` lines in events, TimeTree tags you mark as uniform sources, or a typed list
+- Leaderboard from a published Google Sheets CSV (top 5 individuals, top 3 flights)
+- News, weather, Instagram, and custom embeds as rotating panels (each can be switched off)
+- Stale-source banner when the calendar feed is offline or only serving cached data
+- Screen notice / force reload from `/edit`
+- Backup download and restore as one JSON file (TimeTree password is stripped from downloads)
 
----
+## After install
 
-## Full setup guide (after install)
-
-Open **`http://<device-IP>:3000/edit`** on any device on the same network.
+Open `http://<device-IP>:3000/edit` from anything on the same network.
 
 ### Core settings
 
 | Setting | Notes |
 |---------|--------|
-| **Squadron / unit name** | Shown in the header |
-| **Weather location** | Display name + latitude / longitude |
-| **Leaderboard Google Sheets CSV URL** | Publish the sheet as CSV first |
-| **"See all events" URL** | QR code on the events panel |
-| **Error report URL** | QR shown when a panel fails; leave blank to disable |
-| **Auto shutdown (minutes)** | Pi only; applies from the next boot |
-| **Screen layout** | Automatic / always full / always compact |
+| Squadron / unit name | Header text |
+| Weather location | Name plus lat/lon |
+| Leaderboard CSV URL | Publish the sheet as CSV first |
+| "See all events" URL | QR on the events panel |
+| Error report URL | QR when a panel fails; blank disables it |
+| Auto shutdown (minutes) | Pi only; applies from next boot |
+| Screen layout | Automatic, always full, or always compact |
 
 ### Calendar
 
-On `/edit`, above the calendar settings there's a **Calendar source** dropdown: **ICS import** or **TimeTree**. Both end up doing the same thing — reading a live `.ics` link — the dropdown just changes the label and help text underneath so it's obvious what to paste.
+Above the calendar fields there is a **Calendar source** dropdown: ICS import or TimeTree.
 
-**ICS import** (Google, Outlook, iCloud, or anything else that gives out a calendar link):
+**ICS** (Google, Outlook, iCloud, anything with a subscribe link):
 
-1. In Google Calendar, open **Settings** for your squadron calendar, scroll to **Integrate calendar**, and copy **Secret address in iCal format**.
-2. Paste it into the calendar link field on `/edit`, **Save**, then **Test calendar**.
+1. In Google Calendar, open Settings for the squadron calendar, scroll to Integrate calendar, copy **Secret address in iCal format**.
+2. Paste it on `/edit`, Save, then Test calendar.
 
-**TimeTree:**
+**TimeTree** (built in, no extra process):
 
-TimeTree doesn't publish a public `.ics` link itself, so this dashboard doesn't talk to TimeTree directly. Instead it relies on a small companion project, [timetree-live-ics](https://github.com/mr-onadasky/timetree-live-ics), which logs into TimeTree on a schedule and republishes the calendar as an ordinary `.ics` URL — at that point it's just another calendar link.
+1. Set source to TimeTree.
+2. Enter email and password, click Connect.
+3. Pick a calendar, tick the tags you want on the board (none checked = show everything).
+4. Optional: mark some tags as **Uniform tags** so those event titles feed the Uniform panel.
+5. Save, then Test calendar.
 
-1. Run the sidecar next to the dashboard (see below).
-2. Set **Calendar source** to **TimeTree** on `/edit`.
-3. Paste the sidecar's live ICS URL (e.g. `http://localhost:8080/timetree.ics`) into the link field, **Save**, then **Test calendar**.
+Credentials stay in `data/data.json` on the device. The public display never sees the password. Events refresh at most every 10 minutes. If TimeTree is briefly down, the last good copy is kept for up to a day.
 
-*Running it alongside the dashboard on a Pi:* it's a small Node service that calls the TimeTree API directly — no browser automation — so its footprint is comparable to any other small Node app (tens of MB of RAM, negligible CPU outside its sync runs). It's fine to run next to the dashboard on any Pi that can already run this project. Two ways to do it:
+This uses the same unofficial TimeTree web API as [timetree-live-ics](https://github.com/mr-onadasky/timetree-live-ics). A few HTTP calls on a timer, no browser automation. Fine to run on the same Pi as the rest of the app.
 
-- **Dashboard installed natively on the Pi (the usual `install.sh` setup):** run the sidecar as its own Docker container alongside it —
-  ```bash
-  docker run -d --name timetree-live-ics \
-    -p 8080:8080 \
-    -e TIMETREE_EMAIL="you@example.com" \
-    -e TIMETREE_PASSWORD="app-password" \
-    -e TIMETREE_CALENDAR_CODE="your-calendar-code" \
-    ghcr.io/mr-onadasky/timetree-live-ics:latest
-  ```
-- **Dashboard running via `docker compose`:** the included `docker-compose.yml` has a `timetree` service, off by default. Set `TIMETREE_EMAIL`, `TIMETREE_PASSWORD` and `TIMETREE_CALENDAR_CODE` in a `.env` file next to it, then start both with:
-  ```bash
-  docker compose --profile timetree up -d
-  ```
+Tag names are refreshed about once a week in the background so renamed tags do not go stale in the edit UI.
 
-Either way, the sidecar refreshes on its own `CRON_SCHEDULE` (every 30 minutes by default) and the dashboard then reads its `.ics` output the normal way — at most every 10 minutes, with the last good copy kept for up to 24 hours if it's briefly unreachable.
+### Uniform
 
-Outlook, iCloud and most other calendars work with their own `.ics` / "subscribe" link under **ICS import**.
+Put `Uniform: Working blues` on its own line in an event description, or `[Uniform: PT kit]` in the title. Or use TimeTree uniform tags as above. Typed rows on `/edit` still work for one-offs.
 
-### Carousel widgets
+### Leaderboard sheet
 
-Panels appear in this order: **Leaderboard → News → Events → Uniform → Instagram → any extra embeds.** Each has its own tick box on `/edit`; leaving a widget's embed code blank hides that panel instead of showing an error.
+Publish as CSV (File → Share → Publish to web → CSV). The sheet needs Name and Points columns (or close equivalents). Paste the published URL into `/edit`.
 
-### Editor PIN
+### PIN
 
-- **Set or change it:** `sqndash --set-pin` (asks twice) or `sqndash --set-pin 482913`. Takes effect immediately, no restart.
-- **Docker / servers:** use the `EDIT_PIN` environment variable instead.
-- **Remove it:** `sqndash --clear-pin` (not recommended on a shared network).
-- If no PIN is set, the editor stays open so upgrades never lock anyone out, and `/status` shows a warning.
+`install.sh` creates one for you. Change it with:
 
----
+```bash
+sqndash --set-pin
+```
 
-## Updating in depth
+Wrong PIN attempts lock out for a few minutes. Without a PIN, `/edit` is open to anyone on the network.
 
-### Which version does a device follow?
+## Auto-update
 
-| Channel | Follows | Use for |
-|---------|---------|---------|
-| **release** (default) | The newest tag like `v1.6.0` | Room screens |
-| **main** | The tip of the default branch | A test device that should always be latest |
+Stable channel devices follow tagged releases (`v1.8.0` style). The Pi checks a couple of minutes after boot and every 30 minutes via a host timer. Windows / bare Node checks at launch and every 5 minutes (`AUTO_UPDATE=0` turns that off).
 
-Change it with `sqndash --channel release` / `sqndash --channel main` (or the `UPDATE_CHANNEL` environment variable). A device that's already at or ahead of its target is left alone rather than downgraded.
+Before switching, the new version has to answer a health check. If it does not, the previous version is put back and that release is skipped for a while so the device is not stuck in a loop.
 
-### The safety net
+A test device can track the **Update** branch instead of tags:
 
-1. Settings are snapshotted before anything changes, and restored straight after the new code lands.
-2. New code is downloaded; `npm install` only runs if `package.json` changed.
-3. The new version has to answer a health check before it goes live (a spare port on Windows/bare Node, a restart-and-wait on the Pi).
-4. If it fails, the previous version is restored automatically, and that release is remembered so it isn't retried every few minutes.
+```bash
+sqndash --channel update
+```
 
-### Manual update (any OS)
+Back to tags:
+
+```bash
+sqndash --channel stable
+```
+
+### Manual update
 
 ```bash
 cd /path/to/SquadronDashboard
 git fetch --tags origin
-git reset --hard v1.6.0        # or the tag you want, or origin/release
+git reset --hard v1.8.0        # or origin/Stable
 git clean -fd
 npm install --omit=dev
-# restart: npm start   or   docker compose up -d --build
+# restart: npm start, or docker compose up -d --build
 ```
 
 ### Cutting a release (maintainers)
 
 ```bash
-git checkout release && git pull
-# bump "version" in package.json, update this README, merge, then:
-git tag v1.7.0
-git push origin v1.7.0
+git checkout Stable && git pull
+# bump version in package.json, update this README, merge, then:
+git tag v1.8.0
+git push origin v1.8.0
 ```
 
-Tags must look like `vMAJOR.MINOR.PATCH` — anything else (`v1.7.0-beta`) is ignored by the release channel.
+Tags must match `vMAJOR.MINOR.PATCH`. Anything else is ignored on the stable channel. Day-to-day work sits on the **Update** branch.
 
----
+## `sqndash` commands
 
-## Commands reference (`sqndash`)
-
-| Command | Meaning |
-|---------|---------|
-| `sqndash --check` / `--version` | Compare local git to the update target |
-| `sqndash --update` | Update if there is a newer version, then restart |
-| `sqndash --force-update` | Re-apply the target even if "up to date", then restart |
+| Command | What it does |
+|---------|----------------|
+| `sqndash --check` / `--version` | Local git vs update target |
+| `sqndash --update` | Pull newer version if available, then restart |
+| `sqndash --force-update` | Re-apply the target even if it looks current |
 | `sqndash --restart` | Restart only |
 | `sqndash --set-pin [PIN]` | Set the `/edit` PIN |
 | `sqndash --clear-pin` | Remove the PIN |
-| `sqndash --channel [release\|main]` | Show or change the update channel |
+| `sqndash --channel [stable\|update]` | Show or change channel |
 | `sqndash --help` | Help |
 
-**Windows:** use `sqndash.cmd` or `.\sqndash.ps1` from the project directory (or add the folder to PATH).
+On Windows use `sqndash.cmd` or `.\sqndash.ps1` from the project folder (or put that folder on PATH).
 
----
+## Status and health
 
-## Status page & diagnostics
+`/status` refreshes about every 30 seconds: uptime, data sources, PIN status, calendar (including TimeTree name/tags when configured), and on a Pi CPU temp, memory, disk, Wi-Fi, and OS uptime.
 
-**http://\<host\>:3000/status** refreshes about every 30 seconds and shows server uptime, which data sources are configured, editor PIN status, calendar feed health, device health (CPU temp, memory, storage, Wi-Fi, uptime on a Pi), and the current git commit.
+`/healthz` is a cheap liveness check used by Docker and the update safety net.
 
-**http://\<host\>:3000/healthz** is a cheap liveness check used by Docker and by the update safety net.
-
----
-
-## Project layout (for developers)
+## Project layout
 
 ```text
 SquadronDashboard/
-  server.js          App wiring: pages, settings API, security, route modules
-  routes/            weather, news, leaderboard, schedule (events + uniform), control, config, status (+ /healthz), update
+  server.js          Pages, settings API, security, route wiring
+  routes/            weather, news, leaderboard, schedule, control, config, status, update, timetree
   lib/
-    auth.js          Editor PIN check
-    security.js      Security headers + rate limiter
-    csv.js           CSV parser
-    leaderboard.js   Sheet table -> top 5 / top 3
-    cache.js         TTL cache with serve-stale-on-error
-    git.js           Run git without a shell
-    release.js       Which version to follow (release tag vs default branch), skip list
-    canary.js        Start-and-check a new version before switching
-    cleanup.js       Silent start-up deletion of stray files named "temp"
-    tz.js            Time-zone / date helpers (Intl, no dependencies)
-    ics.js           Calendar (.ics) reader incl. repeating events
-    calendar.js      Fetch + cache the calendar link
-    events.js        Typed + calendar events -> the display list
-    uniform.js       This week / next week uniform
-    sysinfo.js       Pi health numbers (temperature, memory, disk, Wi-Fi)
-    restart.js       Relaunch the app after an in-app update
-    settingsGuard.js Settings snapshot/restore around updates
-  storage.js         Atomic settings load/save/validate under data/
-  updater.js         Force-update request/status files (Pi watcher hand-off)
-  autoUpdate.js      In-process update engine (Windows / bare Node)
-  scripts/update.js  CLI for the update engine (used by sqndash.ps1)
-  update.sh          Linux update: target, safety copy, restart, health check, rollback
-  install.sh         Pi installer (setup.sh is an alias)
-  sqndash.sh         Linux CLI
-  sqndash.ps1 / .cmd Windows CLI
-  test/              npm test  (node:test, no extra dependencies)
-  .github/workflows/ CI: tests on Node 18/20/22, shell checks, Docker build
-  package.json
-  docker-compose.yml / Dockerfile / docker-entrypoint.sh
-  .env.example        Copy to .env for Docker (PIN, optional TimeTree credentials)
-  data.example.json  Example settings (real settings go in data/)
-  public/
-    dashboard.html   Kiosk UI
-    edit.html        Settings UI
-    status.html      Health UI
-    roundel.png
+    auth.js          Editor PIN
+    security.js      Headers + rate limits
+    calendar.js      ICS fetch + cache
+    timetree.js      TimeTree login / calendars / labels / events
+    ics.js           Parse ICS (including repeats)
+    events.js        Merge typed + calendar events
+    uniform.js       This week / next week uniform list
+    cache.js         TTL cache, serve stale on error
+    release.js       Stable tags vs Update branch
+    canary.js        Health-check a new version before switching
+  public/            dashboard, edit, pin, status HTML
+  data/              Runtime settings (not in git)
+  install.sh         Pi installer
+  update.sh          Update helper used by the timer / force update
+  sqndash.sh / .ps1 / .cmd
 ```
-
-**Settings path:** `data/data.json` (+ `data.backup.json`). Do not commit `data/`. Other files in `data/`: `edit-pin`, `update-status.json`, `update-channel`, `skip-release.json`, `last-good-commit`. A safety copy of the whole folder is kept in `.squadron-dashboard-backup` beside the app folder (override with `DATA_BACKUP_DIR`).
-
-**Run the tests:** `npm install` then `npm test`.
-
-**API highlights:**
-
-| Endpoint | Role |
-|----------|------|
-| `GET /api/data` | Read settings |
-| `POST /api/data` | Save settings (PIN) |
-| `GET /api/weather` | Open-Meteo proxy (cached, serves stale on error) |
-| `GET /api/events` | Typed + calendar events for the display (calendar status included) |
-| `GET /api/uniform` | This week / next week uniform |
-| `POST /api/control` | Show / clear a screen message, reload screens (PIN) |
-| `GET /api/config/export` | Download all settings as a file (PIN) |
-| `POST /api/config/import` | Restore settings from a file (PIN) |
-| `GET /api/leaderboard` | CSV → top 5 / top 3 (cached, serves stale on error) |
-| `GET /api/news` | BBC headlines (title, description, thumbnail) |
-| `GET /api/version` | Local vs update target |
-| `POST /api/update` | Request force update (PIN) |
-| `GET /api/update/status` | Update progress |
-| `GET /api/status` | Health payload |
-| `GET /healthz` | Liveness |
-| `GET /api/boot` | Boot id + pending reload / screen message (clients poll it) |
-
----
-
-## Requirements
-
-| Environment | Needs |
-|-------------|--------|
-| **Pi room display** | Raspberry Pi OS, network, display; the installer sets up Node.js and the services |
-| **Windows / Linux Node** | Node.js 18+, Git, network for weather/news/leaderboard CSV |
-| **Docker** | Docker + Compose |
-
-Outbound HTTPS is required for weather, sheet CSV, and most embed widgets.
-
----
 
 ## Troubleshooting
 
-| Problem | What to try |
+| Symptom | What to try |
 |---------|-------------|
-| Blank or old UI after update | Hard-refresh (**Ctrl+F5**); confirm `npm start` / the service was restarted |
-| `/edit` asks for a password | Leave the username blank, enter the editor PIN. Forgotten it? `sqndash --set-pin` on the device |
-| "Too many wrong PIN attempts" | Wait 5 minutes |
-| `sqndash` not found (Windows) | Run from project folder: `.\sqndash.cmd --check` |
-| Update says the release "failed its safety check" | The new version didn't start, so the old one was kept. Check the logs, fix, and tag a new release. `sqndash --force-update` retries the same one |
-| Devices aren't getting a new release | Is it tagged (`vX.Y.Z`) and pushed? `sqndash --check` shows the target. A device on the `main` channel ignores tags |
-| Force update "could not determine remote" | `git remote -v`, then `git fetch --tags origin`; ensure the default branch exists on `origin` |
-| Leaderboard empty | Publish the sheet as CSV; check Name/Points headers; open `/api/leaderboard` |
-| News empty | On `/edit`, ensure News is ticked; check `/api/news` |
-| Settings lost after update | They restore themselves from `.squadron-dashboard-backup` (next to the app folder) when the dashboard starts or the next update runs |
-| Dashboard stopped after an update | On a Pi it restarts itself within 30 minutes, or run `sqndash --restart` now. Windows: `sqndash --restart` or `npm start` |
-| Pi Force update button waits forever | Re-run `install.sh`, or SSH in and run `sqndash --force-update` |
-
----
-
-## Where this is headed
-
-The dashboard is still growing. Ideas queued up for future releases:
-
-### Dashboard features
-
-- **Themes** — a dark mode for evening events, and a "parade night" view showing the evening's programme.
-- **Birthday, promotion and "cadet of the month" shout-outs**, driven from the points sheet.
-- **A richer uniform panel** — a picture of the uniform alongside the text, not just a description.
-- **Weekly movement on the leaderboard** — flight progress or "+12 this week" instead of only totals, which means the dashboard keeping a little history rather than just the current standings.
-
-### Bigger projects
-
-- **A proper API behind the points tracker**, replacing the CSV-from-a-spreadsheet approach with a small endpoint that returns validated JSON.
-- **A badge/award tracker** — gamified proficiency tracking with photo or instructor sign-off.
-- **A multi-squadron mode** — configurable enough that another unit can install it with one command and make it their own, rather than forking the code.
-
-None of this is built yet — it's the direction the project is heading, not a promise of what's in the next release.
-
----
+| Can't open `/edit` | PIN set? Use the one from install, or `sqndash --set-pin` on the device |
+| Too many wrong PIN attempts | Wait 5 minutes |
+| `sqndash` not found on Windows | Run from the project folder: `.\sqndash.cmd --check` |
+| Update failed its safety check | New version did not start, old one kept. Check logs, fix, tag again. `sqndash --force-update` retries |
+| Devices not picking up a release | Is the tag `vX.Y.Z` pushed? `sqndash --check` shows the target. Update-channel devices ignore tags |
+| Force update can't find remote | `git remote -v`, then `git fetch --tags origin` |
+| Empty leaderboard | Sheet published as CSV? Name/Points headers? Open `/api/leaderboard` |
+| Empty news | News ticked on `/edit`? Check `/api/news` |
+| Settings gone after update | Restored from `.squadron-dashboard-backup` (next to the app folder) on start or next update |
+| Dashboard stopped after update | Pi should restart within 30 minutes, or run `sqndash --restart`. Windows: `sqndash --restart` or `npm start` |
+| Force update button hangs on Pi | Re-run `install.sh`, or SSH in and run `sqndash --force-update` |
+| TimeTree tags empty after refresh | Password still saved? Connect once more on `/edit`, or wait for the weekly refresh |
+| Want to wake a powered-off Pi from your phone | Visiting `:3000` cannot do that. Use a Wake-on-LAN app with the Pi's MAC on the same LAN (Ethernet is more reliable than Wi-Fi) |
 
 ## Licence
 
-See [LICENSE](LICENSE) in the repository.
+See [LICENSE](LICENSE).

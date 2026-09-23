@@ -322,9 +322,36 @@
   body.compact #infoBanner .title { font-size: var(--fs); padding-right: calc(6 * var(--u)); margin-right: calc(6 * var(--u)); }
   body.compact #infoBanner .message { font-size: max(11px, calc(18 * var(--u))); }
   body.compact #infoBanner .group { padding-right: calc(40 * var(--u)); }
+
+  #sourceBanner {
+    display: none;
+    background: #B45F06;
+    color: #fff;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 6px 12px;
+    letter-spacing: 0.02em;
+  }
+  #sourceBanner.show { display: block; }
+  .next-highlight {
+    background: var(--light-blue, #D9EAF3);
+    border-left: 4px solid var(--raf-navy, #00205B);
+    padding: 12px 14px;
+    margin-bottom: 16px;
+    border-radius: 2px;
+  }
+  .next-highlight .eyebrow {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--raf-blue, #0066A1); margin-bottom: 4px;
+  }
+  .next-highlight .title { font-size: 18px; font-weight: 700; color: var(--raf-navy, #00205B); }
+  .next-highlight .meta { font-size: 14px; color: var(--muted, #667788); margin-top: 2px; }
+
 </style>
 </head>
 <body>
+<div id="sourceBanner" role="status"></div>
   <header>
     <div class="brand">
       <img class="roundel" src="/roundel.png" alt="RAF Air Cadets roundel">
@@ -390,6 +417,7 @@
       </div>
 
       <div class="rotate-pane" id="eventsPane">
+        <div id="eventsHighlight"></div>
         <div id="eventsLayout">
           <ul id="eventsList"></ul>
           <div id="eventsSeeMore">
@@ -962,8 +990,40 @@ async function loadEvents() {
     if (!c.configured) setStamp('eventsPane', null, false, null);
     else if (!c.ok) setStamp('eventsPane', null, false, 'Calendar offline');
     else setStamp('eventsPane', c.updatedAt, c.stale);
+    renderEventsHighlight((r.events || []).find(e => e.source === 'calendar') || (r.events || [])[0] || null);
+    updateSourceBanner(c);
     rebuildEventsPages();
   } catch (e) { console.error('events load failed', e); }
+}
+
+function renderEventsHighlight(h) {
+  const el = document.getElementById('eventsHighlight');
+  if (!el) return;
+  if (!h || !h.title) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div class="next-highlight">' +
+    '<div class="eyebrow">Up next</div>' +
+    '<div class="title">' + esc(h.title) + '</div>' +
+    '<div class="meta">' + esc([h.date, h.detail].filter(Boolean).join(' · ')) + '</div>' +
+    '</div>';
+}
+
+function updateSourceBanner(cal) {
+  const el = document.getElementById('sourceBanner');
+  if (!el) return;
+  if (!cal || !cal.configured) { el.classList.remove('show'); el.textContent = ''; return; }
+  if (!cal.ok) {
+    el.textContent = 'Calendar offline' + (cal.error ? ' — ' + cal.error : '') + '. Showing last known data where possible.';
+    el.classList.add('show');
+    return;
+  }
+  if (cal.stale) {
+    const when = cal.updatedAt ? new Date(cal.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '';
+    el.textContent = 'Calendar feed is stale' + (when ? ' (last good update ' + when + ')' : '') + ' — board may be out of date.';
+    el.classList.add('show');
+    return;
+  }
+  el.classList.remove('show');
+  el.textContent = '';
 }
 
 // ---- Uniform: this week / next week ----

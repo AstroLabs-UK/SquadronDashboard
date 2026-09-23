@@ -9,7 +9,7 @@
 #   sqndash --restart             restart the dashboard
 #   sqndash --set-pin [PIN]       set the PIN that protects /edit (asks if you don't give one)
 #   sqndash --clear-pin           remove the PIN (leaves /edit open to anyone on the network)
-#   sqndash --channel [release|main]   show or change which versions this device follows
+#   sqndash --channel [stable|update]   show or change which versions this device follows
 #   sqndash --help
 DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 
@@ -27,8 +27,8 @@ Squadron Dashboard
   sqndash --set-pin [PIN]  set the PIN that protects the /edit page (4+ characters)
   sqndash --clear-pin      remove the PIN (anyone on the network can then edit)
   sqndash --channel [name] show, or set, the update channel:
-                             release = newest tagged release (default, safest)
-                             main    = tip of the main branch (for a test device)
+                             stable = newest tagged release (default, safest)
+                             update = tip of the Update branch (for a test device)
   sqndash --help           show this help
 
 Your settings (from /edit) are never changed by an update.
@@ -64,11 +64,16 @@ case "${1:-}" in
     echo "Editor PIN removed. (An EDIT_PIN environment variable, if you set one, still applies.)" ;;
   --channel)
     if [ -z "${2:-}" ]; then
-      echo "Update channel: $(tr -d '[:space:]' < "$DIR/data/update-channel" 2>/dev/null || echo release)"
+      echo "Update channel: $(tr -d '[:space:]' < "$DIR/data/update-channel" 2>/dev/null || echo stable)"
     else
       case "$2" in
-        release|main) mkdir -p "$DIR/data"; printf '%s\n' "$2" > "$DIR/data/update-channel"; echo "Update channel set to: $2" ;;
-        *) echo "Channel must be 'release' or 'main'."; exit 1 ;;
+        stable|update|release|main)
+          mkdir -p "$DIR/data"
+          # Normalize legacy names
+          case "$2" in release) ch=stable ;; main) ch=update ;; *) ch="$2" ;; esac
+          printf '%s\n' "$ch" > "$DIR/data/update-channel"
+          echo "Update channel set to: $ch" ;;
+        *) echo "Channel must be 'stable' or 'update'."; exit 1 ;;
       esac
     fi ;;
   --help|-h) usage ;;

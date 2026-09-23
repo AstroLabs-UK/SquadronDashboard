@@ -28,7 +28,7 @@ module.exports = function updateRoutes({ cwd, dataDir, requireEditor, limiter })
       const target = await release.resolveTarget({ cwd, dataDir });
       if (!target) {
         return res.json({ ok: true, local, remote: null, upToDate: null, behind: null, ahead: null,
-          error: 'Could not find a release tag or origin/release — run: git fetch origin' });
+          error: 'Could not find a release tag or origin/Stable — run: git fetch origin' });
       }
       const behind = parseInt((await git(['rev-list', '--count', 'HEAD..' + target.sha], { cwd })).out, 10) || 0;
       const ahead = parseInt((await git(['rev-list', '--count', target.sha + '..HEAD'], { cwd })).out, 10) || 0;
