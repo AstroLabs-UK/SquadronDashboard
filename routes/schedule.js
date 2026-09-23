@@ -1,5 +1,5 @@
 const express = require('express');
-const { buildEventList, pickHighlight } = require('../lib/events');
+const { buildEventList } = require('../lib/events');
 const { buildUniform } = require('../lib/uniform');
 
 module.exports = function eventsRoutes({ store, calendar }) {
@@ -27,17 +27,9 @@ module.exports = function eventsRoutes({ store, calendar }) {
     try {
       const s = store.load();
       const cal = await calendar.get();
-      const highlightNames = labelNamesFromSettings(s, 'timetreeHighlightLabelIds');
       const events = buildEventList({ manual: s.events, calendar: cal.events, tz: cal.tz, now: Date.now() });
-      const highlight = pickHighlight({
-        calendar: cal.events,
-        tz: cal.tz,
-        now: Date.now(),
-        highlightLabelNames: highlightNames
-      });
       res.json({
         events,
-        highlight,
         calendar: calendarInfo(cal, s),
         updatedAt: cal.updatedAt
       });

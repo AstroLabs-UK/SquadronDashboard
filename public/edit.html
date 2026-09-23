@@ -474,9 +474,6 @@
   <p class="hint">Leave all unchecked to show every event. Tick one or more tags to only show those.</p>
   <div id="timetreeLabels" class="checks"></div>
   <p class="hint" id="timetreeLabelsHint">Connect and pick a calendar to load its tags.</p>
-  <label>Highlight tag (Up next)</label>
-  <p class="hint">Optional. Events with these tags are preferred for the large “Up next” card. Leave empty to use the next event of any tag.</p>
-  <div id="timetreeHighlightLabels" class="checks"></div>
   <label>Uniform tags</label>
   <p class="hint">Events with these tags feed the Uniform panel (event title = uniform text for that day).</p>
   <div id="timetreeUniformLabels" class="checks"></div>
@@ -705,7 +702,6 @@ function collectPayload() {
     timetreeCalendarName: document.getElementById('timetreeCalendarName').value,
     timetreeCalendarCode: document.getElementById('timetreeCalendarCode').value,
     timetreeLabelIds: [...document.querySelectorAll('#timetreeLabels input[type=checkbox]:checked')].map(c => Number(c.value)),
-    timetreeHighlightLabelIds: [...document.querySelectorAll('#timetreeHighlightLabels input[type=checkbox]:checked')].map(c => Number(c.value)),
     timetreeUniformLabelIds: [...document.querySelectorAll('#timetreeUniformLabels input[type=checkbox]:checked')].map(c => Number(c.value)),
     timetreeLabels: Array.isArray(window._savedTimetreeLabels) ? window._savedTimetreeLabels : [],
     autoShutdownMinutes: parseInt(document.getElementById('autoShutdownMinutes').value, 10) || 165,
@@ -795,7 +791,6 @@ async function load() {
   document.getElementById('timetreeCalendarCode').value = data.timetreeCalendarCode || '';
   // restore tags from the last saved catalogue so they survive a page refresh
   window._savedTimetreeLabelIds = Array.isArray(data.timetreeLabelIds) ? data.timetreeLabelIds.map(Number) : [];
-  window._savedTimetreeHighlightIds = Array.isArray(data.timetreeHighlightLabelIds) ? data.timetreeHighlightLabelIds.map(Number) : [];
   window._savedTimetreeUniformIds = Array.isArray(data.timetreeUniformLabelIds) ? data.timetreeUniformLabelIds.map(Number) : [];
   window._savedTimetreeLabels = Array.isArray(data.timetreeLabels) ? data.timetreeLabels : [];
   renderTimetreeLabels(window._savedTimetreeLabels, window._savedTimetreeLabelIds);
@@ -978,8 +973,7 @@ function renderTimetreeLabels(labels, selectedIds) {
   const list = labels || [];
   if (!list.length) {
     document.getElementById('timetreeLabels').innerHTML = '';
-    document.getElementById('timetreeHighlightLabels').innerHTML = '';
-    document.getElementById('timetreeUniformLabels').innerHTML = '';
+      document.getElementById('timetreeUniformLabels').innerHTML = '';
     if (Array.isArray(labels) && labels.length === 0) {
       hint.textContent = 'This calendar has no custom tags (all events will show).';
     } else {
@@ -990,9 +984,6 @@ function renderTimetreeLabels(labels, selectedIds) {
   hint.textContent = 'Tick the tags you want on the public board. Leave all unchecked to show every event. Changes apply after Save — no password needed.';
   fillLabelChecks('timetreeLabels', list, selectedIds, function() {
     window._savedTimetreeLabelIds = [...document.querySelectorAll('#timetreeLabels input[type=checkbox]:checked')].map(c => Number(c.value));
-  });
-  fillLabelChecks('timetreeHighlightLabels', list, window._savedTimetreeHighlightIds || [], function() {
-    window._savedTimetreeHighlightIds = [...document.querySelectorAll('#timetreeHighlightLabels input[type=checkbox]:checked')].map(c => Number(c.value));
   });
   fillLabelChecks('timetreeUniformLabels', list, window._savedTimetreeUniformIds || [], function() {
     window._savedTimetreeUniformIds = [...document.querySelectorAll('#timetreeUniformLabels input[type=checkbox]:checked')].map(c => Number(c.value));

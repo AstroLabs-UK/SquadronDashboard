@@ -57,7 +57,6 @@ const DEFAULT_DATA = {
   timetreeCalendarCode: "",
   timetreeLabelIds: [],
   timetreeLabels: [],
-  timetreeHighlightLabelIds: [],
   timetreeUniformLabelIds: [],
   timetreeLabelsRefreshedAt: null,
   uniform: { items: [] },

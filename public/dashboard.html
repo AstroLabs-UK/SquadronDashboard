@@ -990,7 +990,7 @@ async function loadEvents() {
     if (!c.configured) setStamp('eventsPane', null, false, null);
     else if (!c.ok) setStamp('eventsPane', null, false, 'Calendar offline');
     else setStamp('eventsPane', c.updatedAt, c.stale);
-    renderEventsHighlight(r.highlight || null);
+    renderEventsHighlight((r.events || []).find(e => e.source === 'calendar') || (r.events || [])[0] || null);
     updateSourceBanner(c);
     rebuildEventsPages();
   } catch (e) { console.error('events load failed', e); }

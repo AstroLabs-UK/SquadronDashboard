@@ -205,10 +205,6 @@ function createStore({ dir, defaults, legacyDir, snapDir }) {
         .filter(l => Number.isFinite(l.id))
         .slice(0, 30);
     }
-    if (Array.isArray(incoming.timetreeHighlightLabelIds)) {
-      out.timetreeHighlightLabelIds = incoming.timetreeHighlightLabelIds
-        .map(x => Number(x)).filter(n => Number.isFinite(n)).slice(0, 20);
-    }
     if (Array.isArray(incoming.timetreeUniformLabelIds)) {
       out.timetreeUniformLabelIds = incoming.timetreeUniformLabelIds
         .map(x => Number(x)).filter(n => Number.isFinite(n)).slice(0, 20);

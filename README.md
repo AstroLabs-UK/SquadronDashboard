@@ -172,7 +172,7 @@ Outlook, iCloud and most other calendars still use their own `.ics` / "subscribe
 
 ### Display extras (1.8)
 
-- **Up next** card on the events panel (optionally driven by selected TimeTree highlight tags).
+- **Up next** card on the events panel (next calendar/manual event).
 - **Uniform from tags** — designate TimeTree tags whose event titles feed the Uniform panel.
 - **Stale calendar banner** on the public board when the feed is offline or cached.
 - **Safe backup** — TimeTree password is never included in downloaded config files.
