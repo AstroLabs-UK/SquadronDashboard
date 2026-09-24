@@ -782,6 +782,20 @@
 <input type="file" id="importFile" accept="application/json,.json" style="display:none" onchange="importConfig(this)">
 <div id="backupStatus" class="hint"></div>
 
+<h2>Loading logo</h2>
+<p class="hint"><strong>Best format: PNG with a transparent background</strong> (square works best). JPG will show a solid box on the cream loading screen. SVG is fine too if your browser can display it as an image.</p>
+<div class="person-photo-row" style="margin-top:8px;">
+  <img id="loadingLogoPreview" class="person-photo-preview" alt="" style="border-radius:8px;width:72px;height:72px;object-fit:contain;background:repeating-conic-gradient(#ddd 0% 25%, #fff 0% 50%) 50% / 12px 12px;">
+  <div class="person-photo-actions" style="flex:1;">
+    <input type="file" id="loadingLogoFile" accept="image/png,image/svg+xml,image/webp,image/jpeg,.png,.svg,.webp,.jpg,.jpeg">
+    <div class="actions" style="margin-top:6px;">
+      <button type="button" class="add" id="loadingLogoApplyBtn" onclick="applyLoadingLogo()">Use this logo</button>
+      <button type="button" class="danger" id="loadingLogoClearBtn" onclick="clearLoadingLogo()" style="margin-top:0;">Remove logo</button>
+    </div>
+  </div>
+</div>
+<div id="loadingLogoStatus" class="hint"></div>
+
 <p class="hint" id="versionInfo" style="margin-top:18px;">Checking version…</p>
 <div id="updateStatus"></div>
 </div>
@@ -1140,6 +1154,104 @@ function closeCocPreview() {
   document.getElementById('cocPreviewOverlay').classList.remove('open');
 }
 
+
+async function applyLoadingLogo() {
+  const status = document.getElementById('loadingLogoStatus');
+  const fileInput = document.getElementById('loadingLogoFile');
+  const file = fileInput.files && fileInput.files[0];
+  status.textContent = '';
+  status.style.color = '';
+  if (!file) {
+    status.textContent = 'Choose an image first.';
+    status.style.color = 'var(--raf-red)';
+    return;
+  }
+  status.textContent = 'Saving logo…';
+  try {
+    let dataUrl;
+    if (file.type === 'image/svg+xml' || /\.svg$/i.test(file.name || '')) {
+      // Keep SVG as a data URL (no rasterise)
+      dataUrl = await new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onerror = () => reject(new Error('read failed'));
+        r.onload = () => resolve(r.result);
+        r.readAsDataURL(file);
+      });
+      if (dataUrl.length > 1_200_000) throw new Error('SVG too large');
+    } else {
+      // Raster → PNG so transparency is kept
+      dataUrl = await resizeImageToDataUrlPng(file, 512);
+    }
+    const res = await fetch('/api/branding/process-logo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ image: dataUrl })
+    });
+    const json = await res.json();
+    if (!res.ok || !json.ok) throw new Error((json && json.error) || ('HTTP ' + res.status));
+    window._loadingLogoDataUrl = json.loadingLogo || dataUrl;
+    const prev = document.getElementById('loadingLogoPreview');
+    if (prev) prev.src = window._loadingLogoDataUrl;
+    status.textContent = 'Logo saved. It will show on the next display reload. (Transparent PNG works best.)';
+    status.style.color = '';
+    savedSnapshot = JSON.stringify(collectPayload());
+    updateForceButton();
+  } catch (e) {
+    status.textContent = 'Failed: ' + (e.message || e);
+    status.style.color = 'var(--raf-red)';
+  }
+}
+
+async function clearLoadingLogo() {
+  const status = document.getElementById('loadingLogoStatus');
+  status.textContent = 'Removing…';
+  try {
+    const res = await fetch('/api/branding/clear-logo', { method: 'POST', credentials: 'same-origin' });
+    const json = await res.json();
+    if (!res.ok || !json.ok) throw new Error((json && json.error) || 'clear failed');
+    window._loadingLogoDataUrl = '';
+    const prev = document.getElementById('loadingLogoPreview');
+    if (prev) { prev.removeAttribute('src'); }
+    document.getElementById('loadingLogoFile').value = '';
+    status.textContent = 'Custom logo removed — default Astro Labs logo will be used.';
+    status.style.color = '';
+    savedSnapshot = JSON.stringify(collectPayload());
+    updateForceButton();
+  } catch (e) {
+    status.textContent = 'Failed: ' + (e.message || e);
+    status.style.color = 'var(--raf-red)';
+  }
+}
+
+function resizeImageToDataUrlPng(file, maxSize) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('read failed'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('image failed'));
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if (w > maxSize || h > maxSize) {
+          if (w >= h) { h = Math.round(h * maxSize / w); w = maxSize; }
+          else { w = Math.round(w * maxSize / h); h = maxSize; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        // Do not fill background — preserve transparency
+        ctx.clearRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        try { resolve(canvas.toDataURL('image/png')); }
+        catch (e) { reject(e); }
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 function collectPayload() {
   return {
     squadronName: document.getElementById('squadronName').value,
@@ -1202,6 +1314,9 @@ function collectPayload() {
     },
     chainOfCommand: {
       people: collectPeople()
+    },
+    branding: {
+      loadingLogo: (window._loadingLogoDataUrl != null) ? window._loadingLogoDataUrl : ((data && data.branding && data.branding.loadingLogo) || '')
     }
   };
 }
@@ -1299,6 +1414,18 @@ async function load() {
       if ([...sel.options].some(o => o.value === p.reportsTo)) sel.value = p.reportsTo;
     }
   });
+  // Branding / loading logo
+  window._loadingLogoDataUrl = (data.branding && data.branding.loadingLogo) || '';
+  const logoPrev = document.getElementById('loadingLogoPreview');
+  if (logoPrev) {
+    if (window._loadingLogoDataUrl) {
+      logoPrev.src = window._loadingLogoDataUrl;
+      logoPrev.style.display = '';
+    } else {
+      logoPrev.removeAttribute('src');
+      logoPrev.style.display = '';
+    }
+  }
   savedSnapshot = JSON.stringify(collectPayload());
   updateForceButton();
   euVisibleLimit = EU_DEFAULT;

@@ -72,6 +72,10 @@ function createStore({ dir, defaults, legacyDir, snapDir }) {
         people: Array.isArray(d.chainOfCommand && d.chainOfCommand.people)
           ? d.chainOfCommand.people
           : (defaults.chainOfCommand && defaults.chainOfCommand.people) || []
+      },
+      branding: {
+        ...(defaults.branding || { loadingLogo: '' }),
+        ...(d.branding && typeof d.branding === 'object' ? d.branding : {})
       }
     };
   }
@@ -324,6 +328,16 @@ function createStore({ dir, defaults, legacyDir, snapDir }) {
           })
           .filter(p => p.name) // must have a name
       };
+    }
+    // Branding: custom loading logo (data URL; transparent PNG recommended)
+    if (incoming.branding && typeof incoming.branding === 'object') {
+      const next = { ...(current.branding || { loadingLogo: '' }) };
+      if (typeof incoming.branding.loadingLogo === 'string') {
+        const logo = incoming.branding.loadingLogo;
+        if (!logo) next.loadingLogo = '';
+        else if (logo.startsWith('data:image/') && logo.length <= 1_500_000) next.loadingLogo = logo;
+      }
+      out.branding = { loadingLogo: next.loadingLogo || '' };
     }
     return out;
   }

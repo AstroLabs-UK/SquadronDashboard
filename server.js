@@ -70,7 +70,8 @@ const DEFAULT_DATA = {
   customWidgets: [],
   layout: "auto",
   events: [],
-  chainOfCommand: { people: [] }
+  chainOfCommand: { people: [] },
+  branding: { loadingLogo: '' }
 };
 
 // Settings are NEVER kept only in memory - every read goes to disk, and every
@@ -176,8 +177,12 @@ app.get('/api/data', apiLimiter, (req, res) => {
   const visible = requireEditor.isEditor(req)
     ? data
     : { ...data, icsUrl: '', timetreePassword: '', timetreeEmail: '' };
+  const branding = data.branding && typeof data.branding === 'object'
+    ? { loadingLogo: data.branding.loadingLogo || '' }
+    : { loadingLogo: '' };
   const body = {
     ...visible,
+    branding,
     icsUrlSet: !!data.icsUrl,
     timetreeConfigured: !!(data.timetreeEmail && data.timetreePassword),
     // never echo the real password back even to the editor — UI keeps a "unchanged" blank
@@ -203,12 +208,56 @@ app.post('/api/data', requireEditor, sensitiveLimiter, (req, res) => {
       console.warn('[storage] external snapshot failed after save', snapErr && snapErr.message ? snapErr.message : snapErr);
     }
     // Don't echo the real password back to the editor
-    const safe = { ...updated, timetreePassword: updated.timetreePassword ? '********' : '' };
+    const safeBrand = updated.branding && typeof updated.branding === 'object'
+      ? { loadingLogo: updated.branding.loadingLogo || '' }
+      : { loadingLogo: '' };
+    const safe = { ...updated, timetreePassword: updated.timetreePassword ? '********' : '', branding: safeBrand };
     res.json({ ok: true, data: safe });
   } catch (e) {
     console.error('[storage] save failed', e);
     // Previous valid configuration remains on disk; do not wipe it.
     res.status(500).json({ ok: false, error: 'save failed' });
+  }
+});
+
+
+// ---------- API: branding / loading logo ----------
+app.post('/api/branding/process-logo', requireEditor, sensitiveLimiter, (req, res) => {
+  try {
+    const body = req.body || {};
+    const imageDataUrl = typeof body.image === 'string' ? body.image : '';
+    if (!imageDataUrl.startsWith('data:image/')) {
+      return res.status(400).json({ ok: false, error: 'Expected a data:image/... payload' });
+    }
+    if (imageDataUrl.length > 1_500_000) {
+      return res.status(400).json({ ok: false, error: 'Image too large' });
+    }
+    const current = store.load();
+    const next = store.sanitize(current, {
+      branding: { loadingLogo: imageDataUrl }
+    });
+    store.save(next);
+    try { guard.snapshot(DATA_DIR, SNAP_DIR); } catch (e) {}
+    res.json({
+      ok: true,
+      loadingLogo: imageDataUrl,
+      note: 'Logo saved. Transparent PNG works best on the cream loading screen.'
+    });
+  } catch (e) {
+    console.error('[branding] process-logo failed', e);
+    res.status(500).json({ ok: false, error: String(e && e.message ? e.message : e) });
+  }
+});
+
+app.post('/api/branding/clear-logo', requireEditor, sensitiveLimiter, (req, res) => {
+  try {
+    const current = store.load();
+    const next = store.sanitize(current, { branding: { loadingLogo: '' } });
+    store.save(next);
+    try { guard.snapshot(DATA_DIR, SNAP_DIR); } catch (e) {}
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: 'clear failed' });
   }
 });
 

@@ -712,6 +712,20 @@
   })();
 
   window.__astroLoadingDone = (async function play() {
+    // Prefer a custom loading logo from settings (transparent PNG recommended)
+    try {
+      const r = await fetch('/api/data', { cache: 'no-store' });
+      if (r.ok) {
+        const d = await r.json();
+        const logo = d && d.branding && d.branding.loadingLogo;
+        if (logo && typeof logo === 'string' && logo.startsWith('data:image/')) {
+          const gray = logo.querySelector('img.gray');
+          if (gray) gray.src = logo;
+          color.src = logo;
+        }
+      }
+    } catch (e) { /* keep default Astro Labs logo */ }
+
     // start in full colour
     color.style.transition = 'none';
     color.style.opacity = 1;
