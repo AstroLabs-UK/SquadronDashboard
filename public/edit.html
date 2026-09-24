@@ -443,11 +443,48 @@
     gap: 8px;
     margin-bottom: 8px;
   }
+  .coc-builder-level-head-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
   .coc-builder-level-head strong {
     font-size: 12px;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: var(--raf-navy);
+  }
+  .coc-level-handle {
+    width: 22px;
+    height: 28px;
+    border: none;
+    background: transparent;
+    cursor: grab;
+    color: var(--muted);
+    opacity: 0;
+    padding: 0;
+    margin: 0;
+    min-height: 28px;
+    font-size: 14px;
+    line-height: 1;
+    letter-spacing: 1px;
+    transition: opacity 0.15s ease;
+    user-select: none;
+  }
+  .coc-builder-level:hover .coc-level-handle,
+  .coc-builder-level.level-dragging .coc-level-handle {
+    opacity: 1;
+  }
+  .coc-level-handle:active { cursor: grabbing; }
+  .coc-builder-level.level-dragging {
+    opacity: 0.65;
+    border-style: dashed;
+  }
+  .coc-builder-level.level-drop-before {
+    box-shadow: inset 0 3px 0 0 var(--raf-blue);
+  }
+  .coc-builder-level.level-drop-after {
+    box-shadow: inset 0 -3px 0 0 var(--raf-blue);
   }
   .coc-builder-chips {
     display: flex;
@@ -940,7 +977,7 @@
 <button class="add" type="button" onclick="addWidget()">+ Add embed</button>
 
 <h2>Chain of Command</h2>
-<p class="hint">People are arranged by <strong>level</strong> (top = Level 1). Everyone on a level reports to the level above — no per-person “reports to”. Click a person to edit their details. Drag between levels to move them up or down the chain.</p>
+<p class="hint">People are arranged by <strong>level</strong> (top = Level 1). Everyone on a level reports to the level above — no per-person “reports to”. Click a person to edit their details. Drag people between levels. Hover a level and drag the ⋮⋮ handle to reorder whole levels.</p>
 <div id="cocBuilder" class="coc-builder"></div>
 <div class="actions coc-toolbar">
   <button class="add" type="button" onclick="cocAddPerson()">+ Add person</button>
@@ -1487,6 +1524,29 @@ function bindSettingsPanel(panel) {
   });
 }
 
+function cocReorderLevel(fromLevel, toLevel, placeAfter) {
+  if (fromLevel === toLevel) return;
+  cocFlushSettings();
+  const maxLv = Math.max(cocMaxLevel, ...cocPeople.map(p => p.level), 0);
+  // Build ordered list of level indices
+  let order = [];
+  for (let i = 0; i <= maxLv; i++) order.push(i);
+  order = order.filter(lv => lv !== fromLevel);
+  let insertAt = order.indexOf(toLevel);
+  if (insertAt < 0) insertAt = order.length;
+  if (placeAfter) insertAt += 1;
+  order.splice(insertAt, 0, fromLevel);
+  // Remap people levels according to new order
+  const map = {};
+  order.forEach((oldLv, newLv) => { map[oldLv] = newLv; });
+  cocPeople.forEach(p => {
+    if (map[p.level] !== undefined) p.level = map[p.level];
+  });
+  cocMaxLevel = Math.max(0, order.length - 1);
+  normalizeLevels();
+  renderCocBuilder();
+}
+
 function renderCocBuilder() {
   const host = document.getElementById('cocBuilder');
   if (!host) return;
@@ -1496,8 +1556,13 @@ function renderCocBuilder() {
   for (let lv = 0; lv <= maxLv; lv++) {
     const peers = cocPeople.filter(p => p.level === lv);
     html += '<div class="coc-builder-level" data-level="' + lv + '">' +
-      '<div class="coc-builder-level-head"><strong>Level ' + (lv + 1) + (lv === 0 ? ' (top)' : '') + '</strong>' +
-      '<span class="hint">' + peers.length + ' people</span></div>' +
+      '<div class="coc-builder-level-head">' +
+        '<div class="coc-builder-level-head-left">' +
+          '<button type="button" class="coc-level-handle" draggable="true" title="Drag to reorder level" aria-label="Drag level">⋮⋮</button>' +
+          '<strong>Level ' + (lv + 1) + (lv === 0 ? ' (top)' : '') + '</strong>' +
+        '</div>' +
+        '<span class="hint">' + peers.length + ' people</span>' +
+      '</div>' +
       '<div class="coc-builder-chips">' + peers.map(chipHtml).join('') + '</div>';
     if (cocSelectedId && peers.some(p => p.id === cocSelectedId)) {
       const person = cocPeople.find(p => p.id === cocSelectedId);
@@ -1507,14 +1572,15 @@ function renderCocBuilder() {
   }
   host.innerHTML = html;
 
-  // Click chips
+  // Click / drag people
   host.querySelectorAll('.coc-chip').forEach(chip => {
     chip.addEventListener('click', function(e) {
       e.stopPropagation();
       cocSelect(this.dataset.id);
     });
     chip.addEventListener('dragstart', function(e) {
-      e.dataTransfer.setData('text/plain', this.dataset.id);
+      e.dataTransfer.setData('text/plain', 'person:' + this.dataset.id);
+      e.dataTransfer.effectAllowed = 'move';
       this.classList.add('dragging');
     });
     chip.addEventListener('dragend', function() {
@@ -1523,19 +1589,71 @@ function renderCocBuilder() {
     });
   });
 
-  // Drop on levels
+  // Level reorder via ⋮⋮ handle
+  host.querySelectorAll('.coc-level-handle').forEach(handle => {
+    handle.addEventListener('dragstart', function(e) {
+      e.stopPropagation();
+      const row = this.closest('.coc-builder-level');
+      const lv = row && row.dataset.level;
+      e.dataTransfer.setData('text/plain', 'level:' + lv);
+      e.dataTransfer.effectAllowed = 'move';
+      if (row) row.classList.add('level-dragging');
+    });
+    handle.addEventListener('dragend', function() {
+      host.querySelectorAll('.coc-builder-level').forEach(el => {
+        el.classList.remove('level-dragging', 'level-drop-before', 'level-drop-after', 'drag-over');
+      });
+    });
+    // Prevent click focus quirks
+    handle.addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); });
+  });
+
+  // Drop targets: people into levels, or levels onto levels
   host.querySelectorAll('.coc-builder-level').forEach(row => {
     row.addEventListener('dragover', function(e) {
       e.preventDefault();
-      this.classList.add('drag-over');
+      e.dataTransfer.dropEffect = 'move';
+      const types = e.dataTransfer.types;
+      // Prefer checking current drag via class on dragging elements
+      const draggingLevel = host.querySelector('.coc-builder-level.level-dragging');
+      if (draggingLevel) {
+        this.classList.remove('drag-over');
+        const rect = this.getBoundingClientRect();
+        const mid = rect.top + rect.height / 2;
+        if (e.clientY < mid) {
+          this.classList.add('level-drop-before');
+          this.classList.remove('level-drop-after');
+        } else {
+          this.classList.add('level-drop-after');
+          this.classList.remove('level-drop-before');
+        }
+      } else {
+        this.classList.add('drag-over');
+        this.classList.remove('level-drop-before', 'level-drop-after');
+      }
     });
-    row.addEventListener('dragleave', function() { this.classList.remove('drag-over'); });
+    row.addEventListener('dragleave', function(e) {
+      if (!this.contains(e.relatedTarget)) {
+        this.classList.remove('drag-over', 'level-drop-before', 'level-drop-after');
+      }
+    });
     row.addEventListener('drop', function(e) {
       e.preventDefault();
-      this.classList.remove('drag-over');
-      const id = e.dataTransfer.getData('text/plain');
-      const lv = parseInt(this.dataset.level, 10) || 0;
-      if (id) cocMoveToLevel(id, lv);
+      const payload = e.dataTransfer.getData('text/plain') || '';
+      const placeAfter = this.classList.contains('level-drop-after');
+      this.classList.remove('drag-over', 'level-drop-before', 'level-drop-after');
+      if (payload.startsWith('level:')) {
+        const fromLv = parseInt(payload.slice(6), 10);
+        const toLv = parseInt(this.dataset.level, 10);
+        if (!Number.isNaN(fromLv) && !Number.isNaN(toLv)) {
+          cocReorderLevel(fromLv, toLv, placeAfter);
+        }
+      } else {
+        let id = payload;
+        if (payload.startsWith('person:')) id = payload.slice(7);
+        const lv = parseInt(this.dataset.level, 10) || 0;
+        if (id) cocMoveToLevel(id, lv);
+      }
     });
   });
 
