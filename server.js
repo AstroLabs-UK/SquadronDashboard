@@ -66,10 +66,11 @@ const DEFAULT_DATA = {
   weatherEmbedCode: "",
   // News panel is always the scraped BBC News feed (no embed code).
   importantInfo: { enabled: false, title: "IMPORTANT INFORMATION", message: "" },
-  widgets: { leaderboard: true, news: true, events: true, instagram: true, uniform: true },
+  widgets: { leaderboard: true, news: true, events: true, instagram: true, uniform: true, chainOfCommand: false },
   customWidgets: [],
   layout: "auto",
-  events: []
+  events: [],
+  chainOfCommand: { people: [] }
 };
 
 // Settings are NEVER kept only in memory - every read goes to disk, and every

@@ -65,7 +65,14 @@ function createStore({ dir, defaults, legacyDir, snapDir }) {
       widgets: { ...defaults.widgets, ...(d.widgets && typeof d.widgets === 'object' ? d.widgets : {}) },
       uniform: { ...defaults.uniform, ...(d.uniform && typeof d.uniform === 'object' ? d.uniform : {}) },
       customWidgets: Array.isArray(d.customWidgets) ? d.customWidgets : defaults.customWidgets,
-      events: Array.isArray(d.events) ? d.events : defaults.events
+      events: Array.isArray(d.events) ? d.events : defaults.events,
+      chainOfCommand: {
+        ...(defaults.chainOfCommand || { people: [] }),
+        ...(d.chainOfCommand && typeof d.chainOfCommand === 'object' ? d.chainOfCommand : {}),
+        people: Array.isArray(d.chainOfCommand && d.chainOfCommand.people)
+          ? d.chainOfCommand.people
+          : (defaults.chainOfCommand && defaults.chainOfCommand.people) || []
+      }
     };
   }
 
@@ -241,7 +248,7 @@ function createStore({ dir, defaults, legacyDir, snapDir }) {
     const flags = incoming.widgets;
     if (flags && typeof flags === 'object') {
       const next = { ...current.widgets };
-      for (const k of ['leaderboard', 'news', 'events', 'instagram', 'uniform']) {
+      for (const k of ['leaderboard', 'news', 'events', 'instagram', 'uniform', 'chainOfCommand']) {
         if (typeof flags[k] === 'boolean') next[k] = flags[k];
       }
       out.widgets = next;
@@ -288,6 +295,34 @@ function createStore({ dir, defaults, legacyDir, snapDir }) {
           .filter(i => i && typeof i === 'object' && isStr(i.date) && DATE_KEY.test(i.date.trim()) && String(i.uniform ?? '').trim())
           .slice(0, 40)
           .map(i => ({ date: i.date.trim(), title: String(i.title ?? '').slice(0, 80), uniform: String(i.uniform).trim().slice(0, 80) }))
+      };
+    }
+
+    // Chain of Command: people hierarchy with rank, name, optional photo (base64), reportsTo id
+    if (incoming.chainOfCommand && typeof incoming.chainOfCommand === 'object' && Array.isArray(incoming.chainOfCommand.people)) {
+      const RANK_RE = /^[A-Za-z0-9 /()_-]{1,40}$/;
+      const seenIds = new Set();
+      out.chainOfCommand = {
+        people: incoming.chainOfCommand.people
+          .filter(p => p && typeof p === 'object')
+          .slice(0, 40)
+          .map(p => {
+            let id = isStr(p.id) && /^[A-Za-z0-9_-]{1,40}$/.test(p.id) ? p.id : null;
+            if (!id || seenIds.has(id)) id = 'p' + crypto.randomBytes(4).toString('hex');
+            seenIds.add(id);
+            let photo = '';
+            if (isStr(p.photo) && p.photo.startsWith('data:image/') && p.photo.length <= 120000) {
+              photo = p.photo;
+            }
+            return {
+              id,
+              rank: isStr(p.rank) && RANK_RE.test(p.rank.trim()) ? p.rank.trim() : '',
+              name: String(p.name ?? '').slice(0, 80).trim(),
+              photo,
+              reportsTo: isStr(p.reportsTo) && /^[A-Za-z0-9_-]{1,40}$/.test(p.reportsTo) ? p.reportsTo : ''
+            };
+          })
+          .filter(p => p.name) // must have a name
       };
     }
     return out;

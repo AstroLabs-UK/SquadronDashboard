@@ -181,6 +181,104 @@
   .embed-pane .insta-wrap { position: absolute; top: 0; left: 0; right: 0; bottom: 0; overflow: hidden; }
   .embed-pane .insta-wrap iframe { display: block; width: 100%; height: 100%; border: none; }
 
+  /* Chain of Command org tree */
+  #cocPane { overflow: auto; }
+  #cocPane .coc-tree {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding: 4px 0 8px;
+  }
+  #cocPane .coc-level {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 12px 20px;
+    width: 100%;
+  }
+  #cocPane .coc-node-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  #cocPane .coc-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    min-width: 90px;
+    max-width: 130px;
+  }
+  #cocPane .coc-photo {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: var(--light-blue);
+    border: 3px solid var(--raf-navy);
+    margin-bottom: 6px;
+  }
+  #cocPane .coc-photo.placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--raf-navy);
+    font-weight: 700;
+    font-size: 20px;
+  }
+  #cocPane .coc-rank {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--raf-blue);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    line-height: 1.2;
+  }
+  #cocPane .coc-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--deep-navy);
+    line-height: 1.25;
+    margin-top: 2px;
+  }
+  #cocPane .coc-children {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 12px 20px;
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 2px solid var(--border);
+    position: relative;
+  }
+  #cocPane .coc-children::before {
+    content: '';
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    width: 2px;
+    height: 10px;
+    background: var(--border);
+  }
+  #cocPane .coc-empty {
+    color: var(--muted);
+    text-align: center;
+    padding: 24px;
+    font-size: 16px;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  body.compact #cocPane .coc-photo { width: 48px; height: 48px; border-width: 2px; }
+  body.compact #cocPane .coc-photo.placeholder { font-size: 14px; }
+  body.compact #cocPane .coc-rank { font-size: 10px; }
+  body.compact #cocPane .coc-name { font-size: 12px; }
+
   #noWidgetsPane { align-items: center; justify-content: center; text-align: center; color: var(--muted); font-size: 16px; }
 
   /* Error fallback with QR */
@@ -436,6 +534,10 @@
         <div class="insta-wrap" id="instaWrap"></div>
       </div>
 
+      <div class="rotate-pane" id="cocPane">
+        <div id="cocTree"></div>
+      </div>
+
       <div class="rotate-pane" id="noWidgetsPane">
         <div>No widgets are switched on.<br>Tick some on the /edit page.</div>
       </div>
@@ -459,13 +561,14 @@ let eventsPages = [];
 let eventsPageIndex = 0;
 let isCompact = false;               // small-screen layout active?
 let layoutSetting = 'auto';          // auto | full | compact (from /edit)
-let widgetFlags = { leaderboard: true, news: true, events: true, instagram: true, uniform: true };
+let widgetFlags = { leaderboard: true, news: true, events: true, instagram: true, uniform: true, chainOfCommand: false };
 let latestUniform = { thisWeek: [], nextWeek: [] };
 let eventsLoaded = false;
 let customWidgets = [];              // extra embed widgets from /edit
 const customMounted = {};            // widget id -> embed code currently mounted
 let weatherEmbedCodeSetting = '';
 let currentBannerMessage = null;
+let latestChainOfCommand = { people: [] };
 
 // Snapshot each rotating pane's original markup so it can be restored after an
 // error state (showError fully replaces a pane's contents with an error box).
@@ -747,7 +850,8 @@ function applyWidgetSettings(data) {
     news: f.news !== false,
     events: f.events !== false,
     instagram: f.instagram !== false,
-    uniform: f.uniform !== false
+    uniform: f.uniform !== false,
+    chainOfCommand: !!f.chainOfCommand
   };
   if (widgetFlags.leaderboard && !prev.leaderboard) loadLeaderboard();
 
@@ -765,6 +869,11 @@ function applyWidgetSettings(data) {
     lastInstagramEmbedCode = '';
     document.getElementById('instaWrap').innerHTML = '';
   }
+
+  // Chain of Command people from settings
+  const coc = data.chainOfCommand && Array.isArray(data.chainOfCommand.people) ? data.chainOfCommand.people : [];
+  latestChainOfCommand = { people: coc };
+  if (widgetFlags.chainOfCommand) renderChainOfCommand();
 
   syncCustomPanes(data.customWidgets);
 }
@@ -1051,6 +1160,43 @@ function renderUniform() {
 }
 const hasUniform = () => latestUniform.thisWeek.length + latestUniform.nextWeek.length > 0;
 
+function renderChainOfCommand() {
+  const host = document.getElementById('cocTree');
+  const people = (latestChainOfCommand && latestChainOfCommand.people) || [];
+  if (!people.length) {
+    host.innerHTML = '<div class="coc-empty">No chain of command set up yet.<br>Add people on the /edit page.</div>';
+    return;
+  }
+  const byId = {};
+  people.forEach(p => { byId[p.id] = { ...p, children: [] }; });
+  const roots = [];
+  people.forEach(p => {
+    const node = byId[p.id];
+    if (p.reportsTo && byId[p.reportsTo] && p.reportsTo !== p.id) {
+      byId[p.reportsTo].children.push(node);
+    } else {
+      roots.push(node);
+    }
+  });
+  function renderNode(node) {
+    const initials = (node.name || '?').split(/\s+/).map(s => s[0] || '').join('').slice(0, 2).toUpperCase();
+    const photoHtml = node.photo
+      ? '<img class="coc-photo" src="' + String(node.photo).replace(/"/g, '&quot;') + '" alt="">'
+      : '<div class="coc-photo placeholder">' + esc(initials) + '</div>';
+    let html = '<div class="coc-node-wrap"><div class="coc-node">' +
+      photoHtml +
+      '<div class="coc-rank">' + esc(node.rank || '') + '</div>' +
+      '<div class="coc-name">' + esc(node.name || '') + '</div>' +
+      '</div>';
+    if (node.children && node.children.length) {
+      html += '<div class="coc-children">' + node.children.map(renderNode).join('') + '</div>';
+    }
+    html += '</div>';
+    return html;
+  }
+  host.innerHTML = '<div class="coc-tree"><div class="coc-level">' + roots.map(renderNode).join('') + '</div></div>';
+}
+
 async function refreshAll() {
   await loadSettings();
   await loadWeather();
@@ -1105,6 +1251,7 @@ function computePanes() {
   if (widgetFlags.events) list.push({ id: 'eventsPane', title: 'Latest Events' });
   if (widgetFlags.uniform && hasUniform()) list.push({ id: 'uniformPane', title: 'Uniform' });
   if (widgetFlags.instagram && lastInstagramEmbedCode) list.push({ id: 'socialsPane', title: 'Follow Us' });
+  if (widgetFlags.chainOfCommand) list.push({ id: 'cocPane', title: 'Chain of Command' });
   customWidgets.forEach(w => {
     if (w.enabled && (w.embedCode || '').trim()) {
       list.push({ id: 'cw-' + w.id, title: (w.title || '').trim() || (w.name || '').trim() || 'Widget' });

@@ -236,12 +236,202 @@
 
   .hint { color: var(--muted); font-size: 13px; margin: 6px 0 0; line-height: 1.35; }
 
-  .event-row, .widget-row {
+  .event-row, .widget-row, .person-row {
     border: 1px solid var(--border);
     border-radius: 4px;
     padding: 12px;
     margin-top: 10px;
     background: var(--white);
+  }
+  .person-row .person-top {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  .person-row .person-rank-wrap {
+    flex: 0 0 140px;
+    min-width: 0;
+  }
+  .person-row .person-name-wrap {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .person-row .person-photo-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-top: 10px;
+  }
+  .person-row .person-photo-preview {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: var(--light-blue);
+    border: 2px solid var(--border);
+    flex-shrink: 0;
+  }
+  .person-row .person-photo-preview.empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .person-row .person-photo-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+  .person-row .person-photo-actions input[type=file] {
+    font-size: 13px;
+    padding: 6px 0;
+    border: none;
+    background: transparent;
+  }
+  .person-row .person-reports {
+    margin-top: 8px;
+  }
+  #cocPreviewOverlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(7, 21, 37, 0.55);
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  #cocPreviewOverlay.open { display: flex; }
+  #cocPreviewCard {
+    background: var(--white);
+    border-radius: 6px;
+    max-width: 960px;
+    width: 100%;
+    max-height: 90vh;
+    overflow: auto;
+    box-shadow: 0 12px 40px rgba(7, 21, 37, 0.25);
+    border: 1px solid var(--border);
+  }
+  #cocPreviewCard header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: var(--raf-navy);
+    color: var(--white);
+    border-bottom: 3px solid var(--raf-blue);
+  }
+  #cocPreviewCard header h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  #cocPreviewCard .preview-body {
+    padding: 16px;
+    min-height: 200px;
+  }
+  #cocPreviewCard .preview-close {
+    background: transparent;
+    color: var(--white);
+    border: 1px solid rgba(255,255,255,0.4);
+    margin: 0;
+    min-height: 36px;
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  #cocPreviewCard .preview-close:hover {
+    background: var(--raf-blue);
+  }
+  /* Org chart preview (same styles used on dashboard) */
+  .coc-tree {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    overflow-x: auto;
+    padding: 8px 0 16px;
+  }
+  .coc-level {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 16px 24px;
+    width: 100%;
+  }
+  .coc-node-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .coc-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    min-width: 100px;
+    max-width: 140px;
+  }
+  .coc-photo {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: var(--light-blue);
+    border: 3px solid var(--raf-navy);
+    margin-bottom: 6px;
+  }
+  .coc-photo.placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--raf-navy);
+    font-weight: 700;
+    font-size: 18px;
+  }
+  .coc-rank {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--raf-blue);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    line-height: 1.2;
+  }
+  .coc-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--deep-navy);
+    line-height: 1.25;
+    margin-top: 2px;
+  }
+  .coc-children {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 16px 24px;
+    margin-top: 18px;
+    padding-top: 12px;
+    border-top: 2px solid var(--border);
+    position: relative;
+  }
+  .coc-children::before {
+    content: '';
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    width: 2px;
+    height: 10px;
+    background: var(--border);
+  }
+  .coc-empty {
+    color: var(--muted);
+    text-align: center;
+    padding: 24px;
+    font-size: 14px;
   }
 
   button {
@@ -501,12 +691,31 @@
   <label class="check"><input type="checkbox" id="w-events"> Events</label>
   <label class="check"><input type="checkbox" id="w-uniform"> Uniform</label>
   <label class="check"><input type="checkbox" id="w-instagram"> Instagram</label>
+  <label class="check"><input type="checkbox" id="w-chainOfCommand"> Chain of Command</label>
 </div>
 <label for="instagramEmbedCode">Instagram embed</label>
 <textarea id="instagramEmbedCode" rows="2" placeholder="Script + div, or blank to hide"></textarea>
 <label>Extra embeds</label>
 <div id="customWidgets"></div>
 <button class="add" type="button" onclick="addWidget()">+ Add embed</button>
+
+<h2>Chain of Command</h2>
+<p class="hint">Build the hierarchy: pick a rank, enter a name, optionally add a photo, and choose who they report to. The display builds the tree automatically.</p>
+<div id="cocPeople"></div>
+<div class="actions">
+  <button class="add" type="button" onclick="addPerson()">+ Add person</button>
+  <button class="add" type="button" onclick="previewChainOfCommand()">Test preview</button>
+</div>
+
+<div id="cocPreviewOverlay">
+  <div id="cocPreviewCard">
+    <header>
+      <h3>Chain of Command preview</h3>
+      <button type="button" class="preview-close" onclick="closeCocPreview()">Close</button>
+    </header>
+    <div class="preview-body" id="cocPreviewBody"></div>
+  </div>
+</div>
 
 <h2>Banner</h2>
 <label class="check"><input type="checkbox" id="importantInfoEnabled"> Show banner on display</label>
@@ -681,6 +890,205 @@ function addEvent() {
 }
 function addWidget() { document.getElementById('customWidgets').appendChild(widgetRow()); }
 
+const RAFAC_RANKS = [
+  { group: 'Commissioned Officers', items: [
+    { value: 'Gp Capt', label: 'Group Captain (Gp Capt)' },
+    { value: 'Wg Cdr', label: 'Wing Commander (Wg Cdr)' },
+    { value: 'Sqn Ldr', label: 'Squadron Leader (Sqn Ldr)' },
+    { value: 'Flt Lt', label: 'Flight Lieutenant (Flt Lt)' },
+    { value: 'Fg Off', label: 'Flying Officer (Fg Off)' },
+    { value: 'Plt Off', label: 'Pilot Officer (Plt Off)' },
+    { value: 'APO', label: 'Acting Pilot Officer (APO)' }
+  ]},
+  { group: 'Adult SNCO / Civilian', items: [
+    { value: 'WO', label: 'Warrant Officer (WO / WO ATC)' },
+    { value: 'FS', label: 'Flight Sergeant (FS / FS ATC)' },
+    { value: 'Sgt', label: 'Sergeant (Sgt / Sgt ATC)' },
+    { value: 'Civilian', label: 'Civilian Staff / Civilian Instructor / Padre' }
+  ]},
+  { group: 'Cadet Ranks', items: [
+    { value: 'CWO', label: 'Cadet Warrant Officer (CWO)' },
+    { value: 'Cdt FS', label: 'Cadet Flight Sergeant (Cdt FS)' },
+    { value: 'Cdt Sgt', label: 'Cadet Sergeant (Cdt Sgt)' },
+    { value: 'Cdt Cpl', label: 'Cadet Corporal (Cdt Cpl)' },
+    { value: 'Cdt', label: 'Cadet (Cdt)' }
+  ]}
+];
+
+function rankOptionsHtml(selected) {
+  let html = '<option value="">— Rank —</option>';
+  RAFAC_RANKS.forEach(g => {
+    html += '<optgroup label="' + g.group + '">';
+    g.items.forEach(r => {
+      html += '<option value="' + r.value + '"' + (selected === r.value ? ' selected' : '') + '>' + r.label + '</option>';
+    });
+    html += '</optgroup>';
+  });
+  return html;
+}
+
+function newPersonId() { return 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
+function personRow(p = {}) {
+  const div = document.createElement('div');
+  div.className = 'person-row';
+  div.dataset.id = p.id || newPersonId();
+  const hasPhoto = !!(p.photo && p.photo.startsWith('data:image/'));
+  div.innerHTML =
+    '<div class="person-top">' +
+      '<div class="person-rank-wrap"><label>Rank</label><select class="p-rank">' + rankOptionsHtml(p.rank || '') + '</select></div>' +
+      '<div class="person-name-wrap"><label>Name</label><input class="p-name" placeholder="Full name"></div>' +
+    '</div>' +
+    '<div class="person-photo-row">' +
+      (hasPhoto
+        ? '<img class="person-photo-preview" alt="" src="' + p.photo.replace(/"/g, '&quot;') + '">'
+        : '<div class="person-photo-preview empty">Photo</div>') +
+      '<div class="person-photo-actions">' +
+        '<input type="file" class="p-photo-file" accept="image/*">' +
+        '<button type="button" class="danger p-photo-clear" style="margin-top:0;min-height:32px;padding:4px 10px;font-size:11px;' + (hasPhoto ? '' : 'display:none') + '">Remove photo</button>' +
+      '</div>' +
+    '</div>' +
+    '<div class="person-reports"><label>Reports to</label><select class="p-reports"></select></div>' +
+    '<button type="button" class="danger" onclick="this.parentElement.remove(); refreshAllReportsTo();">Remove</button>';
+  div.querySelector('.p-name').value = p.name || '';
+  if (hasPhoto) div.dataset.photo = p.photo;
+  const fileInput = div.querySelector('.p-photo-file');
+  fileInput.addEventListener('change', function() {
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+    resizeImageToDataUrl(file, 160, 0.82).then(dataUrl => {
+      div.dataset.photo = dataUrl;
+      const prev = div.querySelector('.person-photo-preview');
+      const img = document.createElement('img');
+      img.className = 'person-photo-preview';
+      img.alt = '';
+      img.src = dataUrl;
+      prev.replaceWith(img);
+      div.querySelector('.p-photo-clear').style.display = '';
+      fileInput.value = '';
+    }).catch(() => { fileInput.value = ''; });
+  });
+  div.querySelector('.p-photo-clear').addEventListener('click', function() {
+    delete div.dataset.photo;
+    const prev = div.querySelector('.person-photo-preview');
+    const empty = document.createElement('div');
+    empty.className = 'person-photo-preview empty';
+    empty.textContent = 'Photo';
+    prev.replaceWith(empty);
+    this.style.display = 'none';
+  });
+  div.querySelector('.p-rank').addEventListener('change', refreshAllReportsTo);
+  div.querySelector('.p-name').addEventListener('input', function() {
+    clearTimeout(div._nameTimer);
+    div._nameTimer = setTimeout(refreshAllReportsTo, 300);
+  });
+  return div;
+}
+
+function addPerson() {
+  document.getElementById('cocPeople').appendChild(personRow());
+  refreshAllReportsTo();
+}
+
+function collectPeople() {
+  return [...document.querySelectorAll('#cocPeople .person-row')].map(r => ({
+    id: r.dataset.id,
+    rank: r.querySelector('.p-rank').value,
+    name: r.querySelector('.p-name').value.trim(),
+    photo: r.dataset.photo || '',
+    reportsTo: r.querySelector('.p-reports').value || ''
+  })).filter(p => p.name);
+}
+
+function refreshAllReportsTo() {
+  const rows = [...document.querySelectorAll('#cocPeople .person-row')];
+  const options = rows.map(r => {
+    const id = r.dataset.id;
+    const rank = r.querySelector('.p-rank').value;
+    const name = r.querySelector('.p-name').value.trim() || '(unnamed)';
+    return { id, label: (rank ? rank + ' ' : '') + name };
+  });
+  rows.forEach(r => {
+    const sel = r.querySelector('.p-reports');
+    const current = sel.value;
+    const myId = r.dataset.id;
+    sel.innerHTML = '<option value="">— Top of chain —</option>' +
+      options.filter(o => o.id !== myId).map(o =>
+        '<option value="' + o.id + '"' + (current === o.id ? ' selected' : '') + '>' + o.label + '</option>'
+      ).join('');
+  });
+}
+
+function resizeImageToDataUrl(file, maxSize, quality) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('read failed'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('image failed'));
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if (w > maxSize || h > maxSize) {
+          if (w >= h) { h = Math.round(h * maxSize / w); w = maxSize; }
+          else { w = Math.round(w * maxSize / h); h = maxSize; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        try {
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        } catch (e) { reject(e); }
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function buildCocTreeHtml(people) {
+  if (!people || !people.length) {
+    return '<div class="coc-empty">No people added yet. Add ranks and names above, then preview.</div>';
+  }
+  const byId = {};
+  people.forEach(p => { byId[p.id] = { ...p, children: [] }; });
+  const roots = [];
+  people.forEach(p => {
+    const node = byId[p.id];
+    if (p.reportsTo && byId[p.reportsTo] && p.reportsTo !== p.id) {
+      byId[p.reportsTo].children.push(node);
+    } else {
+      roots.push(node);
+    }
+  });
+  function renderNode(node) {
+    const initials = (node.name || '?').split(/\s+/).map(s => s[0] || '').join('').slice(0, 2).toUpperCase();
+    const photoHtml = node.photo
+      ? '<img class="coc-photo" src="' + node.photo.replace(/"/g, '&quot;') + '" alt="">'
+      : '<div class="coc-photo placeholder">' + initials + '</div>';
+    let html = '<div class="coc-node-wrap"><div class="coc-node">' +
+      photoHtml +
+      '<div class="coc-rank">' + (node.rank || '') + '</div>' +
+      '<div class="coc-name">' + (node.name || '') + '</div>' +
+      '</div>';
+    if (node.children && node.children.length) {
+      html += '<div class="coc-children">' + node.children.map(renderNode).join('') + '</div>';
+    }
+    html += '</div>';
+    return html;
+  }
+  return '<div class="coc-tree"><div class="coc-level">' + roots.map(renderNode).join('') + '</div></div>';
+}
+
+function previewChainOfCommand() {
+  const people = collectPeople();
+  document.getElementById('cocPreviewBody').innerHTML = buildCocTreeHtml(people);
+  document.getElementById('cocPreviewOverlay').classList.add('open');
+}
+function closeCocPreview() {
+  document.getElementById('cocPreviewOverlay').classList.remove('open');
+}
+
 function collectPayload() {
   return {
     squadronName: document.getElementById('squadronName').value,
@@ -713,7 +1121,8 @@ function collectPayload() {
       news: document.getElementById('w-news').checked,
       events: document.getElementById('w-events').checked,
       instagram: document.getElementById('w-instagram').checked,
-      uniform: document.getElementById('w-uniform').checked
+      uniform: document.getElementById('w-uniform').checked,
+      chainOfCommand: document.getElementById('w-chainOfCommand').checked
     },
     customWidgets: [...document.querySelectorAll('.widget-row')].map(r => ({
       id: r.dataset.id,
@@ -739,6 +1148,9 @@ function collectPayload() {
         title: r.querySelector('.un-title').value,
         uniform: r.querySelector('.un-uniform').value
       }))
+    },
+    chainOfCommand: {
+      people: collectPeople()
     }
   };
 }
@@ -812,6 +1224,7 @@ async function load() {
   ['leaderboard', 'news', 'events', 'instagram', 'uniform'].forEach(k => {
     document.getElementById('w-' + k).checked = wf[k] !== false;
   });
+  document.getElementById('w-chainOfCommand').checked = !!wf.chainOfCommand;
   const cw = document.getElementById('customWidgets'); cw.innerHTML = '';
   (data.customWidgets || []).forEach(w => cw.appendChild(widgetRow(w)));
   const info = data.importantInfo || {};
@@ -824,6 +1237,17 @@ async function load() {
   ((data.uniform && data.uniform.items) || []).slice()
     .sort((a, b) => String(a.date).localeCompare(String(b.date)))
     .forEach(u => uc.appendChild(uniformRow(u)));
+  const coc = document.getElementById('cocPeople'); coc.innerHTML = '';
+  (((data.chainOfCommand && data.chainOfCommand.people) || [])).forEach(p => coc.appendChild(personRow(p)));
+  refreshAllReportsTo();
+  // Restore reportsTo after all options exist
+  (((data.chainOfCommand && data.chainOfCommand.people) || [])).forEach(p => {
+    const row = [...document.querySelectorAll('#cocPeople .person-row')].find(r => r.dataset.id === p.id);
+    if (row && p.reportsTo) {
+      const sel = row.querySelector('.p-reports');
+      if ([...sel.options].some(o => o.value === p.reportsTo)) sel.value = p.reportsTo;
+    }
+  });
   savedSnapshot = JSON.stringify(collectPayload());
   updateForceButton();
   euVisibleLimit = EU_DEFAULT;
