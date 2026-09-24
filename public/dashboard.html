@@ -662,17 +662,53 @@
   };
 
   function schedule(total) {
-    const segs = [];
-    let p = 0;
-    while (p < 1) {
-      let step = Math.min(1 - p, rand(.06, .28));
-      if (1 - p - step < .05) step = 1 - p;
-      segs.push({ move: true, w: rand(.6, 1.6), from: p, to: p + step });
-      p += step;
-      if (p < 1 && Math.random() < .7) segs.push({ move: false, w: rand(.3, 2), from: p, to: p });
+    // Build a path that moves between random fill points and pauses at them
+    const stops = [0];
+    const nStops = Math.floor(rand(3, 7)); // 3–6 intermediate holds
+    for (let i = 0; i < nStops; i++) stops.push(rand(0.08, 0.92));
+    stops.push(1);
+    stops.sort((a, b) => a - b);
+    // Deduplicate very close points
+    const points = [0];
+    for (let i = 1; i < stops.length; i++) {
+      if (stops[i] - points[points.length - 1] >= 0.04) points.push(stops[i]);
+      else if (i === stops.length - 1) points[points.length - 1] = 1;
     }
-    const sum = segs.reduce((a, s) => a + s.w, 0);
-    segs.forEach(s => { s.ms = s.w / sum * total; });
+    if (points[points.length - 1] < 1) points.push(1);
+
+    const segs = [];
+    for (let i = 0; i < points.length - 1; i++) {
+      const from = points[i], to = points[i + 1];
+      // Move: duration weight varies so some advances are snappy, some slow
+      segs.push({ move: true, w: rand(0.5, 2.2), from, to });
+      // Pause at this point (always, except we may skip a short hold near the end)
+      if (to < 0.98) {
+        // Mix of short ticks and longer "stuck" pauses
+        const longHold = Math.random() < 0.35;
+        segs.push({
+          move: false,
+          w: longHold ? rand(1.2, 3.5) : rand(0.25, 1.1),
+          from: to,
+          to: to
+        });
+      }
+    }
+    // Rare extra stutter near the end
+    if (Math.random() < 0.45) {
+      const lastMove = segs.filter(s => s.move).pop();
+      if (lastMove && lastMove.to > 0.7) {
+        const mid = lastMove.from + (lastMove.to - lastMove.from) * rand(0.4, 0.75);
+        const idx = segs.indexOf(lastMove);
+        segs.splice(idx, 1,
+          { move: true, w: rand(0.4, 1.2), from: lastMove.from, to: mid },
+          { move: false, w: rand(0.8, 2.5), from: mid, to: mid },
+          { move: true, w: rand(0.4, 1.2), from: mid, to: lastMove.to }
+        );
+      }
+    }
+
+    const sum = segs.reduce((a, s) => a + s.w, 0) || 1;
+    segs.forEach(s => { s.ms = Math.max(40, s.w / sum * total); });
     return segs;
   }
 
@@ -747,7 +783,7 @@
     color.style.clipPath = 'inset(100% 0 0 0)';
     color.style.opacity = 1;
     void color.offsetWidth;
-    await run(schedule(rand(5, 15) * 1000));             // random 5-15s fake load
+    await run(schedule(rand(6, 18) * 1000));             // random 6-18s; pauses at random fill points
 
     logo.classList.add('pulse'); await sleep(850);       // 2nd pulse
     logo.classList.remove('pulse');
