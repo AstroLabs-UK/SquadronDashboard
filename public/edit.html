@@ -347,21 +347,43 @@
   #cocPreviewCard .preview-close:hover {
     background: var(--raf-blue);
   }
-  /* Org chart preview (same styles used on dashboard) */
-  .coc-tree {
+  /* Org chart preview — SVG connectors drawn after layout */
+  .coc-viewport {
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0;
-    overflow-x: auto;
-    padding: 8px 0 16px;
+    align-items: flex-start;
+    justify-content: center;
+    overflow: auto;
+    max-height: 70vh;
+    padding: 8px 0;
+  }
+  .coc-tree {
+    position: relative;
+    display: inline-block;
+    padding: 12px 16px;
+  }
+  .coc-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    overflow: visible;
+  }
+  .coc-svg path {
+    fill: none;
+    stroke: var(--raf-navy);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.55;
   }
   .coc-level {
     display: flex;
     justify-content: center;
-    flex-wrap: wrap;
-    gap: 16px 24px;
-    width: 100%;
+    flex-wrap: nowrap;
+    gap: 24px;
+    position: relative;
+    z-index: 1;
   }
   .coc-node-wrap {
     display: flex;
@@ -375,6 +397,8 @@
     text-align: center;
     min-width: 100px;
     max-width: 140px;
+    position: relative;
+    z-index: 1;
   }
   .coc-photo {
     width: 64px;
@@ -411,21 +435,11 @@
   .coc-children {
     display: flex;
     justify-content: center;
-    flex-wrap: wrap;
-    gap: 16px 24px;
-    margin-top: 18px;
-    padding-top: 12px;
-    border-top: 2px solid var(--border);
+    flex-wrap: nowrap;
+    gap: 24px;
+    margin-top: 36px;
     position: relative;
-  }
-  .coc-children::before {
-    content: '';
-    position: absolute;
-    top: -10px;
-    left: 50%;
-    width: 2px;
-    height: 10px;
-    background: var(--border);
+    z-index: 1;
   }
   .coc-empty {
     color: var(--muted);
@@ -1077,13 +1091,50 @@ function buildCocTreeHtml(people) {
     html += '</div>';
     return html;
   }
-  return '<div class="coc-tree"><div class="coc-level">' + roots.map(renderNode).join('') + '</div></div>';
+  return '<div class="coc-viewport"><div class="coc-tree" id="cocPreviewTree">' +
+    '<svg class="coc-svg" id="cocPreviewSvg" aria-hidden="true"></svg>' +
+    '<div class="coc-level">' + roots.map(renderNode).join('') + '</div>' +
+    '</div></div>';
+}
+
+function drawCocPreviewLines() {
+  const tree = document.getElementById('cocPreviewTree');
+  const svg = document.getElementById('cocPreviewSvg');
+  if (!tree || !svg) return;
+  const treeRect = tree.getBoundingClientRect();
+  const wraps = [...tree.querySelectorAll('.coc-node-wrap')];
+  const paths = [];
+  wraps.forEach(wrap => {
+    const parentNode = wrap.querySelector(':scope > .coc-node');
+    const childrenRow = wrap.querySelector(':scope > .coc-children');
+    if (!parentNode || !childrenRow) return;
+    const childNodes = [...childrenRow.querySelectorAll(':scope > .coc-node-wrap > .coc-node')];
+    if (!childNodes.length) return;
+    const pr = parentNode.getBoundingClientRect();
+    const px = pr.left + pr.width / 2 - treeRect.left;
+    const py = pr.bottom - treeRect.top;
+    childNodes.forEach(child => {
+      const cr = child.getBoundingClientRect();
+      const cx = cr.left + cr.width / 2 - treeRect.left;
+      const cy = cr.top - treeRect.top;
+      const midY = (py + cy) / 2;
+      paths.push(
+        'M ' + px.toFixed(1) + ' ' + py.toFixed(1) +
+        ' V ' + midY.toFixed(1) +
+        ' H ' + cx.toFixed(1) +
+        ' V ' + cy.toFixed(1)
+      );
+    });
+  });
+  svg.setAttribute('viewBox', '0 0 ' + Math.max(1, tree.offsetWidth) + ' ' + Math.max(1, tree.offsetHeight));
+  svg.innerHTML = paths.map(d => '<path d="' + d + '"/>').join('');
 }
 
 function previewChainOfCommand() {
   const people = collectPeople();
   document.getElementById('cocPreviewBody').innerHTML = buildCocTreeHtml(people);
   document.getElementById('cocPreviewOverlay').classList.add('open');
+  requestAnimationFrame(() => requestAnimationFrame(drawCocPreviewLines));
 }
 function closeCocPreview() {
   document.getElementById('cocPreviewOverlay').classList.remove('open');

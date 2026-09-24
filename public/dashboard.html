@@ -182,23 +182,52 @@
   .embed-pane .insta-wrap iframe { display: block; width: 100%; height: 100%; border: none; }
 
   /* Chain of Command org tree */
-  #cocPane { overflow: auto; }
-  #cocPane .coc-tree {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0;
+  #cocPane {
+    overflow: hidden;
+    position: relative;
     flex: 1;
     min-height: 0;
-    overflow: auto;
-    padding: 4px 0 8px;
+  }
+  #cocPane .coc-viewport {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  #cocPane .coc-scale {
+    transform-origin: center center;
+    will-change: transform;
+  }
+  #cocPane .coc-tree {
+    position: relative;
+    display: inline-block;
+    padding: 12px 16px;
+  }
+  #cocPane .coc-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    overflow: visible;
+  }
+  #cocPane .coc-svg path {
+    fill: none;
+    stroke: var(--raf-navy);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.55;
   }
   #cocPane .coc-level {
     display: flex;
     justify-content: center;
-    flex-wrap: wrap;
-    gap: 12px 20px;
-    width: 100%;
+    flex-wrap: nowrap;
+    gap: 28px;
+    position: relative;
+    z-index: 1;
   }
   #cocPane .coc-node-wrap {
     display: flex;
@@ -210,8 +239,10 @@
     flex-direction: column;
     align-items: center;
     text-align: center;
-    min-width: 90px;
-    max-width: 130px;
+    min-width: 96px;
+    max-width: 140px;
+    position: relative;
+    z-index: 1;
   }
   #cocPane .coc-photo {
     width: 72px;
@@ -248,21 +279,11 @@
   #cocPane .coc-children {
     display: flex;
     justify-content: center;
-    flex-wrap: wrap;
-    gap: 12px 20px;
-    margin-top: 16px;
-    padding-top: 12px;
-    border-top: 2px solid var(--border);
+    flex-wrap: nowrap;
+    gap: 28px;
+    margin-top: 36px;
     position: relative;
-  }
-  #cocPane .coc-children::before {
-    content: '';
-    position: absolute;
-    top: -10px;
-    left: 50%;
-    width: 2px;
-    height: 10px;
-    background: var(--border);
+    z-index: 1;
   }
   #cocPane .coc-empty {
     color: var(--muted);
@@ -273,11 +294,15 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    height: 100%;
   }
-  body.compact #cocPane .coc-photo { width: 48px; height: 48px; border-width: 2px; }
+  body.compact #cocPane .coc-photo { width: 52px; height: 52px; border-width: 2px; }
   body.compact #cocPane .coc-photo.placeholder { font-size: 14px; }
   body.compact #cocPane .coc-rank { font-size: 10px; }
   body.compact #cocPane .coc-name { font-size: 12px; }
+  body.compact #cocPane .coc-children { margin-top: 28px; gap: 18px; }
+  body.compact #cocPane .coc-level { gap: 18px; }
+  body.compact #cocPane .coc-node { min-width: 72px; max-width: 110px; }
 
   #noWidgetsPane { align-items: center; justify-content: center; text-align: center; color: var(--muted); font-size: 16px; }
 
@@ -1329,10 +1354,77 @@ function renderUniform() {
 }
 const hasUniform = () => latestUniform.thisWeek.length + latestUniform.nextWeek.length > 0;
 
+let cocResizeObs = null;
+let cocScaleRaf = 0;
+
+function layoutCocTree() {
+  const pane = document.getElementById('cocPane');
+  const scaleEl = document.getElementById('cocScale');
+  const tree = document.getElementById('cocTreeInner');
+  const svg = document.getElementById('cocSvg');
+  if (!pane || !scaleEl || !tree || !svg) return;
+
+  // Reset scale to measure natural size
+  scaleEl.style.transform = 'scale(1)';
+  const paneW = pane.clientWidth;
+  const paneH = pane.clientHeight;
+  if (paneW < 40 || paneH < 40) return;
+
+  // Draw connectors in unscaled coordinates
+  const treeRect = tree.getBoundingClientRect();
+  const nodes = [...tree.querySelectorAll('.coc-node')];
+  const wraps = [...tree.querySelectorAll('.coc-node-wrap')];
+  const paths = [];
+
+  wraps.forEach(wrap => {
+    const parentNode = wrap.querySelector(':scope > .coc-node');
+    const childrenRow = wrap.querySelector(':scope > .coc-children');
+    if (!parentNode || !childrenRow) return;
+    const childNodes = [...childrenRow.querySelectorAll(':scope > .coc-node-wrap > .coc-node')];
+    if (!childNodes.length) return;
+
+    const pr = parentNode.getBoundingClientRect();
+    const px = pr.left + pr.width / 2 - treeRect.left;
+    const py = pr.bottom - treeRect.top;
+
+    childNodes.forEach(child => {
+      const cr = child.getBoundingClientRect();
+      const cx = cr.left + cr.width / 2 - treeRect.left;
+      const cy = cr.top - treeRect.top;
+      // Elbow: down from parent, horizontal to child x, down into child
+      const midY = (py + cy) / 2;
+      paths.push(
+        'M ' + px.toFixed(1) + ' ' + py.toFixed(1) +
+        ' V ' + midY.toFixed(1) +
+        ' H ' + cx.toFixed(1) +
+        ' V ' + cy.toFixed(1)
+      );
+    });
+  });
+
+  svg.setAttribute('viewBox', '0 0 ' + Math.max(1, tree.offsetWidth) + ' ' + Math.max(1, tree.offsetHeight));
+  svg.innerHTML = paths.map(d => '<path d="' + d + '"/>').join('');
+
+  // Fit whole tree into the pane with a little padding
+  const naturalW = tree.offsetWidth;
+  const naturalH = tree.offsetHeight;
+  if (naturalW < 1 || naturalH < 1) return;
+  const pad = 16;
+  const scale = Math.min(1, (paneW - pad) / naturalW, (paneH - pad) / naturalH);
+  scaleEl.style.transform = 'scale(' + scale.toFixed(4) + ')';
+}
+
+function scheduleCocLayout() {
+  cancelAnimationFrame(cocScaleRaf);
+  cocScaleRaf = requestAnimationFrame(() => requestAnimationFrame(layoutCocTree));
+}
+
 function renderChainOfCommand() {
   const host = document.getElementById('cocTree');
+  if (!host) return;
   const people = (latestChainOfCommand && latestChainOfCommand.people) || [];
   if (!people.length) {
+    if (cocResizeObs) { try { cocResizeObs.disconnect(); } catch (e) {} cocResizeObs = null; }
     host.innerHTML = '<div class="coc-empty">No chain of command set up yet.<br>Add people on the /edit page.</div>';
     return;
   }
@@ -1352,7 +1444,7 @@ function renderChainOfCommand() {
     const photoHtml = node.photo
       ? '<img class="coc-photo" src="' + String(node.photo).replace(/"/g, '&quot;') + '" alt="">'
       : '<div class="coc-photo placeholder">' + esc(initials) + '</div>';
-    let html = '<div class="coc-node-wrap"><div class="coc-node">' +
+    let html = '<div class="coc-node-wrap" data-id="' + esc(node.id) + '"><div class="coc-node">' +
       photoHtml +
       '<div class="coc-rank">' + esc(node.rank || '') + '</div>' +
       '<div class="coc-name">' + esc(node.name || '') + '</div>' +
@@ -1363,7 +1455,23 @@ function renderChainOfCommand() {
     html += '</div>';
     return html;
   }
-  host.innerHTML = '<div class="coc-tree"><div class="coc-level">' + roots.map(renderNode).join('') + '</div></div>';
+  host.innerHTML =
+    '<div class="coc-viewport"><div class="coc-scale" id="cocScale">' +
+    '<div class="coc-tree" id="cocTreeInner">' +
+    '<svg class="coc-svg" id="cocSvg" aria-hidden="true"></svg>' +
+    '<div class="coc-level">' + roots.map(renderNode).join('') + '</div>' +
+    '</div></div></div>';
+
+  scheduleCocLayout();
+
+  const pane = document.getElementById('cocPane');
+  if (pane && typeof ResizeObserver !== 'undefined') {
+    if (cocResizeObs) { try { cocResizeObs.disconnect(); } catch (e) {} }
+    cocResizeObs = new ResizeObserver(() => scheduleCocLayout());
+    cocResizeObs.observe(pane);
+  }
+  // Re-layout when the pane becomes active (rotation)
+  window.addEventListener('resize', scheduleCocLayout);
 }
 
 async function refreshAll() {
@@ -1577,6 +1685,7 @@ function showPane(i) {
   renderStamp(p.id);
   if (p.id === 'eventsPane') startEventsRotation();
   else clearInterval(eventsTimer);
+  if (p.id === 'cocPane') scheduleCocLayout();
 }
 
 // Every pane gets 10s, except events which gets 10s per page of events
