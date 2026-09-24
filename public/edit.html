@@ -537,7 +537,20 @@
     box-shadow: 0 0 0 2px rgba(0, 102, 161, 0.2);
     background: var(--white);
   }
-  .coc-chip.dragging { opacity: 0.5; }
+  .coc-chip.dragging { opacity: 0.35; }
+  .coc-chip { touch-action: none; }
+  .coc-person-float {
+    position: fixed;
+    z-index: 3100;
+    pointer-events: none;
+    opacity: 0.92;
+    box-shadow: 0 10px 24px rgba(7, 21, 37, 0.22);
+    border-radius: 8px;
+    transform: scale(1.05);
+  }
+  .coc-person-float .coc-chip { margin: 0; }
+  body.coc-dragging-person { overflow: hidden; touch-action: none; }
+  body.coc-dragging-person #cocBuilder { touch-action: none; }
   .coc-chip-photo {
     width: 40px;
     height: 40px;
@@ -577,7 +590,6 @@
     border-top: 1px solid var(--border);
   }
   .coc-settings .person-photo-row { margin-top: 8px; }
-
 
   /* Level arrows (mobile) + sheet editor */
   .coc-level-arrows {
@@ -1490,6 +1502,19 @@ function cocRemovePerson(id) {
   updateCocEmptyHint();
 }
 
+function applyRankLevelMatch(personId, newRank) {
+  if (!newRank) return false;
+  const others = cocPeople.filter(p => p.id !== personId && (p.rank || '') === newRank);
+  if (!others.length) return false;
+  // Use the level of the first matching peer (all same rank should share a level ideally)
+  const targetLevel = Math.max(0, parseInt(others[0].level, 10) || 0);
+  const me = cocPeople.find(p => p.id === personId);
+  if (!me) return false;
+  if (me.level === targetLevel) return false;
+  me.level = targetLevel;
+  return true;
+}
+
 function cocMoveToLevel(id, level) {
   const p = cocPeople.find(x => x.id === id);
   if (!p) return;
@@ -1509,7 +1534,7 @@ function chipHtml(p) {
   const photo = p.photo
     ? '<img class="coc-chip-photo" src="' + String(p.photo).replace(/"/g, '&quot;') + '" alt="">'
     : '<div class="coc-chip-photo ph" style="background:' + (p.color || PASTEL_COLORS[0]) + '">' + initials + '</div>';
-  return '<div class="coc-chip' + (p.id === cocSelectedId ? ' selected' : '') + '" draggable="true" data-id="' + p.id + '">' +
+  return '<div class="coc-chip' + (p.id === cocSelectedId ? ' selected' : '') + '" data-id="' + p.id + '">' +
     photo +
     '<div class="coc-chip-rank">' + (p.rank || '—') + '</div>' +
     '<div class="coc-chip-name">' + (p.name || 'Unnamed') + '</div>' +
@@ -1572,7 +1597,27 @@ function bindSettingsPanel(panel) {
   });
   panel.querySelector('.p-rank')?.addEventListener('change', function() {
     const p = cocPeople.find(x => x.id === id);
-    if (p) p.rank = this.value;
+    if (!p) return;
+    p.rank = this.value;
+    const moved = applyRankLevelMatch(id, this.value);
+    if (moved) {
+      // Keep sheet open on mobile; refresh hierarchy under it
+      sortPeopleInLevels();
+      if (!isCocMobile()) {
+        cocFlushSettings();
+        renderCocBuilder();
+      } else {
+        // Update sheet title / keep panel; re-render builder behind sheet
+        const keepId = cocSelectedId;
+        const sheetOpen = document.getElementById('cocPersonSheet')?.classList.contains('open');
+        cocFlushSettings();
+        renderCocBuilder();
+        if (sheetOpen && keepId) {
+          // Re-open sheet content after re-render
+          openCocPersonSheet(keepId);
+        }
+      }
+    }
   });
 
   panel.querySelectorAll('.pastel-swatch').forEach(btn => {
@@ -1703,7 +1748,6 @@ function cocReorderLevel(fromLevel, toLevel, placeAfter) {
   renderCocBuilder();
 }
 
-
 function isCocMobile() {
   return window.matchMedia && window.matchMedia('(max-width: 720px)').matches;
 }
@@ -1804,20 +1848,108 @@ function renderCocBuilder() {
   }
   host.innerHTML = html;
 
-  // Click / drag people
+  // Click / drag people (pointer-based so mobile does not scroll the page while dragging)
   host.querySelectorAll('.coc-chip').forEach(chip => {
+    let dragMoved = false;
+    let pointerDown = false;
+
     chip.addEventListener('click', function(e) {
+      if (dragMoved) { e.preventDefault(); e.stopPropagation(); return; }
       e.stopPropagation();
       cocSelect(this.dataset.id);
     });
-    chip.addEventListener('dragstart', function(e) {
-      e.dataTransfer.setData('text/plain', 'person:' + this.dataset.id);
-      e.dataTransfer.effectAllowed = 'move';
-      this.classList.add('dragging');
-    });
-    chip.addEventListener('dragend', function() {
-      this.classList.remove('dragging');
-      host.querySelectorAll('.coc-builder-level.drag-over').forEach(el => el.classList.remove('drag-over'));
+
+    chip.addEventListener('pointerdown', function(e) {
+      if (e.button !== 0 && e.pointerType !== 'touch') return;
+      // Allow text selection? no — start potential drag
+      pointerDown = true;
+      dragMoved = false;
+      const id = this.dataset.id;
+      const startX = e.clientX, startY = e.clientY;
+      const rect = this.getBoundingClientRect();
+      let float = null;
+      let active = false;
+      let scrollAcc = 0;
+
+      const EDGE = 0.10; // top/bottom 10% of viewport
+      const SCROLL_SPEED = 6; // px per frame near edge (slow but usable)
+
+      const cleanup = () => {
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        document.removeEventListener('pointercancel', onUp);
+        document.body.classList.remove('coc-dragging-person');
+        host.querySelectorAll('.coc-builder-level.drag-over').forEach(el => el.classList.remove('drag-over'));
+        if (float) float.remove();
+        chip.classList.remove('dragging');
+        pointerDown = false;
+      };
+
+      const onMove = (ev) => {
+        if (!pointerDown) return;
+        const dx = ev.clientX - startX, dy = ev.clientY - startY;
+        if (!active && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+          active = true;
+          dragMoved = true;
+          chip.classList.add('dragging');
+          document.body.classList.add('coc-dragging-person');
+          float = document.createElement('div');
+          float.className = 'coc-person-float';
+          float.style.width = rect.width + 'px';
+          float.appendChild(chip.cloneNode(true));
+          document.body.appendChild(float);
+          try { chip.setPointerCapture(ev.pointerId); } catch (err) {}
+        }
+        if (!active) return;
+
+        // Prevent page scroll while dragging
+        ev.preventDefault();
+
+        float.style.left = (ev.clientX - rect.width / 2) + 'px';
+        float.style.top = (ev.clientY - rect.height / 2) + 'px';
+
+        // Edge auto-scroll (top/bottom 10% only)
+        const vh = window.innerHeight || 1;
+        const y = ev.clientY;
+        let scrollDelta = 0;
+        if (y < vh * EDGE) {
+          const t = 1 - (y / (vh * EDGE)); // 0 at edge boundary → 1 at top
+          scrollDelta = -SCROLL_SPEED * (0.35 + 0.65 * t);
+        } else if (y > vh * (1 - EDGE)) {
+          const t = (y - vh * (1 - EDGE)) / (vh * EDGE);
+          scrollDelta = SCROLL_SPEED * (0.35 + 0.65 * t);
+        }
+        if (scrollDelta) {
+          window.scrollBy(0, scrollDelta);
+        }
+
+        // Highlight level under finger
+        host.querySelectorAll('.coc-builder-level').forEach(el => el.classList.remove('drag-over'));
+        const el = document.elementFromPoint(ev.clientX, ev.clientY);
+        const box = el && el.closest ? el.closest('.coc-builder-level') : null;
+        if (box) box.classList.add('drag-over');
+      };
+
+      const onUp = (ev) => {
+        if (active) {
+          ev.preventDefault();
+          const el = document.elementFromPoint(ev.clientX, ev.clientY);
+          // elementFromPoint may hit the float; hide it briefly
+          if (float) float.style.display = 'none';
+          const el2 = document.elementFromPoint(ev.clientX, ev.clientY);
+          const box = el2 && el2.closest ? el2.closest('.coc-builder-level') : (el && el.closest ? el.closest('.coc-builder-level') : null);
+          const row = box && box.closest('.coc-level-row');
+          if (row) {
+            const lv = parseInt(row.dataset.level, 10);
+            if (!Number.isNaN(lv)) cocMoveToLevel(id, lv);
+          }
+        }
+        cleanup();
+      };
+
+      document.addEventListener('pointermove', onMove, { passive: false });
+      document.addEventListener('pointerup', onUp);
+      document.addEventListener('pointercancel', onUp);
     });
   });
 
@@ -1986,8 +2118,6 @@ function loadCocFromData(people) {
   renderCocBuilder();
 }
 
-
-
 function refreshAllReportsTo() {
   const rows = [...document.querySelectorAll('#cocPeople .person-row')];
   const options = rows.map(r => {
@@ -2099,7 +2229,6 @@ function previewChainOfCommand() {
 function closeCocPreview() {
   document.getElementById('cocPreviewOverlay').classList.remove('open');
 }
-
 
 async function applyLoadingLogo() {
   const status = document.getElementById('loadingLogoStatus');

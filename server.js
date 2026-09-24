@@ -220,7 +220,6 @@ app.post('/api/data', requireEditor, sensitiveLimiter, (req, res) => {
   }
 });
 
-
 // ---------- API: branding / loading logo ----------
 app.post('/api/branding/process-logo', requireEditor, sensitiveLimiter, (req, res) => {
   try {
