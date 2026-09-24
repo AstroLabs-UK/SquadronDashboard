@@ -374,6 +374,56 @@
   .person-row .person-reports {
     margin-top: 8px;
   }
+
+  .person-row { position: relative; }
+  .person-row.drag-over {
+    outline: 2px solid var(--raf-blue);
+    outline-offset: 2px;
+    background: #eef6fb;
+  }
+  .person-row.dragging { opacity: 0.55; }
+  .person-row .drag-handle {
+    cursor: grab;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    user-select: none;
+    padding: 4px 0;
+    margin-bottom: 4px;
+  }
+  .person-row .drag-handle:active { cursor: grabbing; }
+  .person-row .person-tag-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+  .person-row .person-tag-row > div { flex: 1 1 140px; min-width: 0; }
+  .person-row .p-tag-custom-wrap { display: none; }
+  .person-row .p-tag-custom-wrap.show { display: block; }
+  #cocDropTop {
+    border: 1px dashed var(--border);
+    border-radius: 4px;
+    padding: 10px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-top: 10px;
+    background: var(--white);
+  }
+  #cocDropTop.drag-over {
+    border-color: var(--raf-blue);
+    background: #eef6fb;
+    color: var(--raf-navy);
+  }
+  .coc-toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .coc-toolbar .hint { flex: 1 1 100%; margin: 0; }
+
   #cocPreviewOverlay {
     display: none;
     position: fixed;
@@ -510,6 +560,12 @@
     font-weight: 700;
     color: var(--deep-navy);
     line-height: 1.25;
+    margin-top: 2px;
+  }
+  .coc-tag {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
     margin-top: 2px;
   }
   .coc-children {
@@ -794,11 +850,14 @@
 <button class="add" type="button" onclick="addWidget()">+ Add embed</button>
 
 <h2>Chain of Command</h2>
-<p class="hint">Build the hierarchy: pick a rank, enter a name, optionally add a photo, and choose who they report to. The display builds the tree automatically.</p>
+<p class="hint">Build the hierarchy: rank, name, optional photo, optional role/tag, and who they report to. Drag a person onto another to set “reports to”, or onto <strong>Top of chain</strong> to clear it.</p>
 <div id="cocPeople"></div>
-<div class="actions">
+<div id="cocDropTop">↓ Drop here for top of chain</div>
+<div class="actions coc-toolbar">
   <button class="add" type="button" onclick="addPerson()">+ Add person</button>
   <button class="add" type="button" onclick="previewChainOfCommand()">Test preview</button>
+  <button class="add" type="button" onclick="loadSampleChainOfCommand()">Load sample hierarchy</button>
+  <span class="hint" id="cocEmptyHint"></span>
 </div>
 
 <div id="cocPreviewOverlay">
@@ -853,7 +912,7 @@
 <div id="controlStatus" class="hint"></div>
 
 <h2>Backup</h2>
-<p class="hint">Live: <code>data/data.json</code>. One in-app backup: <code>data/data.backup.json</code>. One external backup: <code>sqndash-data-backup/</code> (next to the app). Changes autosave after 30s idle.</p>
+<p class="hint">Live: <code>data/data.json</code>. One in-app backup: <code>data/data.backup.json</code>. One external backup: <code>sqndash-data-backup/</code> (next to the app). Changes autosave after 30s idle. <strong>Download</strong> includes branding (loading logo) and chain of command; large logos make the JSON bigger.</p>
 <div class="actions">
   <button class="primary" type="button" onclick="backupNow()">Backup now</button>
   <button class="add" type="button" onclick="location.href='/api/config/export'">Download</button>
@@ -863,7 +922,7 @@
 <div id="backupStatus" class="hint"></div>
 
 <h2>Loading logo</h2>
-<p class="hint"><strong>Best format: PNG with a transparent background</strong> (square works best). JPG will show a solid box on the cream loading screen. SVG is fine too if your browser can display it as an image.</p>
+<p class="hint"><strong>Best format: PNG with a transparent background</strong> (square works best). JPG will show a solid box on the cream loading screen. SVG is accepted too. Images are <strong>resized on upload</strong> and replace any previous logo (the old one is discarded).</p>
 <div class="person-photo-row" style="margin-top:8px;">
   <img id="loadingLogoPreview" class="person-photo-preview" alt="" style="border-radius:8px;width:72px;height:72px;object-fit:contain;background:repeating-conic-gradient(#ddd 0% 25%, #fff 0% 50%) 50% / 12px 12px;">
   <div class="person-photo-actions" style="flex:1;">
@@ -1038,15 +1097,45 @@ function rankOptionsHtml(selected) {
 function newPersonId() { return 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
 const PASTEL_COLORS = ['#A8D5E5', '#F5C6AA', '#C7E2B0', '#E2C4E8', '#F5E6A8', '#B8C9E8'];
+const ROLE_TAGS = [
+  { value: '', label: '— No tag —' },
+  { value: 'OC', label: 'OC' },
+  { value: 'Adj', label: 'Adjutant' },
+  { value: 'Trg Off', label: 'Training Officer' },
+  { value: 'A Flight', label: 'A Flight' },
+  { value: 'B Flight', label: 'B Flight' },
+  { value: 'C Flight', label: 'C Flight' },
+  { value: 'Staff', label: 'Staff' },
+  { value: '__custom__', label: 'Custom…' }
+];
+
+function tagOptionsHtml(selected, customText) {
+  const sel = selected || '';
+  const isCustom = sel && !ROLE_TAGS.some(t => t.value && t.value !== '__custom__' && t.value === sel);
+  let html = '';
+  ROLE_TAGS.forEach(t => {
+    let chosen = false;
+    if (t.value === '__custom__') chosen = isCustom || sel === '__custom__';
+    else chosen = !isCustom && sel === t.value;
+    html += '<option value="' + t.value + '"' + (chosen ? ' selected' : '') + '>' + t.label + '</option>';
+  });
+  return html;
+}
 
 function personRow(p = {}) {
   const div = document.createElement('div');
   div.className = 'person-row';
   div.dataset.id = p.id || newPersonId();
+  div.draggable = true;
   const hasPhoto = !!(p.photo && p.photo.startsWith('data:image/'));
   const color = (p.color && /^#[0-9A-Fa-f]{6}$/.test(p.color)) ? p.color : PASTEL_COLORS[0];
   div.dataset.color = color;
   if (hasPhoto) div.dataset.photo = p.photo;
+
+  const tagVal = (p.tag || '').trim();
+  const known = ROLE_TAGS.some(t => t.value && t.value !== '__custom__' && t.value === tagVal);
+  const tagSelectVal = tagVal ? (known ? tagVal : '__custom__') : '';
+  const customTag = known ? '' : tagVal;
 
   const swatches = PASTEL_COLORS.map(c =>
     '<button type="button" class="pastel-swatch' + (c.toLowerCase() === color.toLowerCase() ? ' selected' : '') +
@@ -1054,9 +1143,14 @@ function personRow(p = {}) {
   ).join('');
 
   div.innerHTML =
+    '<div class="drag-handle" title="Drag onto another person to set reports-to">⋮⋮ Drag to set reports-to</div>' +
     '<div class="person-top">' +
       '<div class="person-rank-wrap"><label>Rank</label><select class="p-rank">' + rankOptionsHtml(p.rank || '') + '</select></div>' +
       '<div class="person-name-wrap"><label>Name</label><input class="p-name" placeholder="Full name"></div>' +
+    '</div>' +
+    '<div class="person-tag-row">' +
+      '<div><label>Role / tag</label><select class="p-tag">' + tagOptionsHtml(tagSelectVal) + '</select></div>' +
+      '<div class="p-tag-custom-wrap' + (tagSelectVal === '__custom__' ? ' show' : '') + '"><label>Custom tag</label><input class="p-tag-custom" placeholder="e.g. Sgt Maj" maxlength="40"></div>' +
     '</div>' +
     '<div class="person-photo-row">' +
       (hasPhoto
@@ -1077,9 +1171,16 @@ function personRow(p = {}) {
       '</div>' +
     '</div>' +
     '<div class="person-reports"><label>Reports to</label><select class="p-reports"></select></div>' +
-    '<button type="button" class="danger" onclick="this.parentElement.remove(); refreshAllReportsTo();">Remove</button>';
+    '<button type="button" class="danger" onclick="this.parentElement.remove(); refreshAllReportsTo(); updateCocEmptyHint();">Remove</button>';
 
   div.querySelector('.p-name').value = p.name || '';
+  if (customTag) div.querySelector('.p-tag-custom').value = customTag;
+
+  const tagSel = div.querySelector('.p-tag');
+  const customWrap = div.querySelector('.p-tag-custom-wrap');
+  tagSel.addEventListener('change', function() {
+    customWrap.classList.toggle('show', this.value === '__custom__');
+  });
 
   const cropStage = div.querySelector('.photo-crop-stage');
   const cropFrame = div.querySelector('.photo-crop-frame');
@@ -1087,7 +1188,7 @@ function personRow(p = {}) {
   const fileInput = div.querySelector('.p-photo-file');
   const clearBtn = div.querySelector('.p-photo-clear');
   const swatchBox = div.querySelector('.pastel-swatches');
-  let cropState = null; // { naturalW, naturalH, scale, x, y, drag }
+  let cropState = null;
 
   function setPreviewPhoto(dataUrl) {
     const prev = div.querySelector('.person-photo-preview');
@@ -1105,9 +1206,7 @@ function personRow(p = {}) {
     empty.style.background = div.dataset.color || PASTEL_COLORS[0];
     prev.replaceWith(empty);
   }
-  function showSwatches(show) {
-    swatchBox.classList.toggle('hidden', !show);
-  }
+  function showSwatches(show) { swatchBox.classList.toggle('hidden', !show); }
   function closeCrop() {
     cropStage.classList.remove('open');
     cropState = null;
@@ -1116,7 +1215,6 @@ function personRow(p = {}) {
   }
   function layoutCrop() {
     if (!cropState) return;
-    const size = cropFrame.clientWidth || 220;
     cropImg.style.width = (cropState.naturalW * cropState.scale) + 'px';
     cropImg.style.height = (cropState.naturalH * cropState.scale) + 'px';
     cropImg.style.transform = 'translate(calc(-50% + ' + cropState.x + 'px), calc(-50% + ' + cropState.y + 'px))';
@@ -1126,7 +1224,6 @@ function personRow(p = {}) {
       const nw = cropImg.naturalWidth || 1;
       const nh = cropImg.naturalHeight || 1;
       const size = cropFrame.clientWidth || 220;
-      // Scale so the shorter side covers the circle
       const scale = Math.max(size / nw, size / nh);
       cropState = { naturalW: nw, naturalH: nh, scale: scale, x: 0, y: 0 };
       layoutCrop();
@@ -1138,17 +1235,14 @@ function personRow(p = {}) {
     if (!cropState) return;
     const size = 160;
     const canvas = document.createElement('canvas');
-    canvas.width = size;
-    canvas.height = size;
+    canvas.width = size; canvas.height = size;
     const ctx = canvas.getContext('2d');
-    // Circular clip
     ctx.beginPath();
     ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
     ctx.closePath();
     ctx.clip();
     const dispW = cropState.naturalW * cropState.scale;
     const dispH = cropState.naturalH * cropState.scale;
-    // Map from frame coords to canvas
     const frameSize = cropFrame.clientWidth || 220;
     const ratio = size / frameSize;
     const dx = size / 2 + cropState.x * ratio - (dispW * ratio) / 2;
@@ -1162,7 +1256,6 @@ function personRow(p = {}) {
     closeCrop();
   }
 
-  // Drag to reposition
   cropFrame.addEventListener('pointerdown', function(e) {
     if (!cropState) return;
     cropFrame.setPointerCapture(e.pointerId);
@@ -1174,9 +1267,7 @@ function personRow(p = {}) {
     cropState.y = cropState.drag.oy + (e.clientY - cropState.drag.y);
     layoutCrop();
   });
-  function endDrag(e) {
-    if (cropState) cropState.drag = null;
-  }
+  function endDrag() { if (cropState) cropState.drag = null; }
   cropFrame.addEventListener('pointerup', endDrag);
   cropFrame.addEventListener('pointercancel', endDrag);
 
@@ -1187,9 +1278,7 @@ function personRow(p = {}) {
     const file = fileInput.files && fileInput.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = function() {
-      openCrop(reader.result);
-    };
+    reader.onload = function() { openCrop(reader.result); };
     reader.onerror = function() { fileInput.value = ''; };
     reader.readAsDataURL(file);
   });
@@ -1215,6 +1304,42 @@ function personRow(p = {}) {
     });
   });
 
+  // Drag-and-drop hierarchy
+  div.addEventListener('dragstart', function(e) {
+    e.dataTransfer.setData('text/plain', div.dataset.id);
+    e.dataTransfer.effectAllowed = 'move';
+    div.classList.add('dragging');
+  });
+  div.addEventListener('dragend', function() {
+    div.classList.remove('dragging');
+    document.querySelectorAll('.person-row.drag-over, #cocDropTop.drag-over').forEach(el => el.classList.remove('drag-over'));
+  });
+  div.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    div.classList.add('drag-over');
+  });
+  div.addEventListener('dragleave', function() { div.classList.remove('drag-over'); });
+  div.addEventListener('drop', function(e) {
+    e.preventDefault();
+    div.classList.remove('drag-over');
+    const fromId = e.dataTransfer.getData('text/plain');
+    const toId = div.dataset.id;
+    if (!fromId || fromId === toId) return;
+    const fromRow = document.querySelector('#cocPeople .person-row[data-id="' + fromId + '"]');
+    if (!fromRow) return;
+    const sel = fromRow.querySelector('.p-reports');
+    if (sel && [...sel.options].some(o => o.value === toId)) {
+      sel.value = toId;
+      refreshAllReportsTo();
+    } else {
+      // Ensure option exists after refresh
+      refreshAllReportsTo();
+      const sel2 = fromRow.querySelector('.p-reports');
+      if (sel2) sel2.value = toId;
+    }
+  });
+
   div.querySelector('.p-rank').addEventListener('change', refreshAllReportsTo);
   div.querySelector('.p-name').addEventListener('input', function() {
     clearTimeout(div._nameTimer);
@@ -1226,18 +1351,81 @@ function personRow(p = {}) {
 function addPerson() {
   document.getElementById('cocPeople').appendChild(personRow());
   refreshAllReportsTo();
+  updateCocEmptyHint();
 }
 
 function collectPeople() {
-  return [...document.querySelectorAll('#cocPeople .person-row')].map(r => ({
-    id: r.dataset.id,
-    rank: r.querySelector('.p-rank').value,
-    name: r.querySelector('.p-name').value.trim(),
-    photo: r.dataset.photo || '',
-    color: r.dataset.color || PASTEL_COLORS[0],
-    reportsTo: r.querySelector('.p-reports').value || ''
-  })).filter(p => p.name);
+  return [...document.querySelectorAll('#cocPeople .person-row')].map(r => {
+    const tagSel = r.querySelector('.p-tag');
+    const tagVal = tagSel ? tagSel.value : '';
+    let tag = '';
+    if (tagVal === '__custom__') tag = (r.querySelector('.p-tag-custom')?.value || '').trim().slice(0, 40);
+    else tag = (tagVal || '').trim().slice(0, 40);
+    return {
+      id: r.dataset.id,
+      rank: r.querySelector('.p-rank').value,
+      name: r.querySelector('.p-name').value.trim(),
+      photo: r.dataset.photo || '',
+      color: r.dataset.color || PASTEL_COLORS[0],
+      tag,
+      reportsTo: r.querySelector('.p-reports').value || ''
+    };
+  }).filter(p => p.name);
 }
+
+function updateCocEmptyHint() {
+  const hint = document.getElementById('cocEmptyHint');
+  if (!hint) return;
+  const n = document.querySelectorAll('#cocPeople .person-row').length;
+  hint.textContent = n ? '' : 'No people yet — add some, or load a sample hierarchy to try the tree.';
+}
+
+function loadSampleChainOfCommand() {
+  const box = document.getElementById('cocPeople');
+  if (!box) return;
+  if (box.querySelector('.person-row') && !confirm('Replace the current list with a sample hierarchy?')) return;
+  box.innerHTML = '';
+  const oc = { id: 'sample-oc', rank: 'Sqn Ldr', name: 'A. Example', tag: 'OC', color: '#A8D5E5', reportsTo: '' };
+  const adj = { id: 'sample-adj', rank: 'Flt Lt', name: 'B. Example', tag: 'Adj', color: '#F5C6AA', reportsTo: 'sample-oc' };
+  const tr = { id: 'sample-trg', rank: 'Fg Off', name: 'C. Example', tag: 'Trg Off', color: '#C7E2B0', reportsTo: 'sample-oc' };
+  const fs = { id: 'sample-fs', rank: 'FS', name: 'D. Example', tag: 'Staff', color: '#E2C4E8', reportsTo: 'sample-adj' };
+  const cwo = { id: 'sample-cwo', rank: 'CWO', name: 'E. Cadet', tag: 'A Flight', color: '#F5E6A8', reportsTo: 'sample-trg' };
+  const sgt = { id: 'sample-sgt', rank: 'Cdt Sgt', name: 'F. Cadet', tag: 'B Flight', color: '#B8C9E8', reportsTo: 'sample-cwo' };
+  [oc, adj, tr, fs, cwo, sgt].forEach(p => box.appendChild(personRow(p)));
+  refreshAllReportsTo();
+  // Restore reportsTo after options exist
+  [oc, adj, tr, fs, cwo, sgt].forEach(p => {
+    const row = box.querySelector('.person-row[data-id="' + p.id + '"]');
+    if (row && p.reportsTo) {
+      const sel = row.querySelector('.p-reports');
+      if (sel && [...sel.options].some(o => o.value === p.reportsTo)) sel.value = p.reportsTo;
+    }
+  });
+  updateCocEmptyHint();
+}
+
+function setupCocDropTop() {
+  const zone = document.getElementById('cocDropTop');
+  if (!zone || zone.dataset.ready) return;
+  zone.dataset.ready = '1';
+  zone.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    zone.classList.add('drag-over');
+  });
+  zone.addEventListener('dragleave', function() { zone.classList.remove('drag-over'); });
+  zone.addEventListener('drop', function(e) {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+    const fromId = e.dataTransfer.getData('text/plain');
+    const fromRow = document.querySelector('#cocPeople .person-row[data-id="' + fromId + '"]');
+    if (!fromRow) return;
+    const sel = fromRow.querySelector('.p-reports');
+    if (sel) sel.value = '';
+    refreshAllReportsTo();
+  });
+}
+
 
 function refreshAllReportsTo() {
   const rows = [...document.querySelectorAll('#cocPeople .person-row')];
@@ -1309,6 +1497,7 @@ function buildCocTreeHtml(people) {
       photoHtml +
       '<div class="coc-rank">' + (node.rank || '') + '</div>' +
       '<div class="coc-name">' + (node.name || '') + '</div>' +
+      (node.tag ? '<div class="coc-tag">' + node.tag + '</div>' : '') +
       '</div>';
     if (node.children && node.children.length) {
       html += '<div class="coc-children">' + node.children.map(renderNode).join('') + '</div>';
@@ -1404,7 +1593,7 @@ async function applyLoadingLogo() {
     window._loadingLogoDataUrl = json.loadingLogo || dataUrl;
     const prev = document.getElementById('loadingLogoPreview');
     if (prev) prev.src = window._loadingLogoDataUrl;
-    status.textContent = 'Logo saved. It will show on the next display reload. (Transparent PNG works best.)';
+    status.textContent = 'Logo saved and resized. Previous logo replaced. Shows on next display reload.';
     status.style.color = '';
     savedSnapshot = JSON.stringify(collectPayload());
     updateForceButton();

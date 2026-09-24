@@ -241,7 +241,7 @@ app.post('/api/branding/process-logo', requireEditor, sensitiveLimiter, (req, re
     res.json({
       ok: true,
       loadingLogo: imageDataUrl,
-      note: 'Logo saved. Transparent PNG works best on the cream loading screen.'
+      note: 'Logo saved and resized; previous logo replaced. Transparent PNG works best.'
     });
   } catch (e) {
     console.error('[branding] process-logo failed', e);

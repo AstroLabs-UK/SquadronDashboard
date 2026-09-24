@@ -320,12 +320,15 @@ function createStore({ dir, defaults, legacyDir, snapDir }) {
             }
             let color = '';
             if (isStr(p.color) && /^#[0-9A-Fa-f]{6}$/.test(p.color.trim())) color = p.color.trim().toUpperCase();
+            let tag = '';
+            if (isStr(p.tag)) tag = String(p.tag).trim().slice(0, 40);
             return {
               id,
               rank: isStr(p.rank) && RANK_RE.test(p.rank.trim()) ? p.rank.trim() : '',
               name: String(p.name ?? '').slice(0, 80).trim(),
               photo,
               color,
+              tag,
               reportsTo: isStr(p.reportsTo) && /^[A-Za-z0-9_-]{1,40}$/.test(p.reportsTo) ? p.reportsTo : ''
             };
           })
