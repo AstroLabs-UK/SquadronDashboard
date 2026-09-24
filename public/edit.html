@@ -425,12 +425,51 @@
   .coc-builder {
     margin-top: 10px;
   }
+  .coc-level-row {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    margin-top: 10px;
+    position: relative;
+  }
+  .coc-level-handle-col {
+    flex: 0 0 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 6px;
+  }
+  .coc-level-handle {
+    width: 28px;
+    height: 40px;
+    border: none;
+    background: transparent;
+    cursor: grab;
+    color: var(--muted);
+    opacity: 0;
+    padding: 0;
+    margin: 0;
+    min-height: 40px;
+    font-size: 16px;
+    line-height: 1;
+    letter-spacing: 2px;
+    transition: opacity 0.15s ease;
+    user-select: none;
+    touch-action: none;
+  }
+  .coc-level-row:hover .coc-level-handle,
+  .coc-level-row.level-dragging .coc-level-handle {
+    opacity: 1;
+  }
+  .coc-level-handle:active { cursor: grabbing; }
   .coc-builder-level {
+    flex: 1 1 auto;
+    min-width: 0;
     border: 1px solid var(--border);
     border-radius: 4px;
     background: var(--white);
-    margin-top: 10px;
     padding: 10px;
+    transition: box-shadow 0.15s ease, transform 0.12s ease, opacity 0.12s ease;
   }
   .coc-builder-level.drag-over {
     border-color: var(--raf-blue);
@@ -443,48 +482,39 @@
     gap: 8px;
     margin-bottom: 8px;
   }
-  .coc-builder-level-head-left {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
   .coc-builder-level-head strong {
     font-size: 12px;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: var(--raf-navy);
   }
-  .coc-level-handle {
-    width: 22px;
-    height: 28px;
-    border: none;
-    background: transparent;
-    cursor: grab;
-    color: var(--muted);
-    opacity: 0;
-    padding: 0;
+  .coc-level-row.level-dragging {
+    opacity: 0.35;
+  }
+  .coc-level-row.level-drop-before {
+    /* space reserved via ghost placement; keep a cue on the row */
+  }
+  .coc-level-ghost {
+    border: 2px dashed var(--raf-blue);
+    border-radius: 4px;
+    background: rgba(0, 102, 161, 0.06);
+    margin-top: 10px;
+    margin-left: 34px; /* align with boxes (handle col + gap) */
+    pointer-events: none;
+    box-sizing: border-box;
+  }
+  .coc-level-float {
+    position: fixed;
+    z-index: 3000;
+    pointer-events: none;
+    opacity: 0.92;
+    box-shadow: 0 12px 28px rgba(7, 21, 37, 0.22);
+    border-radius: 4px;
+    transform: rotate(1deg);
+    max-width: min(640px, calc(100vw - 48px));
+  }
+  .coc-level-float .coc-builder-level {
     margin: 0;
-    min-height: 28px;
-    font-size: 14px;
-    line-height: 1;
-    letter-spacing: 1px;
-    transition: opacity 0.15s ease;
-    user-select: none;
-  }
-  .coc-builder-level:hover .coc-level-handle,
-  .coc-builder-level.level-dragging .coc-level-handle {
-    opacity: 1;
-  }
-  .coc-level-handle:active { cursor: grabbing; }
-  .coc-builder-level.level-dragging {
-    opacity: 0.65;
-    border-style: dashed;
-  }
-  .coc-builder-level.level-drop-before {
-    box-shadow: inset 0 3px 0 0 var(--raf-blue);
-  }
-  .coc-builder-level.level-drop-after {
-    box-shadow: inset 0 -3px 0 0 var(--raf-blue);
   }
   .coc-builder-chips {
     display: flex;
@@ -1550,25 +1580,29 @@ function cocReorderLevel(fromLevel, toLevel, placeAfter) {
 function renderCocBuilder() {
   const host = document.getElementById('cocBuilder');
   if (!host) return;
+  // Clean any leftover float from a previous drag
+  document.querySelectorAll('.coc-level-float, .coc-level-ghost').forEach(el => el.remove());
+
   const maxLv = Math.max(cocMaxLevel, ...cocPeople.map(p => p.level), 0);
   cocMaxLevel = maxLv;
   let html = '';
   for (let lv = 0; lv <= maxLv; lv++) {
     const peers = cocPeople.filter(p => p.level === lv);
-    html += '<div class="coc-builder-level" data-level="' + lv + '">' +
-      '<div class="coc-builder-level-head">' +
-        '<div class="coc-builder-level-head-left">' +
-          '<button type="button" class="coc-level-handle" draggable="true" title="Drag to reorder level" aria-label="Drag level">⋮⋮</button>' +
-          '<strong>Level ' + (lv + 1) + (lv === 0 ? ' (top)' : '') + '</strong>' +
-        '</div>' +
-        '<span class="hint">' + peers.length + ' people</span>' +
+    html += '<div class="coc-level-row" data-level="' + lv + '">' +
+      '<div class="coc-level-handle-col">' +
+        '<button type="button" class="coc-level-handle" title="Drag to reorder level" aria-label="Drag level">⋮⋮</button>' +
       '</div>' +
-      '<div class="coc-builder-chips">' + peers.map(chipHtml).join('') + '</div>';
+      '<div class="coc-builder-level">' +
+        '<div class="coc-builder-level-head">' +
+          '<strong>Level ' + (lv + 1) + (lv === 0 ? ' (top)' : '') + '</strong>' +
+          '<span class="hint">' + peers.length + ' people</span>' +
+        '</div>' +
+        '<div class="coc-builder-chips">' + peers.map(chipHtml).join('') + '</div>';
     if (cocSelectedId && peers.some(p => p.id === cocSelectedId)) {
       const person = cocPeople.find(p => p.id === cocSelectedId);
       if (person) html += settingsHtml(person);
     }
-    html += '</div>';
+    html += '</div></div>';
   }
   host.innerHTML = html;
 
@@ -1589,71 +1623,107 @@ function renderCocBuilder() {
     });
   });
 
-  // Level reorder via ⋮⋮ handle
+  // Level reorder via handle outside the box — pointer-based so the whole box follows the cursor
   host.querySelectorAll('.coc-level-handle').forEach(handle => {
-    handle.addEventListener('dragstart', function(e) {
+    handle.addEventListener('pointerdown', function(e) {
+      if (e.button !== 0) return;
+      e.preventDefault();
       e.stopPropagation();
-      const row = this.closest('.coc-builder-level');
-      const lv = row && row.dataset.level;
-      e.dataTransfer.setData('text/plain', 'level:' + lv);
-      e.dataTransfer.effectAllowed = 'move';
-      if (row) row.classList.add('level-dragging');
+      const row = this.closest('.coc-level-row');
+      if (!row) return;
+      const fromLv = parseInt(row.dataset.level, 10);
+      const box = row.querySelector('.coc-builder-level');
+      if (!box || Number.isNaN(fromLv)) return;
+
+      const rect = box.getBoundingClientRect();
+      const offsetX = e.clientX - rect.left;
+      const offsetY = e.clientY - rect.top;
+
+      // Floating clone that follows the pointer
+      const float = document.createElement('div');
+      float.className = 'coc-level-float';
+      float.style.width = rect.width + 'px';
+      float.style.left = rect.left + 'px';
+      float.style.top = rect.top + 'px';
+      float.appendChild(box.cloneNode(true));
+      document.body.appendChild(float);
+
+      // Placeholder ghost matching height
+      const ghost = document.createElement('div');
+      ghost.className = 'coc-level-ghost';
+      ghost.style.height = rect.height + 'px';
+      row.classList.add('level-dragging');
+      row.parentNode.insertBefore(ghost, row);
+
+      let targetLv = fromLv;
+      let placeAfter = false;
+
+      const onMove = (ev) => {
+        float.style.left = (ev.clientX - offsetX) + 'px';
+        float.style.top = (ev.clientY - offsetY) + 'px';
+
+        const rows = [...host.querySelectorAll('.coc-level-row:not(.level-dragging)')];
+        let placed = false;
+        for (const r of rows) {
+          const rr = r.getBoundingClientRect();
+          const mid = rr.top + rr.height / 2;
+          if (ev.clientY < mid) {
+            host.insertBefore(ghost, r);
+            targetLv = parseInt(r.dataset.level, 10);
+            placeAfter = false;
+            placed = true;
+            break;
+          }
+        }
+        if (!placed && rows.length) {
+          const last = rows[rows.length - 1];
+          host.appendChild(ghost);
+          targetLv = parseInt(last.dataset.level, 10);
+          placeAfter = true;
+        }
+      };
+
+      const onUp = (ev) => {
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        document.removeEventListener('pointercancel', onUp);
+        float.remove();
+        ghost.remove();
+        row.classList.remove('level-dragging');
+        if (targetLv !== fromLv || placeAfter) {
+          cocReorderLevel(fromLv, targetLv, placeAfter && targetLv !== fromLv ? placeAfter : (targetLv > fromLv));
+        } else {
+          // no change — still re-render clean
+          renderCocBuilder();
+        }
+      };
+
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
+      document.addEventListener('pointercancel', onUp);
     });
-    handle.addEventListener('dragend', function() {
-      host.querySelectorAll('.coc-builder-level').forEach(el => {
-        el.classList.remove('level-dragging', 'level-drop-before', 'level-drop-after', 'drag-over');
-      });
-    });
-    // Prevent click focus quirks
-    handle.addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); });
   });
 
-  // Drop targets: people into levels, or levels onto levels
-  host.querySelectorAll('.coc-builder-level').forEach(row => {
-    row.addEventListener('dragover', function(e) {
+  // Drop people onto level boxes
+  host.querySelectorAll('.coc-builder-level').forEach(box => {
+    box.addEventListener('dragover', function(e) {
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
-      const types = e.dataTransfer.types;
-      // Prefer checking current drag via class on dragging elements
-      const draggingLevel = host.querySelector('.coc-builder-level.level-dragging');
-      if (draggingLevel) {
-        this.classList.remove('drag-over');
-        const rect = this.getBoundingClientRect();
-        const mid = rect.top + rect.height / 2;
-        if (e.clientY < mid) {
-          this.classList.add('level-drop-before');
-          this.classList.remove('level-drop-after');
-        } else {
-          this.classList.add('level-drop-after');
-          this.classList.remove('level-drop-before');
-        }
-      } else {
-        this.classList.add('drag-over');
-        this.classList.remove('level-drop-before', 'level-drop-after');
-      }
+      this.classList.add('drag-over');
     });
-    row.addEventListener('dragleave', function(e) {
-      if (!this.contains(e.relatedTarget)) {
-        this.classList.remove('drag-over', 'level-drop-before', 'level-drop-after');
-      }
+    box.addEventListener('dragleave', function(e) {
+      if (!this.contains(e.relatedTarget)) this.classList.remove('drag-over');
     });
-    row.addEventListener('drop', function(e) {
+    box.addEventListener('drop', function(e) {
       e.preventDefault();
+      this.classList.remove('drag-over');
       const payload = e.dataTransfer.getData('text/plain') || '';
-      const placeAfter = this.classList.contains('level-drop-after');
-      this.classList.remove('drag-over', 'level-drop-before', 'level-drop-after');
-      if (payload.startsWith('level:')) {
-        const fromLv = parseInt(payload.slice(6), 10);
-        const toLv = parseInt(this.dataset.level, 10);
-        if (!Number.isNaN(fromLv) && !Number.isNaN(toLv)) {
-          cocReorderLevel(fromLv, toLv, placeAfter);
-        }
-      } else {
-        let id = payload;
-        if (payload.startsWith('person:')) id = payload.slice(7);
-        const lv = parseInt(this.dataset.level, 10) || 0;
-        if (id) cocMoveToLevel(id, lv);
-      }
+      let id = payload;
+      if (payload.startsWith('person:')) id = payload.slice(7);
+      if (payload.startsWith('level:')) return;
+      const row = this.closest('.coc-level-row');
+      const lv = row ? parseInt(row.dataset.level, 10) || 0 : 0;
+      if (id) cocMoveToLevel(id, lv);
     });
   });
 
