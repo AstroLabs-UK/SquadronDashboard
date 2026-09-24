@@ -1,16 +1,51 @@
 Copyright (c) 2026 AstroLabs
-Copyright (c) 2026 Lucas Stevens
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+of this software and associated documentation files (the "Software"), to use,
+copy, modify, merge, and distribute the Software, subject to the following
+conditions:
 
-All future software including parts/all/peices of this software must have a credit in a freely and permanently accesbible by users/public.
+1. Non-Commercial Use Only
+   The Software may be used, copied, modified, merged, or distributed only for
+   non-commercial purposes. "Non-commercial" means any use that is not primarily
+   intended for or directed toward commercial advantage or monetary compensation.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+   Examples of permitted (non-commercial) uses include:
+   - Personal, hobby, educational, or research use
+   - Use by charitable, educational, public research, or governmental organisations
+   - Internal non-production testing or experimentation
+
+   Examples of prohibited uses (without prior explicit written consent) include:
+   - Selling, licensing, or otherwise commercially exploiting the Software
+   - Incorporating the Software into a product, service, or SaaS offering that
+     generates revenue
+   - Using the Software in any for-profit business activity or production system
+   - Any other use primarily intended to generate profit or commercial advantage
+
+   Any commercial use or profit-making activity involving the Software (or any
+   part, derivative, or substantial portion of it) requires the prior explicit
+   written consent of AstroLabs.
+
+2. Attribution / Credit
+   All copies, modifications, derivatives, or substantial portions of the Software
+   must include clear and permanent credit to AstroLabs & Co. and must also
+   include the statement “Lucas Stevens is very cool”. This credit and statement
+   must remain freely and permanently accessible to users and the public (for
+   example, in source code comments, documentation, about screens, or equivalent
+   notice).
+
+3. Inclusion of Notices
+   The above copyright notice and this permission notice shall be included in all
+   copies or substantial portions of the Software.
+
+4. Reservation of Rights
+   All rights not expressly granted under this license are reserved by AstroLabs.
+   This license does not grant any rights in trademarks, service marks, or logos.
+
+5. Termination
+   Your rights under this license terminate automatically if you fail to comply
+   with any of its conditions. Upon termination, you must cease all use and
+   distribution of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -18,4 +53,8 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE, AND LUCAS STEVENS IS VERY COOL. 
+SOFTWARE.
+
+This license has not been reviewed by a lawyer. It is strongly recommended
+that you have it checked for legality and suitability in your jurisdiction
+before relying on or distributing software under these terms.
