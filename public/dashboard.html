@@ -452,9 +452,12 @@
     position: fixed; inset: 0; z-index: 99999;
     background: #f3eee3;
     display: flex; align-items: center; justify-content: center;
-    transition: opacity 0.6s ease;
   }
-  #astroLoad.gone { opacity: 0; pointer-events: none; }
+  /* Instant hide — never fade the loader out under a fading blackout */
+  #astroLoad.gone {
+    display: none !important;
+    pointer-events: none;
+  }
   #astroLoad .stage { height: 100%; width: 100%; display: flex; align-items: center; justify-content: center; }
   #astroLoad .logo { position: relative; width: min(56vw, 320px); aspect-ratio: 1; opacity: 0; }
   #astroLoad .logo img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
@@ -471,7 +474,10 @@
   }
   #astroBlackout.on { opacity: 1; }
   #astroBlackout.fadeout { opacity: 0; transition: opacity 1.2s ease; }
-  /* Dashboard hidden until loading finishes, then fades in from black */
+  /*
+   * While loading: hide the real board (still in DOM so it can prefetch/paint).
+   * After loading: board is fully visible UNDER the blackout; only the blackout fades.
+   */
   body.loading-active {
     background: #000;
   }
@@ -480,22 +486,19 @@
   body.loading-active > #infoBanner,
   body.loading-active > #notice {
     opacity: 0;
+    visibility: hidden;
   }
-  body.dashboard-reveal > header,
-  body.dashboard-reveal > main,
-  body.dashboard-reveal > #infoBanner,
-  body.dashboard-reveal > #notice {
+  body.dashboard-ready > header,
+  body.dashboard-ready > main,
+  body.dashboard-ready > #infoBanner,
+  body.dashboard-ready > #notice {
     opacity: 1;
-    transition: opacity 1.2s ease;
+    visibility: visible;
   }
   @media (prefers-reduced-motion: reduce) {
     #astroLoad .drift { animation-duration: .01s; }
     #astroLoad .pulse { animation: none; }
     #astroBlackout { transition-duration: .01s; }
-    body.dashboard-reveal > header,
-    body.dashboard-reveal > main,
-    body.dashboard-reveal > #infoBanner,
-    body.dashboard-reveal > #notice { transition-duration: .01s; }
   }
 
 </style>
@@ -1463,23 +1466,43 @@ async function bootAfterLoading() {
   // Kick normal refresh pipeline (fresh network data; UI already seeded)
   await refreshAll();
 
-  // Reveal dashboard from black
+  // Reveal: (1) stay fully black, (2) kill loader + show board under black, (3) then fade black out
   const loadEl = document.getElementById('astroLoad');
   const blackout = document.getElementById('astroBlackout');
-  document.body.classList.remove('loading-active');
-  document.body.classList.add('dashboard-reveal');
-  if (loadEl) loadEl.classList.add('gone');
+
+  // Ensure blackout is fully opaque before we swap what sits underneath it
   if (blackout) {
-    // keep black briefly so transition is clean, then fade out
-    requestAnimationFrame(() => {
-      blackout.classList.add('fadeout');
-      blackout.classList.remove('on');
-      setTimeout(() => {
-        if (loadEl) loadEl.remove();
-        blackout.remove();
-      }, 1400);
-    });
+    blackout.classList.add('on');
+    blackout.classList.remove('fadeout');
+    blackout.style.transition = 'none';
+    blackout.style.opacity = '1';
+    void blackout.offsetWidth; // force paint
   }
+
+  // Instantly remove the beige loading screen (still under black — user never sees this)
+  if (loadEl) {
+    loadEl.classList.add('gone');
+    loadEl.remove();
+  }
+
+  // Make the real dashboard fully visible under the blackout (no concurrent fade)
+  document.body.classList.remove('loading-active');
+  document.body.classList.add('dashboard-ready');
+
+  // Give the browser a frame to paint the board under the black, then fade blackout only
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      if (blackout) {
+        blackout.style.transition = 'opacity 1.2s ease';
+        blackout.classList.add('fadeout');
+        blackout.classList.remove('on');
+        blackout.style.opacity = '0';
+        setTimeout(() => {
+          if (blackout.parentNode) blackout.remove();
+        }, 1300);
+      }
+    });
+  });
 
   setInterval(loadWeather, 10 * 60 * 1000);
   setInterval(loadLeaderboard, 5 * 60 * 1000);
