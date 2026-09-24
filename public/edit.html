@@ -291,6 +291,86 @@
     border: none;
     background: transparent;
   }
+  .person-row .pastel-swatches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .person-row .pastel-swatches.hidden { display: none; }
+  .person-row .pastel-swatch {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    padding: 0;
+    margin: 0;
+    min-height: 28px;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
+  }
+  .person-row .pastel-swatch.selected {
+    border-color: var(--raf-navy);
+    box-shadow: 0 0 0 2px rgba(0, 102, 161, 0.25);
+  }
+  .person-row .photo-crop-stage {
+    display: none;
+    margin-top: 10px;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--off-white);
+  }
+  .person-row .photo-crop-stage.open { display: block; }
+  .person-row .photo-crop-hint {
+    font-size: 12px;
+    color: var(--muted);
+    margin: 0 0 8px;
+    line-height: 1.35;
+  }
+  .person-row .photo-crop-frame {
+    position: relative;
+    width: min(100%, 220px);
+    aspect-ratio: 1;
+    margin: 0 auto;
+    overflow: hidden;
+    border-radius: 50%;
+    border: 2px solid var(--raf-navy);
+    background: #e8eef3;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+  }
+  .person-row .photo-crop-frame:active { cursor: grabbing; }
+  .person-row .photo-crop-frame img {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    max-width: none;
+    pointer-events: none;
+    transform-origin: center center;
+  }
+  .person-row .photo-crop-frame::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,0.7);
+    pointer-events: none;
+  }
+  .person-row .photo-crop-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+    justify-content: center;
+  }
+  .person-row .photo-crop-actions button {
+    margin-top: 0;
+    min-height: 36px;
+    padding: 6px 12px;
+    font-size: 11px;
+  }
   .person-row .person-reports {
     margin-top: 8px;
   }
@@ -957,11 +1037,22 @@ function rankOptionsHtml(selected) {
 
 function newPersonId() { return 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
+const PASTEL_COLORS = ['#A8D5E5', '#F5C6AA', '#C7E2B0', '#E2C4E8', '#F5E6A8', '#B8C9E8'];
+
 function personRow(p = {}) {
   const div = document.createElement('div');
   div.className = 'person-row';
   div.dataset.id = p.id || newPersonId();
   const hasPhoto = !!(p.photo && p.photo.startsWith('data:image/'));
+  const color = (p.color && /^#[0-9A-Fa-f]{6}$/.test(p.color)) ? p.color : PASTEL_COLORS[0];
+  div.dataset.color = color;
+  if (hasPhoto) div.dataset.photo = p.photo;
+
+  const swatches = PASTEL_COLORS.map(c =>
+    '<button type="button" class="pastel-swatch' + (c.toLowerCase() === color.toLowerCase() ? ' selected' : '') +
+    '" data-color="' + c + '" style="background:' + c + '" title="' + c + '" aria-label="Colour ' + c + '"></button>'
+  ).join('');
+
   div.innerHTML =
     '<div class="person-top">' +
       '<div class="person-rank-wrap"><label>Rank</label><select class="p-rank">' + rankOptionsHtml(p.rank || '') + '</select></div>' +
@@ -970,41 +1061,160 @@ function personRow(p = {}) {
     '<div class="person-photo-row">' +
       (hasPhoto
         ? '<img class="person-photo-preview" alt="" src="' + p.photo.replace(/"/g, '&quot;') + '">'
-        : '<div class="person-photo-preview empty">Photo</div>') +
+        : '<div class="person-photo-preview empty" style="background:' + color + '">Photo</div>') +
       '<div class="person-photo-actions">' +
         '<input type="file" class="p-photo-file" accept="image/*">' +
         '<button type="button" class="danger p-photo-clear" style="margin-top:0;min-height:32px;padding:4px 10px;font-size:11px;' + (hasPhoto ? '' : 'display:none') + '">Remove photo</button>' +
+        '<div class="pastel-swatches' + (hasPhoto ? ' hidden' : '') + '">' + swatches + '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="photo-crop-stage">' +
+      '<p class="photo-crop-hint">Drag to reposition. The circle is the final crop on the display.</p>' +
+      '<div class="photo-crop-frame"><img class="photo-crop-img" alt=""></div>' +
+      '<div class="photo-crop-actions">' +
+        '<button type="button" class="primary p-photo-apply">Apply</button>' +
+        '<button type="button" class="add p-photo-cancel">Cancel</button>' +
       '</div>' +
     '</div>' +
     '<div class="person-reports"><label>Reports to</label><select class="p-reports"></select></div>' +
     '<button type="button" class="danger" onclick="this.parentElement.remove(); refreshAllReportsTo();">Remove</button>';
+
   div.querySelector('.p-name').value = p.name || '';
-  if (hasPhoto) div.dataset.photo = p.photo;
+
+  const cropStage = div.querySelector('.photo-crop-stage');
+  const cropFrame = div.querySelector('.photo-crop-frame');
+  const cropImg = div.querySelector('.photo-crop-img');
   const fileInput = div.querySelector('.p-photo-file');
-  fileInput.addEventListener('change', function() {
-    const file = fileInput.files && fileInput.files[0];
-    if (!file) return;
-    resizeImageToDataUrl(file, 160, 0.82).then(dataUrl => {
-      div.dataset.photo = dataUrl;
-      const prev = div.querySelector('.person-photo-preview');
-      const img = document.createElement('img');
-      img.className = 'person-photo-preview';
-      img.alt = '';
-      img.src = dataUrl;
-      prev.replaceWith(img);
-      div.querySelector('.p-photo-clear').style.display = '';
-      fileInput.value = '';
-    }).catch(() => { fileInput.value = ''; });
-  });
-  div.querySelector('.p-photo-clear').addEventListener('click', function() {
-    delete div.dataset.photo;
+  const clearBtn = div.querySelector('.p-photo-clear');
+  const swatchBox = div.querySelector('.pastel-swatches');
+  let cropState = null; // { naturalW, naturalH, scale, x, y, drag }
+
+  function setPreviewPhoto(dataUrl) {
+    const prev = div.querySelector('.person-photo-preview');
+    const img = document.createElement('img');
+    img.className = 'person-photo-preview';
+    img.alt = '';
+    img.src = dataUrl;
+    prev.replaceWith(img);
+  }
+  function setPreviewEmpty() {
     const prev = div.querySelector('.person-photo-preview');
     const empty = document.createElement('div');
     empty.className = 'person-photo-preview empty';
     empty.textContent = 'Photo';
+    empty.style.background = div.dataset.color || PASTEL_COLORS[0];
     prev.replaceWith(empty);
-    this.style.display = 'none';
+  }
+  function showSwatches(show) {
+    swatchBox.classList.toggle('hidden', !show);
+  }
+  function closeCrop() {
+    cropStage.classList.remove('open');
+    cropState = null;
+    cropImg.removeAttribute('src');
+    fileInput.value = '';
+  }
+  function layoutCrop() {
+    if (!cropState) return;
+    const size = cropFrame.clientWidth || 220;
+    cropImg.style.width = (cropState.naturalW * cropState.scale) + 'px';
+    cropImg.style.height = (cropState.naturalH * cropState.scale) + 'px';
+    cropImg.style.transform = 'translate(calc(-50% + ' + cropState.x + 'px), calc(-50% + ' + cropState.y + 'px))';
+  }
+  function openCrop(dataUrl) {
+    cropImg.onload = function() {
+      const nw = cropImg.naturalWidth || 1;
+      const nh = cropImg.naturalHeight || 1;
+      const size = cropFrame.clientWidth || 220;
+      // Scale so the shorter side covers the circle
+      const scale = Math.max(size / nw, size / nh);
+      cropState = { naturalW: nw, naturalH: nh, scale: scale, x: 0, y: 0 };
+      layoutCrop();
+      cropStage.classList.add('open');
+    };
+    cropImg.src = dataUrl;
+  }
+  function applyCrop() {
+    if (!cropState) return;
+    const size = 160;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    // Circular clip
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.clip();
+    const dispW = cropState.naturalW * cropState.scale;
+    const dispH = cropState.naturalH * cropState.scale;
+    // Map from frame coords to canvas
+    const frameSize = cropFrame.clientWidth || 220;
+    const ratio = size / frameSize;
+    const dx = size / 2 + cropState.x * ratio - (dispW * ratio) / 2;
+    const dy = size / 2 + cropState.y * ratio - (dispH * ratio) / 2;
+    ctx.drawImage(cropImg, dx, dy, dispW * ratio, dispH * ratio);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+    div.dataset.photo = dataUrl;
+    setPreviewPhoto(dataUrl);
+    clearBtn.style.display = '';
+    showSwatches(false);
+    closeCrop();
+  }
+
+  // Drag to reposition
+  cropFrame.addEventListener('pointerdown', function(e) {
+    if (!cropState) return;
+    cropFrame.setPointerCapture(e.pointerId);
+    cropState.drag = { x: e.clientX, y: e.clientY, ox: cropState.x, oy: cropState.y };
   });
+  cropFrame.addEventListener('pointermove', function(e) {
+    if (!cropState || !cropState.drag) return;
+    cropState.x = cropState.drag.ox + (e.clientX - cropState.drag.x);
+    cropState.y = cropState.drag.oy + (e.clientY - cropState.drag.y);
+    layoutCrop();
+  });
+  function endDrag(e) {
+    if (cropState) cropState.drag = null;
+  }
+  cropFrame.addEventListener('pointerup', endDrag);
+  cropFrame.addEventListener('pointercancel', endDrag);
+
+  div.querySelector('.p-photo-apply').addEventListener('click', applyCrop);
+  div.querySelector('.p-photo-cancel').addEventListener('click', closeCrop);
+
+  fileInput.addEventListener('change', function() {
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function() {
+      openCrop(reader.result);
+    };
+    reader.onerror = function() { fileInput.value = ''; };
+    reader.readAsDataURL(file);
+  });
+
+  clearBtn.addEventListener('click', function() {
+    delete div.dataset.photo;
+    setPreviewEmpty();
+    this.style.display = 'none';
+    showSwatches(true);
+    closeCrop();
+  });
+
+  swatchBox.querySelectorAll('.pastel-swatch').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const c = this.getAttribute('data-color');
+      div.dataset.color = c;
+      swatchBox.querySelectorAll('.pastel-swatch').forEach(b => b.classList.remove('selected'));
+      this.classList.add('selected');
+      if (!div.dataset.photo) {
+        const prev = div.querySelector('.person-photo-preview');
+        if (prev && prev.classList.contains('empty')) prev.style.background = c;
+      }
+    });
+  });
+
   div.querySelector('.p-rank').addEventListener('change', refreshAllReportsTo);
   div.querySelector('.p-name').addEventListener('input', function() {
     clearTimeout(div._nameTimer);
@@ -1024,6 +1234,7 @@ function collectPeople() {
     rank: r.querySelector('.p-rank').value,
     name: r.querySelector('.p-name').value.trim(),
     photo: r.dataset.photo || '',
+    color: r.dataset.color || PASTEL_COLORS[0],
     reportsTo: r.querySelector('.p-reports').value || ''
   })).filter(p => p.name);
 }
@@ -1093,7 +1304,7 @@ function buildCocTreeHtml(people) {
     const initials = (node.name || '?').split(/\s+/).map(s => s[0] || '').join('').slice(0, 2).toUpperCase();
     const photoHtml = node.photo
       ? '<img class="coc-photo" src="' + node.photo.replace(/"/g, '&quot;') + '" alt="">'
-      : '<div class="coc-photo placeholder">' + initials + '</div>';
+      : '<div class="coc-photo placeholder" style="background:' + (node.color || '#A8D5E5') + '">' + initials + '</div>';
     let html = '<div class="coc-node-wrap"><div class="coc-node">' +
       photoHtml +
       '<div class="coc-rank">' + (node.rank || '') + '</div>' +

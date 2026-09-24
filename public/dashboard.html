@@ -1455,9 +1455,10 @@ function renderChainOfCommand() {
   });
   function renderNode(node) {
     const initials = (node.name || '?').split(/\s+/).map(s => s[0] || '').join('').slice(0, 2).toUpperCase();
+    const bg = (node.color && /^#[0-9A-Fa-f]{6}$/.test(node.color)) ? node.color : '';
     const photoHtml = node.photo
       ? '<img class="coc-photo" src="' + String(node.photo).replace(/"/g, '&quot;') + '" alt="">'
-      : '<div class="coc-photo placeholder">' + esc(initials) + '</div>';
+      : '<div class="coc-photo placeholder"' + (bg ? ' style="background:' + bg + '"' : '') + '>' + esc(initials) + '</div>';
     let html = '<div class="coc-node-wrap" data-id="' + esc(node.id) + '"><div class="coc-node">' +
       photoHtml +
       '<div class="coc-rank">' + esc(node.rank || '') + '</div>' +

@@ -318,11 +318,14 @@ function createStore({ dir, defaults, legacyDir, snapDir }) {
             if (isStr(p.photo) && p.photo.startsWith('data:image/') && p.photo.length <= 120000) {
               photo = p.photo;
             }
+            let color = '';
+            if (isStr(p.color) && /^#[0-9A-Fa-f]{6}$/.test(p.color.trim())) color = p.color.trim().toUpperCase();
             return {
               id,
               rank: isStr(p.rank) && RANK_RE.test(p.rank.trim()) ? p.rank.trim() : '',
               name: String(p.name ?? '').slice(0, 80).trim(),
               photo,
+              color,
               reportsTo: isStr(p.reportsTo) && /^[A-Za-z0-9_-]{1,40}$/.test(p.reportsTo) ? p.reportsTo : ''
             };
           })
