@@ -421,6 +421,96 @@
     background: #eef6fb;
     color: var(--raf-navy);
   }
+
+  .coc-builder {
+    margin-top: 10px;
+  }
+  .coc-builder-level {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--white);
+    margin-top: 10px;
+    padding: 10px;
+  }
+  .coc-builder-level.drag-over {
+    border-color: var(--raf-blue);
+    background: #eef6fb;
+  }
+  .coc-builder-level-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .coc-builder-level-head strong {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--raf-navy);
+  }
+  .coc-builder-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-height: 44px;
+  }
+  .coc-chip {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    background: var(--off-white);
+    cursor: pointer;
+    min-width: 88px;
+    text-align: center;
+    user-select: none;
+  }
+  .coc-chip.selected {
+    border-color: var(--raf-navy);
+    box-shadow: 0 0 0 2px rgba(0, 102, 161, 0.2);
+    background: var(--white);
+  }
+  .coc-chip.dragging { opacity: 0.5; }
+  .coc-chip-photo {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin: 0 auto 4px;
+    display: block;
+    border: 2px solid var(--raf-navy);
+    background: var(--light-blue);
+  }
+  .coc-chip-photo.ph {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--raf-navy);
+  }
+  .coc-chip-rank {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--raf-blue);
+    text-transform: uppercase;
+  }
+  .coc-chip-name {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--deep-navy);
+  }
+  .coc-chip-tag {
+    font-size: 10px;
+    color: var(--muted);
+  }
+  .coc-settings {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+  .coc-settings .person-photo-row { margin-top: 8px; }
+
   .coc-toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
   .coc-toolbar .hint { flex: 1 1 100%; margin: 0; }
 
@@ -850,11 +940,11 @@
 <button class="add" type="button" onclick="addWidget()">+ Add embed</button>
 
 <h2>Chain of Command</h2>
-<p class="hint">Build the hierarchy: rank, name, optional photo, optional role/tag, and who they report to. Drag a person onto another to set “reports to”, or onto <strong>Top of chain</strong> to clear it.</p>
-<div id="cocPeople"></div>
-<div id="cocDropTop">↓ Drop here for top of chain</div>
+<p class="hint">People are arranged by <strong>level</strong> (top = Level 1). Everyone on a level reports to the level above — no per-person “reports to”. Click a person to edit their details. Drag between levels to move them up or down the chain.</p>
+<div id="cocBuilder" class="coc-builder"></div>
 <div class="actions coc-toolbar">
-  <button class="add" type="button" onclick="addPerson()">+ Add person</button>
+  <button class="add" type="button" onclick="cocAddPerson()">+ Add person</button>
+  <button class="add" type="button" onclick="cocAddLevel()">+ Add level</button>
   <button class="add" type="button" onclick="previewChainOfCommand()">Test preview</button>
   <button class="add" type="button" onclick="loadSampleChainOfCommand()">Load sample hierarchy</button>
   <span class="hint" id="cocEmptyHint"></span>
@@ -1082,20 +1172,6 @@ const RAFAC_RANKS = [
   ]}
 ];
 
-function rankOptionsHtml(selected) {
-  let html = '<option value="">— Rank —</option>';
-  RAFAC_RANKS.forEach(g => {
-    html += '<optgroup label="' + g.group + '">';
-    g.items.forEach(r => {
-      html += '<option value="' + r.value + '"' + (selected === r.value ? ' selected' : '') + '>' + r.label + '</option>';
-    });
-    html += '</optgroup>';
-  });
-  return html;
-}
-
-function newPersonId() { return 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
-
 const PASTEL_COLORS = ['#A8D5E5', '#F5C6AA', '#C7E2B0', '#E2C4E8', '#F5E6A8', '#B8C9E8'];
 const ROLE_TAGS = [
   { value: '', label: '— No tag —' },
@@ -1109,53 +1185,167 @@ const ROLE_TAGS = [
   { value: '__custom__', label: 'Custom…' }
 ];
 
-function tagOptionsHtml(selected, customText) {
+let cocPeople = [];
+let cocSelectedId = null;
+let cocMaxLevel = 0; // highest level index in use (0-based)
+
+function newPersonId() { return 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
+function rankOptionsHtml(selected) {
+  let html = '<option value="">— Rank —</option>';
+  RAFAC_RANKS.forEach(g => {
+    html += '<optgroup label="' + g.group + '">';
+    g.items.forEach(r => {
+      html += '<option value="' + r.value + '"' + (selected === r.value ? ' selected' : '') + '>' + r.label + '</option>';
+    });
+    html += '</optgroup>';
+  });
+  return html;
+}
+
+function tagOptionsHtml(selected) {
   const sel = selected || '';
-  const isCustom = sel && !ROLE_TAGS.some(t => t.value && t.value !== '__custom__' && t.value === sel);
+  const known = ROLE_TAGS.some(t => t.value && t.value !== '__custom__' && t.value === sel);
   let html = '';
   ROLE_TAGS.forEach(t => {
     let chosen = false;
-    if (t.value === '__custom__') chosen = isCustom || sel === '__custom__';
-    else chosen = !isCustom && sel === t.value;
+    if (t.value === '__custom__') chosen = !known && !!sel;
+    else chosen = known && sel === t.value;
+    if (!sel && t.value === '') chosen = true;
     html += '<option value="' + t.value + '"' + (chosen ? ' selected' : '') + '>' + t.label + '</option>';
   });
   return html;
 }
 
-function personRow(p = {}) {
-  const div = document.createElement('div');
-  div.className = 'person-row';
-  div.dataset.id = p.id || newPersonId();
-  div.draggable = true;
-  const hasPhoto = !!(p.photo && p.photo.startsWith('data:image/'));
-  const color = (p.color && /^#[0-9A-Fa-f]{6}$/.test(p.color)) ? p.color : PASTEL_COLORS[0];
-  div.dataset.color = color;
-  if (hasPhoto) div.dataset.photo = p.photo;
+function normalizeLevels() {
+  if (!cocPeople.length) { cocMaxLevel = 0; return; }
+  const used = [...new Set(cocPeople.map(p => p.level))].sort((a, b) => a - b);
+  const map = {};
+  used.forEach((lv, i) => { map[lv] = i; });
+  cocPeople.forEach(p => { p.level = map[p.level] ?? 0; });
+  cocMaxLevel = Math.max(0, ...cocPeople.map(p => p.level));
+}
 
-  const tagVal = (p.tag || '').trim();
-  const known = ROLE_TAGS.some(t => t.value && t.value !== '__custom__' && t.value === tagVal);
-  const tagSelectVal = tagVal ? (known ? tagVal : '__custom__') : '';
-  const customTag = known ? '' : tagVal;
+function collectPeople() {
+  // Sync open settings panel into state first
+  cocFlushSettings();
+  return cocPeople
+    .filter(p => (p.name || '').trim())
+    .map(p => ({
+      id: p.id,
+      rank: p.rank || '',
+      name: (p.name || '').trim(),
+      photo: p.photo || '',
+      color: p.color || PASTEL_COLORS[0],
+      tag: p.tag || '',
+      level: Math.max(0, parseInt(p.level, 10) || 0)
+    }));
+}
 
+function cocFlushSettings() {
+  if (!cocSelectedId) return;
+  const panel = document.getElementById('cocSettingsPanel');
+  if (!panel) return;
+  const person = cocPeople.find(p => p.id === cocSelectedId);
+  if (!person) return;
+  person.rank = panel.querySelector('.p-rank')?.value || '';
+  person.name = panel.querySelector('.p-name')?.value || '';
+  const tagSel = panel.querySelector('.p-tag')?.value || '';
+  if (tagSel === '__custom__') person.tag = (panel.querySelector('.p-tag-custom')?.value || '').trim().slice(0, 40);
+  else person.tag = tagSel;
+  person.color = panel.dataset.color || person.color || PASTEL_COLORS[0];
+  if (panel.dataset.photo) person.photo = panel.dataset.photo;
+  else if (panel.dataset.photo === '') person.photo = '';
+}
+
+function cocSelect(id) {
+  cocFlushSettings();
+  cocSelectedId = (cocSelectedId === id) ? null : id;
+  renderCocBuilder();
+}
+
+function cocAddPerson() {
+  cocFlushSettings();
+  const id = newPersonId();
+  cocPeople.push({
+    id,
+    rank: '',
+    name: '',
+    photo: '',
+    color: PASTEL_COLORS[cocPeople.length % PASTEL_COLORS.length],
+    tag: '',
+    level: cocMaxLevel
+  });
+  cocSelectedId = id;
+  renderCocBuilder();
+  updateCocEmptyHint();
+}
+
+function cocAddLevel() {
+  cocFlushSettings();
+  cocMaxLevel = (cocPeople.length ? Math.max(...cocPeople.map(p => p.level)) : -1) + 1;
+  if (cocMaxLevel < 0) cocMaxLevel = 0;
+  renderCocBuilder();
+}
+
+function cocRemovePerson(id) {
+  cocFlushSettings();
+  cocPeople = cocPeople.filter(p => p.id !== id);
+  if (cocSelectedId === id) cocSelectedId = null;
+  normalizeLevels();
+  renderCocBuilder();
+  updateCocEmptyHint();
+}
+
+function cocMoveToLevel(id, level) {
+  const p = cocPeople.find(x => x.id === id);
+  if (!p) return;
+  p.level = Math.max(0, Math.min(20, level));
+  cocMaxLevel = Math.max(cocMaxLevel, p.level);
+  renderCocBuilder();
+}
+
+function updateCocEmptyHint() {
+  const hint = document.getElementById('cocEmptyHint');
+  if (!hint) return;
+  hint.textContent = cocPeople.length ? '' : 'No people yet — add some, or load a sample hierarchy.';
+}
+
+function chipHtml(p) {
+  const initials = (p.name || '?').split(/\s+/).map(s => s[0] || '').join('').slice(0, 2).toUpperCase() || '?';
+  const photo = p.photo
+    ? '<img class="coc-chip-photo" src="' + String(p.photo).replace(/"/g, '&quot;') + '" alt="">'
+    : '<div class="coc-chip-photo ph" style="background:' + (p.color || PASTEL_COLORS[0]) + '">' + initials + '</div>';
+  return '<div class="coc-chip' + (p.id === cocSelectedId ? ' selected' : '') + '" draggable="true" data-id="' + p.id + '">' +
+    photo +
+    '<div class="coc-chip-rank">' + (p.rank || '—') + '</div>' +
+    '<div class="coc-chip-name">' + (p.name || 'Unnamed') + '</div>' +
+    (p.tag ? '<div class="coc-chip-tag">' + p.tag + '</div>' : '') +
+    '</div>';
+}
+
+function settingsHtml(p) {
+  const known = ROLE_TAGS.some(t => t.value && t.value !== '__custom__' && t.value === (p.tag || ''));
+  const tagSel = p.tag ? (known ? p.tag : '__custom__') : '';
   const swatches = PASTEL_COLORS.map(c =>
-    '<button type="button" class="pastel-swatch' + (c.toLowerCase() === color.toLowerCase() ? ' selected' : '') +
-    '" data-color="' + c + '" style="background:' + c + '" title="' + c + '" aria-label="Colour ' + c + '"></button>'
+    '<button type="button" class="pastel-swatch' + ((p.color || '').toLowerCase() === c.toLowerCase() ? ' selected' : '') +
+    '" data-color="' + c + '" style="background:' + c + '"></button>'
   ).join('');
-
-  div.innerHTML =
-    '<div class="drag-handle" title="Drag onto another person to set reports-to">⋮⋮ Drag to set reports-to</div>' +
+  const hasPhoto = !!(p.photo && p.photo.startsWith('data:image/'));
+  return '<div class="coc-settings" id="cocSettingsPanel" data-id="' + p.id + '" data-color="' + (p.color || PASTEL_COLORS[0]) + '"' +
+    (hasPhoto ? ' data-photo="' + p.photo.replace(/"/g, '&quot;') + '"' : '') + '>' +
     '<div class="person-top">' +
       '<div class="person-rank-wrap"><label>Rank</label><select class="p-rank">' + rankOptionsHtml(p.rank || '') + '</select></div>' +
-      '<div class="person-name-wrap"><label>Name</label><input class="p-name" placeholder="Full name"></div>' +
+      '<div class="person-name-wrap"><label>Name</label><input class="p-name" placeholder="Full name" value="' + String(p.name || '').replace(/"/g, '&quot;') + '"></div>' +
     '</div>' +
     '<div class="person-tag-row">' +
-      '<div><label>Role / tag</label><select class="p-tag">' + tagOptionsHtml(tagSelectVal) + '</select></div>' +
-      '<div class="p-tag-custom-wrap' + (tagSelectVal === '__custom__' ? ' show' : '') + '"><label>Custom tag</label><input class="p-tag-custom" placeholder="e.g. Sgt Maj" maxlength="40"></div>' +
+      '<div><label>Role / tag</label><select class="p-tag">' + tagOptionsHtml(tagSel) + '</select></div>' +
+      '<div class="p-tag-custom-wrap' + (tagSel === '__custom__' ? ' show' : '') + '"><label>Custom tag</label><input class="p-tag-custom" maxlength="40" value="' + (tagSel === '__custom__' ? String(p.tag || '').replace(/"/g, '&quot;') : '') + '"></div>' +
     '</div>' +
     '<div class="person-photo-row">' +
       (hasPhoto
         ? '<img class="person-photo-preview" alt="" src="' + p.photo.replace(/"/g, '&quot;') + '">'
-        : '<div class="person-photo-preview empty" style="background:' + color + '">Photo</div>') +
+        : '<div class="person-photo-preview empty" style="background:' + (p.color || PASTEL_COLORS[0]) + '">Photo</div>') +
       '<div class="person-photo-actions">' +
         '<input type="file" class="p-photo-file" accept="image/*">' +
         '<button type="button" class="danger p-photo-clear" style="margin-top:0;min-height:32px;padding:4px 10px;font-size:11px;' + (hasPhoto ? '' : 'display:none') + '">Remove photo</button>' +
@@ -1163,56 +1353,56 @@ function personRow(p = {}) {
       '</div>' +
     '</div>' +
     '<div class="photo-crop-stage">' +
-      '<p class="photo-crop-hint">Drag to reposition. The circle is the final crop on the display.</p>' +
+      '<p class="photo-crop-hint">Drag to reposition. The circle is the final crop.</p>' +
       '<div class="photo-crop-frame"><img class="photo-crop-img" alt=""></div>' +
       '<div class="photo-crop-actions">' +
         '<button type="button" class="primary p-photo-apply">Apply</button>' +
         '<button type="button" class="add p-photo-cancel">Cancel</button>' +
       '</div>' +
     '</div>' +
-    '<div class="person-reports"><label>Reports to</label><select class="p-reports"></select></div>' +
-    '<button type="button" class="danger" onclick="this.parentElement.remove(); refreshAllReportsTo(); updateCocEmptyHint();">Remove</button>';
+    '<div class="actions" style="margin-top:8px;">' +
+      '<button type="button" class="danger" onclick="cocRemovePerson(\'' + p.id + '\')">Remove person</button>' +
+    '</div>' +
+    '</div>';
+}
 
-  div.querySelector('.p-name').value = p.name || '';
-  if (customTag) div.querySelector('.p-tag-custom').value = customTag;
-
-  const tagSel = div.querySelector('.p-tag');
-  const customWrap = div.querySelector('.p-tag-custom-wrap');
-  tagSel.addEventListener('change', function() {
-    customWrap.classList.toggle('show', this.value === '__custom__');
+function bindSettingsPanel(panel) {
+  if (!panel) return;
+  const id = panel.dataset.id;
+  panel.querySelector('.p-tag')?.addEventListener('change', function() {
+    panel.querySelector('.p-tag-custom-wrap')?.classList.toggle('show', this.value === '__custom__');
+  });
+  // live sync name to chip on input
+  panel.querySelector('.p-name')?.addEventListener('input', function() {
+    const p = cocPeople.find(x => x.id === id);
+    if (p) p.name = this.value;
+  });
+  panel.querySelector('.p-rank')?.addEventListener('change', function() {
+    const p = cocPeople.find(x => x.id === id);
+    if (p) p.rank = this.value;
   });
 
-  const cropStage = div.querySelector('.photo-crop-stage');
-  const cropFrame = div.querySelector('.photo-crop-frame');
-  const cropImg = div.querySelector('.photo-crop-img');
-  const fileInput = div.querySelector('.p-photo-file');
-  const clearBtn = div.querySelector('.p-photo-clear');
-  const swatchBox = div.querySelector('.pastel-swatches');
+  panel.querySelectorAll('.pastel-swatch').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const c = this.getAttribute('data-color');
+      panel.dataset.color = c;
+      const p = cocPeople.find(x => x.id === id);
+      if (p) p.color = c;
+      panel.querySelectorAll('.pastel-swatch').forEach(b => b.classList.remove('selected'));
+      this.classList.add('selected');
+      const prev = panel.querySelector('.person-photo-preview');
+      if (prev && prev.classList.contains('empty')) prev.style.background = c;
+    });
+  });
+
+  const cropStage = panel.querySelector('.photo-crop-stage');
+  const cropFrame = panel.querySelector('.photo-crop-frame');
+  const cropImg = panel.querySelector('.photo-crop-img');
+  const fileInput = panel.querySelector('.p-photo-file');
+  const clearBtn = panel.querySelector('.p-photo-clear');
+  const swatchBox = panel.querySelector('.pastel-swatches');
   let cropState = null;
 
-  function setPreviewPhoto(dataUrl) {
-    const prev = div.querySelector('.person-photo-preview');
-    const img = document.createElement('img');
-    img.className = 'person-photo-preview';
-    img.alt = '';
-    img.src = dataUrl;
-    prev.replaceWith(img);
-  }
-  function setPreviewEmpty() {
-    const prev = div.querySelector('.person-photo-preview');
-    const empty = document.createElement('div');
-    empty.className = 'person-photo-preview empty';
-    empty.textContent = 'Photo';
-    empty.style.background = div.dataset.color || PASTEL_COLORS[0];
-    prev.replaceWith(empty);
-  }
-  function showSwatches(show) { swatchBox.classList.toggle('hidden', !show); }
-  function closeCrop() {
-    cropStage.classList.remove('open');
-    cropState = null;
-    cropImg.removeAttribute('src');
-    fileInput.value = '';
-  }
   function layoutCrop() {
     if (!cropState) return;
     cropImg.style.width = (cropState.naturalW * cropState.scale) + 'px';
@@ -1221,11 +1411,9 @@ function personRow(p = {}) {
   }
   function openCrop(dataUrl) {
     cropImg.onload = function() {
-      const nw = cropImg.naturalWidth || 1;
-      const nh = cropImg.naturalHeight || 1;
+      const nw = cropImg.naturalWidth || 1, nh = cropImg.naturalHeight || 1;
       const size = cropFrame.clientWidth || 220;
-      const scale = Math.max(size / nw, size / nh);
-      cropState = { naturalW: nw, naturalH: nh, scale: scale, x: 0, y: 0 };
+      cropState = { naturalW: nw, naturalH: nh, scale: Math.max(size / nw, size / nh), x: 0, y: 0 };
       layoutCrop();
       cropStage.classList.add('open');
     };
@@ -1237,194 +1425,167 @@ function personRow(p = {}) {
     const canvas = document.createElement('canvas');
     canvas.width = size; canvas.height = size;
     const ctx = canvas.getContext('2d');
-    ctx.beginPath();
-    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
-    ctx.closePath();
-    ctx.clip();
-    const dispW = cropState.naturalW * cropState.scale;
-    const dispH = cropState.naturalH * cropState.scale;
-    const frameSize = cropFrame.clientWidth || 220;
-    const ratio = size / frameSize;
-    const dx = size / 2 + cropState.x * ratio - (dispW * ratio) / 2;
-    const dy = size / 2 + cropState.y * ratio - (dispH * ratio) / 2;
-    ctx.drawImage(cropImg, dx, dy, dispW * ratio, dispH * ratio);
+    ctx.beginPath(); ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2); ctx.closePath(); ctx.clip();
+    const dispW = cropState.naturalW * cropState.scale, dispH = cropState.naturalH * cropState.scale;
+    const frameSize = cropFrame.clientWidth || 220, ratio = size / frameSize;
+    ctx.drawImage(cropImg, size / 2 + cropState.x * ratio - (dispW * ratio) / 2, size / 2 + cropState.y * ratio - (dispH * ratio) / 2, dispW * ratio, dispH * ratio);
     const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
-    div.dataset.photo = dataUrl;
-    setPreviewPhoto(dataUrl);
+    panel.dataset.photo = dataUrl;
+    const p = cocPeople.find(x => x.id === id);
+    if (p) p.photo = dataUrl;
+    const prev = panel.querySelector('.person-photo-preview');
+    const img = document.createElement('img');
+    img.className = 'person-photo-preview'; img.alt = ''; img.src = dataUrl;
+    prev.replaceWith(img);
     clearBtn.style.display = '';
-    showSwatches(false);
-    closeCrop();
+    swatchBox?.classList.add('hidden');
+    cropStage.classList.remove('open');
+    cropState = null;
+    fileInput.value = '';
+    // refresh chip photo
+    renderCocBuilder();
   }
 
-  cropFrame.addEventListener('pointerdown', function(e) {
+  cropFrame.addEventListener('pointerdown', e => {
     if (!cropState) return;
     cropFrame.setPointerCapture(e.pointerId);
     cropState.drag = { x: e.clientX, y: e.clientY, ox: cropState.x, oy: cropState.y };
   });
-  cropFrame.addEventListener('pointermove', function(e) {
-    if (!cropState || !cropState.drag) return;
+  cropFrame.addEventListener('pointermove', e => {
+    if (!cropState?.drag) return;
     cropState.x = cropState.drag.ox + (e.clientX - cropState.drag.x);
     cropState.y = cropState.drag.oy + (e.clientY - cropState.drag.y);
     layoutCrop();
   });
-  function endDrag() { if (cropState) cropState.drag = null; }
-  cropFrame.addEventListener('pointerup', endDrag);
-  cropFrame.addEventListener('pointercancel', endDrag);
-
-  div.querySelector('.p-photo-apply').addEventListener('click', applyCrop);
-  div.querySelector('.p-photo-cancel').addEventListener('click', closeCrop);
-
-  fileInput.addEventListener('change', function() {
+  const endD = () => { if (cropState) cropState.drag = null; };
+  cropFrame.addEventListener('pointerup', endD);
+  cropFrame.addEventListener('pointercancel', endD);
+  panel.querySelector('.p-photo-apply')?.addEventListener('click', applyCrop);
+  panel.querySelector('.p-photo-cancel')?.addEventListener('click', () => {
+    cropStage.classList.remove('open'); cropState = null; fileInput.value = '';
+  });
+  fileInput?.addEventListener('change', function() {
     const file = fileInput.files && fileInput.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function() { openCrop(reader.result); };
-    reader.onerror = function() { fileInput.value = ''; };
-    reader.readAsDataURL(file);
+    const r = new FileReader();
+    r.onload = () => openCrop(r.result);
+    r.readAsDataURL(file);
   });
-
-  clearBtn.addEventListener('click', function() {
-    delete div.dataset.photo;
-    setPreviewEmpty();
+  clearBtn?.addEventListener('click', function() {
+    panel.dataset.photo = '';
+    const p = cocPeople.find(x => x.id === id);
+    if (p) p.photo = '';
+    const prev = panel.querySelector('.person-photo-preview');
+    const empty = document.createElement('div');
+    empty.className = 'person-photo-preview empty';
+    empty.textContent = 'Photo';
+    empty.style.background = panel.dataset.color || PASTEL_COLORS[0];
+    prev.replaceWith(empty);
     this.style.display = 'none';
-    showSwatches(true);
-    closeCrop();
+    swatchBox?.classList.remove('hidden');
+    renderCocBuilder();
   });
+}
 
-  swatchBox.querySelectorAll('.pastel-swatch').forEach(btn => {
-    btn.addEventListener('click', function() {
-      const c = this.getAttribute('data-color');
-      div.dataset.color = c;
-      swatchBox.querySelectorAll('.pastel-swatch').forEach(b => b.classList.remove('selected'));
-      this.classList.add('selected');
-      if (!div.dataset.photo) {
-        const prev = div.querySelector('.person-photo-preview');
-        if (prev && prev.classList.contains('empty')) prev.style.background = c;
-      }
+function renderCocBuilder() {
+  const host = document.getElementById('cocBuilder');
+  if (!host) return;
+  const maxLv = Math.max(cocMaxLevel, ...cocPeople.map(p => p.level), 0);
+  cocMaxLevel = maxLv;
+  let html = '';
+  for (let lv = 0; lv <= maxLv; lv++) {
+    const peers = cocPeople.filter(p => p.level === lv);
+    html += '<div class="coc-builder-level" data-level="' + lv + '">' +
+      '<div class="coc-builder-level-head"><strong>Level ' + (lv + 1) + (lv === 0 ? ' (top)' : '') + '</strong>' +
+      '<span class="hint">' + peers.length + ' people</span></div>' +
+      '<div class="coc-builder-chips">' + peers.map(chipHtml).join('') + '</div>';
+    if (cocSelectedId && peers.some(p => p.id === cocSelectedId)) {
+      const person = cocPeople.find(p => p.id === cocSelectedId);
+      if (person) html += settingsHtml(person);
+    }
+    html += '</div>';
+  }
+  host.innerHTML = html;
+
+  // Click chips
+  host.querySelectorAll('.coc-chip').forEach(chip => {
+    chip.addEventListener('click', function(e) {
+      e.stopPropagation();
+      cocSelect(this.dataset.id);
+    });
+    chip.addEventListener('dragstart', function(e) {
+      e.dataTransfer.setData('text/plain', this.dataset.id);
+      this.classList.add('dragging');
+    });
+    chip.addEventListener('dragend', function() {
+      this.classList.remove('dragging');
+      host.querySelectorAll('.coc-builder-level.drag-over').forEach(el => el.classList.remove('drag-over'));
     });
   });
 
-  // Drag-and-drop hierarchy
-  div.addEventListener('dragstart', function(e) {
-    e.dataTransfer.setData('text/plain', div.dataset.id);
-    e.dataTransfer.effectAllowed = 'move';
-    div.classList.add('dragging');
-  });
-  div.addEventListener('dragend', function() {
-    div.classList.remove('dragging');
-    document.querySelectorAll('.person-row.drag-over, #cocDropTop.drag-over').forEach(el => el.classList.remove('drag-over'));
-  });
-  div.addEventListener('dragover', function(e) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    div.classList.add('drag-over');
-  });
-  div.addEventListener('dragleave', function() { div.classList.remove('drag-over'); });
-  div.addEventListener('drop', function(e) {
-    e.preventDefault();
-    div.classList.remove('drag-over');
-    const fromId = e.dataTransfer.getData('text/plain');
-    const toId = div.dataset.id;
-    if (!fromId || fromId === toId) return;
-    const fromRow = document.querySelector('#cocPeople .person-row[data-id="' + fromId + '"]');
-    if (!fromRow) return;
-    const sel = fromRow.querySelector('.p-reports');
-    if (sel && [...sel.options].some(o => o.value === toId)) {
-      sel.value = toId;
-      refreshAllReportsTo();
-    } else {
-      // Ensure option exists after refresh
-      refreshAllReportsTo();
-      const sel2 = fromRow.querySelector('.p-reports');
-      if (sel2) sel2.value = toId;
-    }
+  // Drop on levels
+  host.querySelectorAll('.coc-builder-level').forEach(row => {
+    row.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      this.classList.add('drag-over');
+    });
+    row.addEventListener('dragleave', function() { this.classList.remove('drag-over'); });
+    row.addEventListener('drop', function(e) {
+      e.preventDefault();
+      this.classList.remove('drag-over');
+      const id = e.dataTransfer.getData('text/plain');
+      const lv = parseInt(this.dataset.level, 10) || 0;
+      if (id) cocMoveToLevel(id, lv);
+    });
   });
 
-  div.querySelector('.p-rank').addEventListener('change', refreshAllReportsTo);
-  div.querySelector('.p-name').addEventListener('input', function() {
-    clearTimeout(div._nameTimer);
-    div._nameTimer = setTimeout(refreshAllReportsTo, 300);
-  });
-  return div;
-}
-
-function addPerson() {
-  document.getElementById('cocPeople').appendChild(personRow());
-  refreshAllReportsTo();
+  bindSettingsPanel(document.getElementById('cocSettingsPanel'));
   updateCocEmptyHint();
-}
-
-function collectPeople() {
-  return [...document.querySelectorAll('#cocPeople .person-row')].map(r => {
-    const tagSel = r.querySelector('.p-tag');
-    const tagVal = tagSel ? tagSel.value : '';
-    let tag = '';
-    if (tagVal === '__custom__') tag = (r.querySelector('.p-tag-custom')?.value || '').trim().slice(0, 40);
-    else tag = (tagVal || '').trim().slice(0, 40);
-    return {
-      id: r.dataset.id,
-      rank: r.querySelector('.p-rank').value,
-      name: r.querySelector('.p-name').value.trim(),
-      photo: r.dataset.photo || '',
-      color: r.dataset.color || PASTEL_COLORS[0],
-      tag,
-      reportsTo: r.querySelector('.p-reports').value || ''
-    };
-  }).filter(p => p.name);
-}
-
-function updateCocEmptyHint() {
-  const hint = document.getElementById('cocEmptyHint');
-  if (!hint) return;
-  const n = document.querySelectorAll('#cocPeople .person-row').length;
-  hint.textContent = n ? '' : 'No people yet — add some, or load a sample hierarchy to try the tree.';
 }
 
 function loadSampleChainOfCommand() {
-  const box = document.getElementById('cocPeople');
-  if (!box) return;
-  if (box.querySelector('.person-row') && !confirm('Replace the current list with a sample hierarchy?')) return;
-  box.innerHTML = '';
-  const oc = { id: 'sample-oc', rank: 'Sqn Ldr', name: 'A. Example', tag: 'OC', color: '#A8D5E5', reportsTo: '' };
-  const adj = { id: 'sample-adj', rank: 'Flt Lt', name: 'B. Example', tag: 'Adj', color: '#F5C6AA', reportsTo: 'sample-oc' };
-  const tr = { id: 'sample-trg', rank: 'Fg Off', name: 'C. Example', tag: 'Trg Off', color: '#C7E2B0', reportsTo: 'sample-oc' };
-  const fs = { id: 'sample-fs', rank: 'FS', name: 'D. Example', tag: 'Staff', color: '#E2C4E8', reportsTo: 'sample-adj' };
-  const cwo = { id: 'sample-cwo', rank: 'CWO', name: 'E. Cadet', tag: 'A Flight', color: '#F5E6A8', reportsTo: 'sample-trg' };
-  const sgt = { id: 'sample-sgt', rank: 'Cdt Sgt', name: 'F. Cadet', tag: 'B Flight', color: '#B8C9E8', reportsTo: 'sample-cwo' };
-  [oc, adj, tr, fs, cwo, sgt].forEach(p => box.appendChild(personRow(p)));
-  refreshAllReportsTo();
-  // Restore reportsTo after options exist
-  [oc, adj, tr, fs, cwo, sgt].forEach(p => {
-    const row = box.querySelector('.person-row[data-id="' + p.id + '"]');
-    if (row && p.reportsTo) {
-      const sel = row.querySelector('.p-reports');
-      if (sel && [...sel.options].some(o => o.value === p.reportsTo)) sel.value = p.reportsTo;
-    }
-  });
-  updateCocEmptyHint();
+  if (cocPeople.length && !confirm('Replace the current list with a sample hierarchy?')) return;
+  cocPeople = [
+    { id: 'sample-oc', rank: 'Sqn Ldr', name: 'A. Example', tag: 'OC', color: '#A8D5E5', photo: '', level: 0 },
+    { id: 'sample-adj', rank: 'Flt Lt', name: 'B. Example', tag: 'Adj', color: '#F5C6AA', photo: '', level: 1 },
+    { id: 'sample-trg', rank: 'Fg Off', name: 'C. Example', tag: 'Trg Off', color: '#C7E2B0', photo: '', level: 1 },
+    { id: 'sample-fs', rank: 'FS', name: 'D. Example', tag: 'Staff', color: '#E2C4E8', photo: '', level: 2 },
+    { id: 'sample-cwo', rank: 'CWO', name: 'E. Cadet', tag: 'A Flight', color: '#F5E6A8', photo: '', level: 2 },
+    { id: 'sample-sgt', rank: 'Cdt Sgt', name: 'F. Cadet', tag: 'B Flight', color: '#B8C9E8', photo: '', level: 3 }
+  ];
+  cocSelectedId = null;
+  cocMaxLevel = 3;
+  renderCocBuilder();
 }
 
-function setupCocDropTop() {
-  const zone = document.getElementById('cocDropTop');
-  if (!zone || zone.dataset.ready) return;
-  zone.dataset.ready = '1';
-  zone.addEventListener('dragover', function(e) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    zone.classList.add('drag-over');
-  });
-  zone.addEventListener('dragleave', function() { zone.classList.remove('drag-over'); });
-  zone.addEventListener('drop', function(e) {
-    e.preventDefault();
-    zone.classList.remove('drag-over');
-    const fromId = e.dataTransfer.getData('text/plain');
-    const fromRow = document.querySelector('#cocPeople .person-row[data-id="' + fromId + '"]');
-    if (!fromRow) return;
-    const sel = fromRow.querySelector('.p-reports');
-    if (sel) sel.value = '';
-    refreshAllReportsTo();
-  });
+function loadCocFromData(people) {
+  cocPeople = (people || []).map(p => ({
+    id: p.id || newPersonId(),
+    rank: p.rank || '',
+    name: p.name || '',
+    photo: p.photo || '',
+    color: p.color || PASTEL_COLORS[0],
+    tag: p.tag || '',
+    level: Math.max(0, parseInt(p.level, 10) || 0)
+  }));
+  // Migrate legacy reportsTo → approximate levels
+  if (people && people.some(p => p.reportsTo && p.level === undefined)) {
+    const byId = {};
+    cocPeople.forEach(p => { byId[p.id] = p; });
+    const depth = (id, seen) => {
+      if (seen.has(id)) return 0;
+      seen.add(id);
+      const raw = (people || []).find(x => x.id === id);
+      if (!raw || !raw.reportsTo || !byId[raw.reportsTo]) return 0;
+      return 1 + depth(raw.reportsTo, seen);
+    };
+    cocPeople.forEach(p => { p.level = depth(p.id, new Set()); });
+  }
+  normalizeLevels();
+  cocSelectedId = null;
+  renderCocBuilder();
 }
+
 
 
 function refreshAllReportsTo() {
@@ -1477,38 +1638,30 @@ function buildCocTreeHtml(people) {
   if (!people || !people.length) {
     return '<div class="coc-empty">No people added yet. Add ranks and names above, then preview.</div>';
   }
-  const byId = {};
-  people.forEach(p => { byId[p.id] = { ...p, children: [] }; });
-  const roots = [];
+  const byLevel = {};
   people.forEach(p => {
-    const node = byId[p.id];
-    if (p.reportsTo && byId[p.reportsTo] && p.reportsTo !== p.id) {
-      byId[p.reportsTo].children.push(node);
-    } else {
-      roots.push(node);
-    }
+    const lv = Math.max(0, parseInt(p.level, 10) || 0);
+    if (!byLevel[lv]) byLevel[lv] = [];
+    byLevel[lv].push(p);
   });
-  function renderNode(node) {
+  const levels = Object.keys(byLevel).map(Number).sort((a, b) => a - b);
+  function nodeHtml(node) {
     const initials = (node.name || '?').split(/\s+/).map(s => s[0] || '').join('').slice(0, 2).toUpperCase();
     const photoHtml = node.photo
       ? '<img class="coc-photo" src="' + node.photo.replace(/"/g, '&quot;') + '" alt="">'
       : '<div class="coc-photo placeholder" style="background:' + (node.color || '#A8D5E5') + '">' + initials + '</div>';
-    let html = '<div class="coc-node-wrap"><div class="coc-node">' +
-      photoHtml +
+    return '<div class="coc-node-wrap"><div class="coc-node">' + photoHtml +
       '<div class="coc-rank">' + (node.rank || '') + '</div>' +
       '<div class="coc-name">' + (node.name || '') + '</div>' +
       (node.tag ? '<div class="coc-tag">' + node.tag + '</div>' : '') +
-      '</div>';
-    if (node.children && node.children.length) {
-      html += '<div class="coc-children">' + node.children.map(renderNode).join('') + '</div>';
-    }
-    html += '</div>';
-    return html;
+      '</div></div>';
   }
+  let html = '';
+  levels.forEach(lv => {
+    html += '<div class="coc-level">' + byLevel[lv].map(nodeHtml).join('') + '</div>';
+  });
   return '<div class="coc-viewport"><div class="coc-tree" id="cocPreviewTree">' +
-    '<svg class="coc-svg" id="cocPreviewSvg" aria-hidden="true"></svg>' +
-    '<div class="coc-level">' + roots.map(renderNode).join('') + '</div>' +
-    '</div></div>';
+    '<svg class="coc-svg" id="cocPreviewSvg" aria-hidden="true"></svg>' + html + '</div></div>';
 }
 
 function drawCocPreviewLines() {
@@ -1516,30 +1669,23 @@ function drawCocPreviewLines() {
   const svg = document.getElementById('cocPreviewSvg');
   if (!tree || !svg) return;
   const treeRect = tree.getBoundingClientRect();
-  const wraps = [...tree.querySelectorAll('.coc-node-wrap')];
+  const levels = [...tree.querySelectorAll('.coc-level')];
   const paths = [];
-  wraps.forEach(wrap => {
-    const parentNode = wrap.querySelector(':scope > .coc-node');
-    const childrenRow = wrap.querySelector(':scope > .coc-children');
-    if (!parentNode || !childrenRow) return;
-    const childNodes = [...childrenRow.querySelectorAll(':scope > .coc-node-wrap > .coc-node')];
-    if (!childNodes.length) return;
-    const pr = parentNode.getBoundingClientRect();
-    const px = pr.left + pr.width / 2 - treeRect.left;
-    const py = pr.bottom - treeRect.top;
-    childNodes.forEach(child => {
+  for (let i = 0; i < levels.length - 1; i++) {
+    const upper = [...levels[i].querySelectorAll('.coc-node')];
+    const lower = [...levels[i + 1].querySelectorAll('.coc-node')];
+    if (!upper.length || !lower.length) continue;
+    const upRects = upper.map(n => n.getBoundingClientRect());
+    const midX = (Math.min(...upRects.map(r => r.left)) + Math.max(...upRects.map(r => r.right))) / 2 - treeRect.left;
+    const topY = Math.max(...upRects.map(r => r.bottom)) - treeRect.top;
+    lower.forEach(child => {
       const cr = child.getBoundingClientRect();
       const cx = cr.left + cr.width / 2 - treeRect.left;
       const cy = cr.top - treeRect.top;
-      const midY = (py + cy) / 2;
-      paths.push(
-        'M ' + px.toFixed(1) + ' ' + py.toFixed(1) +
-        ' V ' + midY.toFixed(1) +
-        ' H ' + cx.toFixed(1) +
-        ' V ' + cy.toFixed(1)
-      );
+      const midY = (topY + cy) / 2;
+      paths.push('M ' + midX.toFixed(1) + ' ' + topY.toFixed(1) + ' V ' + midY.toFixed(1) + ' H ' + cx.toFixed(1) + ' V ' + cy.toFixed(1));
     });
-  });
+  }
   svg.setAttribute('viewBox', '0 0 ' + Math.max(1, tree.offsetWidth) + ' ' + Math.max(1, tree.offsetHeight));
   svg.innerHTML = paths.map(d => '<path d="' + d + '"/>').join('');
 }
@@ -1803,17 +1949,7 @@ async function load() {
   ((data.uniform && data.uniform.items) || []).slice()
     .sort((a, b) => String(a.date).localeCompare(String(b.date)))
     .forEach(u => uc.appendChild(uniformRow(u)));
-  const coc = document.getElementById('cocPeople'); coc.innerHTML = '';
-  (((data.chainOfCommand && data.chainOfCommand.people) || [])).forEach(p => coc.appendChild(personRow(p)));
-  refreshAllReportsTo();
-  // Restore reportsTo after all options exist
-  (((data.chainOfCommand && data.chainOfCommand.people) || [])).forEach(p => {
-    const row = [...document.querySelectorAll('#cocPeople .person-row')].find(r => r.dataset.id === p.id);
-    if (row && p.reportsTo) {
-      const sel = row.querySelector('.p-reports');
-      if ([...sel.options].some(o => o.value === p.reportsTo)) sel.value = p.reportsTo;
-    }
-  });
+  loadCocFromData(((data.chainOfCommand && data.chainOfCommand.people) || []));
   // Branding / loading logo
   window._loadingLogoDataUrl = (data.branding && data.branding.loadingLogo) || '';
   const logoPrev = document.getElementById('loadingLogoPreview');

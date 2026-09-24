@@ -1434,48 +1434,46 @@ function layoutCocTree() {
   const svg = document.getElementById('cocSvg');
   if (!pane || !scaleEl || !tree || !svg) return;
 
-  // Reset scale to measure natural size
   scaleEl.style.transform = 'scale(1)';
   const paneW = pane.clientWidth;
   const paneH = pane.clientHeight;
   if (paneW < 40 || paneH < 40) return;
 
-  // Draw connectors in unscaled coordinates
   const treeRect = tree.getBoundingClientRect();
-  const nodes = [...tree.querySelectorAll('.coc-node')];
-  const wraps = [...tree.querySelectorAll('.coc-node-wrap')];
+  const rows = [...tree.querySelectorAll('.coc-level-row')];
   const paths = [];
 
-  wraps.forEach(wrap => {
-    const parentNode = wrap.querySelector(':scope > .coc-node');
-    const childrenRow = wrap.querySelector(':scope > .coc-children');
-    if (!parentNode || !childrenRow) return;
-    const childNodes = [...childrenRow.querySelectorAll(':scope > .coc-node-wrap > .coc-node')];
-    if (!childNodes.length) return;
+  // Connect each level to the next: from centre of upper row to each node in lower row
+  for (let i = 0; i < rows.length - 1; i++) {
+    const upperNodes = [...rows[i].querySelectorAll(':scope > .coc-level > .coc-node-wrap > .coc-node')];
+    const lowerNodes = [...rows[i + 1].querySelectorAll(':scope > .coc-level > .coc-node-wrap > .coc-node')];
+    if (!upperNodes.length || !lowerNodes.length) continue;
 
-    const pr = parentNode.getBoundingClientRect();
-    const px = pr.left + pr.width / 2 - treeRect.left;
-    const py = pr.bottom - treeRect.top;
+    // Anchor from midline under the upper level group
+    const upRects = upperNodes.map(n => n.getBoundingClientRect());
+    const left = Math.min(...upRects.map(r => r.left));
+    const right = Math.max(...upRects.map(r => r.right));
+    const bottom = Math.max(...upRects.map(r => r.bottom));
+    const midX = (left + right) / 2 - treeRect.left;
+    const topY = bottom - treeRect.top;
 
-    childNodes.forEach(child => {
+    lowerNodes.forEach(child => {
       const cr = child.getBoundingClientRect();
       const cx = cr.left + cr.width / 2 - treeRect.left;
       const cy = cr.top - treeRect.top;
-      // Elbow: down from parent, horizontal to child x, down into child
-      const midY = (py + cy) / 2;
+      const midY = (topY + cy) / 2;
       paths.push(
-        'M ' + px.toFixed(1) + ' ' + py.toFixed(1) +
+        'M ' + midX.toFixed(1) + ' ' + topY.toFixed(1) +
         ' V ' + midY.toFixed(1) +
         ' H ' + cx.toFixed(1) +
         ' V ' + cy.toFixed(1)
       );
     });
-  });
+  }
 
   svg.setAttribute('viewBox', '0 0 ' + Math.max(1, tree.offsetWidth) + ' ' + Math.max(1, tree.offsetHeight));
   svg.innerHTML = paths.map(d => '<path d="' + d + '"/>').join('');
 
-  // Fit whole tree into the pane with a little padding
   const naturalW = tree.offsetWidth;
   const naturalH = tree.offsetHeight;
   if (naturalW < 1 || naturalH < 1) return;
@@ -1498,40 +1496,43 @@ function renderChainOfCommand() {
     host.innerHTML = '<div class="coc-empty">No chain of command set up yet.<br>Add people on the /edit page<br>(or use Load sample hierarchy there).</div>';
     return;
   }
-  const byId = {};
-  people.forEach(p => { byId[p.id] = { ...p, children: [] }; });
-  const roots = [];
+
+  // Group by level (0 = top). Peers on the same level; each level reports to the one above.
+  const byLevel = {};
   people.forEach(p => {
-    const node = byId[p.id];
-    if (p.reportsTo && byId[p.reportsTo] && p.reportsTo !== p.id) {
-      byId[p.reportsTo].children.push(node);
-    } else {
-      roots.push(node);
-    }
+    const lv = Math.max(0, Math.min(20, parseInt(p.level, 10) || 0));
+    if (!byLevel[lv]) byLevel[lv] = [];
+    byLevel[lv].push(p);
   });
-  function renderNode(node) {
+  const levels = Object.keys(byLevel).map(Number).sort((a, b) => a - b);
+
+  function nodeHtml(node) {
     const initials = (node.name || '?').split(/\s+/).map(s => s[0] || '').join('').slice(0, 2).toUpperCase();
     const bg = (node.color && /^#[0-9A-Fa-f]{6}$/.test(node.color)) ? node.color : '';
     const photoHtml = node.photo
       ? '<img class="coc-photo" src="' + String(node.photo).replace(/"/g, '&quot;') + '" alt="">'
       : '<div class="coc-photo placeholder"' + (bg ? ' style="background:' + bg + '"' : '') + '>' + esc(initials) + '</div>';
-    let html = '<div class="coc-node-wrap" data-id="' + esc(node.id) + '"><div class="coc-node">' +
+    return '<div class="coc-node-wrap" data-id="' + esc(node.id) + '"><div class="coc-node">' +
       photoHtml +
       '<div class="coc-rank">' + esc(node.rank || '') + '</div>' +
       '<div class="coc-name">' + esc(node.name || '') + '</div>' +
       (node.tag ? '<div class="coc-tag">' + esc(node.tag) + '</div>' : '') +
-      '</div>';
-    if (node.children && node.children.length) {
-      html += '<div class="coc-children">' + node.children.map(renderNode).join('') + '</div>';
-    }
-    html += '</div>';
-    return html;
+      '</div></div>';
   }
+
+  let levelsHtml = '';
+  levels.forEach((lv, idx) => {
+    levelsHtml += '<div class="coc-level-row" data-level="' + lv + '">' +
+      '<div class="coc-level">' + byLevel[lv].map(nodeHtml).join('') + '</div>' +
+      (idx < levels.length - 1 ? '<div class="coc-level-connector" aria-hidden="true"></div>' : '') +
+      '</div>';
+  });
+
   host.innerHTML =
     '<div class="coc-viewport"><div class="coc-scale" id="cocScale">' +
     '<div class="coc-tree" id="cocTreeInner">' +
     '<svg class="coc-svg" id="cocSvg" aria-hidden="true"></svg>' +
-    '<div class="coc-level">' + roots.map(renderNode).join('') + '</div>' +
+    levelsHtml +
     '</div></div></div>';
 
   scheduleCocLayout();
@@ -1542,9 +1543,9 @@ function renderChainOfCommand() {
     cocResizeObs = new ResizeObserver(() => scheduleCocLayout());
     cocResizeObs.observe(pane);
   }
-  // Re-layout when the pane becomes active (rotation)
   window.addEventListener('resize', scheduleCocLayout);
 }
+
 
 async function refreshAll() {
   await loadSettings();

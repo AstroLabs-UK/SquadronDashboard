@@ -302,38 +302,40 @@ function createStore({ dir, defaults, legacyDir, snapDir }) {
       };
     }
 
-    // Chain of Command: people hierarchy with rank, name, optional photo (base64), reportsTo id
+    // Chain of Command: people by level (0 = top). Everyone on a level reports to the level above.
     if (incoming.chainOfCommand && typeof incoming.chainOfCommand === 'object' && Array.isArray(incoming.chainOfCommand.people)) {
       const RANK_RE = /^[A-Za-z0-9 /()_-]{1,40}$/;
       const seenIds = new Set();
-      out.chainOfCommand = {
-        people: incoming.chainOfCommand.people
-          .filter(p => p && typeof p === 'object')
-          .slice(0, 40)
-          .map(p => {
-            let id = isStr(p.id) && /^[A-Za-z0-9_-]{1,40}$/.test(p.id) ? p.id : null;
-            if (!id || seenIds.has(id)) id = 'p' + crypto.randomBytes(4).toString('hex');
-            seenIds.add(id);
-            let photo = '';
-            if (isStr(p.photo) && p.photo.startsWith('data:image/') && p.photo.length <= 120000) {
-              photo = p.photo;
-            }
-            let color = '';
-            if (isStr(p.color) && /^#[0-9A-Fa-f]{6}$/.test(p.color.trim())) color = p.color.trim().toUpperCase();
-            let tag = '';
-            if (isStr(p.tag)) tag = String(p.tag).trim().slice(0, 40);
-            return {
-              id,
-              rank: isStr(p.rank) && RANK_RE.test(p.rank.trim()) ? p.rank.trim() : '',
-              name: String(p.name ?? '').slice(0, 80).trim(),
-              photo,
-              color,
-              tag,
-              reportsTo: isStr(p.reportsTo) && /^[A-Za-z0-9_-]{1,40}$/.test(p.reportsTo) ? p.reportsTo : ''
-            };
-          })
-          .filter(p => p.name) // must have a name
-      };
+      const raw = incoming.chainOfCommand.people
+        .filter(p => p && typeof p === 'object')
+        .slice(0, 40)
+        .map(p => {
+          let id = isStr(p.id) && /^[A-Za-z0-9_-]{1,40}$/.test(p.id) ? p.id : null;
+          if (!id || seenIds.has(id)) id = 'p' + crypto.randomBytes(4).toString('hex');
+          seenIds.add(id);
+          let photo = '';
+          if (isStr(p.photo) && p.photo.startsWith('data:image/') && p.photo.length <= 120000) {
+            photo = p.photo;
+          }
+          let color = '';
+          if (isStr(p.color) && /^#[0-9A-Fa-f]{6}$/.test(p.color.trim())) color = p.color.trim().toUpperCase();
+          let tag = '';
+          if (isStr(p.tag)) tag = String(p.tag).trim().slice(0, 40);
+          let level = 0;
+          if (typeof p.level === 'number' && Number.isFinite(p.level)) level = Math.max(0, Math.min(20, Math.floor(p.level)));
+          else if (isStr(p.level) && /^\d+$/.test(p.level.trim())) level = Math.max(0, Math.min(20, parseInt(p.level.trim(), 10)));
+          return {
+            id,
+            rank: isStr(p.rank) && RANK_RE.test(p.rank.trim()) ? p.rank.trim() : '',
+            name: String(p.name ?? '').slice(0, 80).trim(),
+            photo,
+            color,
+            tag,
+            level
+          };
+        })
+        .filter(p => p.name);
+      out.chainOfCommand = { people: raw };
     }
     // Branding: custom loading logo (data URL; transparent PNG recommended)
     if (incoming.branding && typeof incoming.branding === 'object') {
