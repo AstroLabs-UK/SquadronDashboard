@@ -578,6 +578,88 @@
   }
   .coc-settings .person-photo-row { margin-top: 8px; }
 
+
+  /* Level arrows (mobile) + sheet editor */
+  .coc-level-arrows {
+    display: none;
+    flex-direction: column;
+    gap: 4px;
+    flex: 0 0 28px;
+    margin-right: 6px;
+    justify-content: center;
+  }
+  .coc-level-arrows button {
+    min-height: 32px;
+    padding: 4px 0;
+    margin: 0;
+    font-size: 12px;
+    line-height: 1;
+    border-radius: 4px;
+  }
+  #cocPersonSheet {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 2500;
+    background: rgba(7, 21, 37, 0.45);
+    align-items: stretch;
+    justify-content: center;
+  }
+  #cocPersonSheet.open { display: flex; }
+  #cocPersonSheet .sheet-panel {
+    background: var(--white);
+    width: 100%;
+    max-width: 520px;
+    margin: 0 auto;
+    max-height: 100%;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 0 40px rgba(0,0,0,0.25);
+  }
+  #cocPersonSheet .sheet-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 14px 16px;
+    background: var(--raf-navy);
+    color: var(--white);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+  #cocPersonSheet .sheet-head h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+  }
+  #cocPersonSheet .sheet-body {
+    padding: 16px;
+    flex: 1 1 auto;
+  }
+  #cocPersonSheet .sheet-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px 16px 20px;
+    border-top: 1px solid var(--border);
+    background: var(--off-white);
+    position: sticky;
+    bottom: 0;
+  }
+  #cocPersonSheet .sheet-actions button { margin-top: 0; }
+  @media (max-width: 720px) {
+    .coc-level-handle-col { display: none; }
+    .coc-level-arrows { display: flex; }
+    .coc-level-row:hover .coc-level-handle { opacity: 0; }
+    /* On mobile, settings expand in-row is hidden — use sheet */
+    .coc-builder .coc-settings { display: none !important; }
+  }
+  @media (min-width: 721px) {
+    .coc-level-arrows { display: none !important; }
+  }
+
   .coc-toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
   .coc-toolbar .hint { flex: 1 1 100%; margin: 0; }
 
@@ -1007,7 +1089,7 @@
 <button class="add" type="button" onclick="addWidget()">+ Add embed</button>
 
 <h2>Chain of Command</h2>
-<p class="hint">People are arranged by <strong>level</strong> (top = Level 1). Everyone on a level reports to the level above — no per-person “reports to”. Click a person to edit their details. Drag people between levels. Hover a level and drag the ⋮⋮ handle to reorder whole levels.</p>
+<p class="hint">People are arranged by <strong>level</strong> (top = Level 1). Everyone on a level reports to the level above — no per-person “reports to”. Click a person to edit their details. Drag people between levels. On desktop, drag the ⋮⋮ handle to reorder levels. On mobile, use ▲ ▼. People are auto-sorted by rank within each level. On mobile, tap a person to edit in a full-screen sheet.</p>
 <div id="cocBuilder" class="coc-builder"></div>
 <div class="actions coc-toolbar">
   <button class="add" type="button" onclick="cocAddPerson()">+ Add person</button>
@@ -1015,6 +1097,20 @@
   <button class="add" type="button" onclick="previewChainOfCommand()">Test preview</button>
   <button class="add" type="button" onclick="loadSampleChainOfCommand()">Load sample hierarchy</button>
   <span class="hint" id="cocEmptyHint"></span>
+</div>
+
+<div id="cocPersonSheet" aria-hidden="true">
+  <div class="sheet-panel">
+    <div class="sheet-head">
+      <h3 id="cocSheetTitle">Edit person</h3>
+      <button type="button" class="preview-close" id="cocSheetClose" style="background:transparent;border:1px solid rgba(255,255,255,0.35);color:#fff;">Close</button>
+    </div>
+    <div class="sheet-body" id="cocSheetBody"></div>
+    <div class="sheet-actions">
+      <button type="button" class="primary" id="cocSheetDone">Done</button>
+      <button type="button" class="danger" id="cocSheetRemove">Remove person</button>
+    </div>
+  </div>
 </div>
 
 <div id="cocPreviewOverlay">
@@ -1214,8 +1310,10 @@ function addEvent() {
 }
 function addWidget() { document.getElementById('customWidgets').appendChild(widgetRow()); }
 
+// Highest → lowest (official RAFAC / ATC structure)
 const RAFAC_RANKS = [
   { group: 'Commissioned Officers', items: [
+    { value: 'Air Cdre', label: 'Air Commodore (Air Cdre)' },
     { value: 'Gp Capt', label: 'Group Captain (Gp Capt)' },
     { value: 'Wg Cdr', label: 'Wing Commander (Wg Cdr)' },
     { value: 'Sqn Ldr', label: 'Squadron Leader (Sqn Ldr)' },
@@ -1228,6 +1326,7 @@ const RAFAC_RANKS = [
     { value: 'WO', label: 'Warrant Officer (WO / WO ATC)' },
     { value: 'FS', label: 'Flight Sergeant (FS / FS ATC)' },
     { value: 'Sgt', label: 'Sergeant (Sgt / Sgt ATC)' },
+    { value: 'A/Sgt', label: 'Acting Sergeant (A/Sgt)' },
     { value: 'Civilian', label: 'Civilian Staff / Civilian Instructor / Padre' }
   ]},
   { group: 'Cadet Ranks', items: [
@@ -1238,6 +1337,27 @@ const RAFAC_RANKS = [
     { value: 'Cdt', label: 'Cadet (Cdt)' }
   ]}
 ];
+// Seniority index: lower number = higher rank (for auto-sort within a level)
+const RANK_ORDER = {};
+(function() {
+  let i = 0;
+  RAFAC_RANKS.forEach(g => g.items.forEach(r => { RANK_ORDER[r.value] = i++; }));
+})();
+function rankSeniority(rank) {
+  if (rank && RANK_ORDER[rank] !== undefined) return RANK_ORDER[rank];
+  return 999;
+}
+function sortPeopleInLevels() {
+  cocPeople.sort((a, b) => {
+    const la = Math.max(0, parseInt(a.level, 10) || 0);
+    const lb = Math.max(0, parseInt(b.level, 10) || 0);
+    if (la !== lb) return la - lb;
+    const ra = rankSeniority(a.rank);
+    const rb = rankSeniority(b.rank);
+    if (ra !== rb) return ra - rb;
+    return String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' });
+  });
+}
 
 const PASTEL_COLORS = ['#A8D5E5', '#F5C6AA', '#C7E2B0', '#E2C4E8', '#F5E6A8', '#B8C9E8'];
 const ROLE_TAGS = [
@@ -1291,11 +1411,13 @@ function normalizeLevels() {
   used.forEach((lv, i) => { map[lv] = i; });
   cocPeople.forEach(p => { p.level = map[p.level] ?? 0; });
   cocMaxLevel = Math.max(0, ...cocPeople.map(p => p.level));
+  sortPeopleInLevels();
 }
 
 function collectPeople() {
   // Sync open settings panel into state first
   cocFlushSettings();
+  sortPeopleInLevels();
   return cocPeople
     .filter(p => (p.name || '').trim())
     .map(p => ({
@@ -1326,6 +1448,10 @@ function cocFlushSettings() {
 }
 
 function cocSelect(id) {
+  if (isCocMobile()) {
+    openCocPersonSheet(id);
+    return;
+  }
   cocFlushSettings();
   cocSelectedId = (cocSelectedId === id) ? null : id;
   renderCocBuilder();
@@ -1577,6 +1703,74 @@ function cocReorderLevel(fromLevel, toLevel, placeAfter) {
   renderCocBuilder();
 }
 
+
+function isCocMobile() {
+  return window.matchMedia && window.matchMedia('(max-width: 720px)').matches;
+}
+
+function openCocPersonSheet(id) {
+  cocFlushSettings();
+  const person = cocPeople.find(p => p.id === id);
+  const sheet = document.getElementById('cocPersonSheet');
+  const body = document.getElementById('cocSheetBody');
+  if (!person || !sheet || !body) return;
+  cocSelectedId = id;
+  body.innerHTML = settingsHtml(person);
+  const panel = body.querySelector('.coc-settings');
+  if (panel) {
+    panel.id = 'cocSettingsPanel';
+    panel.style.borderTop = 'none';
+    panel.style.marginTop = '0';
+    panel.style.paddingTop = '0';
+  }
+  document.getElementById('cocSheetTitle').textContent = (person.name || 'New person').trim() || 'Edit person';
+  bindSettingsPanel(document.getElementById('cocSettingsPanel'));
+  sheet.classList.add('open');
+  sheet.setAttribute('aria-hidden', 'false');
+}
+
+function closeCocPersonSheet(save) {
+  const sheet = document.getElementById('cocPersonSheet');
+  if (!sheet) return;
+  if (save !== false) cocFlushSettings();
+  sheet.classList.remove('open');
+  sheet.setAttribute('aria-hidden', 'true');
+  const body = document.getElementById('cocSheetBody');
+  if (body) body.innerHTML = '';
+  sortPeopleInLevels();
+  renderCocBuilder();
+}
+
+function setupCocSheetOnce() {
+  if (window._cocSheetReady) return;
+  window._cocSheetReady = true;
+  document.getElementById('cocSheetDone')?.addEventListener('click', () => closeCocPersonSheet(true));
+  document.getElementById('cocSheetClose')?.addEventListener('click', () => closeCocPersonSheet(true));
+  document.getElementById('cocSheetRemove')?.addEventListener('click', () => {
+    if (!cocSelectedId) return;
+    const id = cocSelectedId;
+    closeCocPersonSheet(false);
+    cocRemovePerson(id);
+  });
+  document.getElementById('cocPersonSheet')?.addEventListener('click', function(e) {
+    if (e.target === this) closeCocPersonSheet(true);
+  });
+}
+
+function cocMoveLevelBy(level, delta) {
+  const maxLv = Math.max(cocMaxLevel, ...cocPeople.map(p => p.level), 0);
+  const to = level + delta;
+  if (to < 0 || to > maxLv) return;
+  // Swap everyone on level with everyone on to
+  cocFlushSettings();
+  cocPeople.forEach(p => {
+    if (p.level === level) p.level = to;
+    else if (p.level === to) p.level = level;
+  });
+  normalizeLevels();
+  renderCocBuilder();
+}
+
 function renderCocBuilder() {
   const host = document.getElementById('cocBuilder');
   if (!host) return;
@@ -1592,10 +1786,14 @@ function renderCocBuilder() {
       '<div class="coc-level-handle-col">' +
         '<button type="button" class="coc-level-handle" title="Drag to reorder level" aria-label="Drag level">⋮⋮</button>' +
       '</div>' +
+      '<div class="coc-level-arrows">' +
+        '<button type="button" class="add coc-lv-up" data-level="' + lv + '" title="Move level up" ' + (lv === 0 ? 'disabled' : '') + '>▲</button>' +
+        '<button type="button" class="add coc-lv-down" data-level="' + lv + '" title="Move level down" ' + (lv === maxLv ? 'disabled' : '') + '>▼</button>' +
+      '</div>' +
       '<div class="coc-builder-level">' +
         '<div class="coc-builder-level-head">' +
           '<strong>Level ' + (lv + 1) + (lv === 0 ? ' (top)' : '') + '</strong>' +
-          '<span class="hint">' + peers.length + ' people</span>' +
+          '<span class="hint">' + peers.length + ' people · sorted by rank</span>' +
         '</div>' +
         '<div class="coc-builder-chips">' + peers.map(chipHtml).join('') + '</div>';
     if (cocSelectedId && peers.some(p => p.id === cocSelectedId)) {
@@ -1727,6 +1925,20 @@ function renderCocBuilder() {
     });
   });
 
+  host.querySelectorAll('.coc-lv-up').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      cocMoveLevelBy(parseInt(this.dataset.level, 10), -1);
+    });
+  });
+  host.querySelectorAll('.coc-lv-down').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      cocMoveLevelBy(parseInt(this.dataset.level, 10), 1);
+    });
+  });
+
+  setupCocSheetOnce();
   bindSettingsPanel(document.getElementById('cocSettingsPanel'));
   updateCocEmptyHint();
 }

@@ -1498,11 +1498,21 @@ function renderChainOfCommand() {
   }
 
   // Group by level (0 = top). Peers on the same level; each level reports to the one above.
+  // Sort within level by RAFAC rank seniority (highest first), then name.
+  const RANK_ORDER = ['Air Cdre','Gp Capt','Wg Cdr','Sqn Ldr','Flt Lt','Fg Off','Plt Off','APO','WO','FS','Sgt','A/Sgt','Civilian','CWO','Cdt FS','Cdt Sgt','Cdt Cpl','Cdt'];
+  const rankIdx = r => { const i = RANK_ORDER.indexOf(r || ''); return i < 0 ? 999 : i; };
   const byLevel = {};
   people.forEach(p => {
     const lv = Math.max(0, Math.min(20, parseInt(p.level, 10) || 0));
     if (!byLevel[lv]) byLevel[lv] = [];
     byLevel[lv].push(p);
+  });
+  Object.keys(byLevel).forEach(lv => {
+    byLevel[lv].sort((a, b) => {
+      const d = rankIdx(a.rank) - rankIdx(b.rank);
+      if (d) return d;
+      return String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' });
+    });
   });
   const levels = Object.keys(byLevel).map(Number).sort((a, b) => a - b);
 
