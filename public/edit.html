@@ -1434,8 +1434,91 @@ const ACF_RANKS = [
   ]}
 ];
 
+const SCC_RANKS = [
+  { group: 'Officers', items: [
+    { value: 'Capt', label: 'Captain (Capt)' },
+    { value: 'Cdr', label: 'Commander (Cdr)' },
+    { value: 'Lt Cdr', label: 'Lieutenant Commander (Lt Cdr)' },
+    { value: 'Lt', label: 'Lieutenant (Lt)' },
+    { value: 'SLt', label: 'Sub Lieutenant (SLt)' },
+    { value: 'Mid', label: 'Midshipman (Mid)' }
+  ]},
+  { group: 'Adult Rates / Civilian', items: [
+    { value: 'WO', label: 'Warrant Officer (WO)' },
+    { value: 'CPO', label: 'Chief Petty Officer (CPO)' },
+    { value: 'PO', label: 'Petty Officer (PO)' },
+    { value: 'CI', label: 'Civilian Instructor (CI)' }
+  ]},
+  { group: 'Cadet Ranks', items: [
+    { value: 'POC', label: 'Petty Officer Cadet (POC)' },
+    { value: 'LC', label: 'Leading Cadet (LC)' },
+    { value: 'AC', label: 'Able Cadet (AC)' },
+    { value: 'OC', label: 'Ordinary Cadet (OC)' },
+    { value: 'Cdt', label: 'Cadet' },
+    { value: 'NE', label: 'New Entry (NE)' }
+  ]}
+];
+const CCF_RANKS = [
+  { group: 'Officers', items: [
+    { value: 'Lt Col', label: 'Lieutenant Colonel (Lt Col)' },
+    { value: 'Maj', label: 'Major (Maj)' },
+    { value: 'Capt', label: 'Captain (Capt)' },
+    { value: 'Lt', label: 'Lieutenant (Lt)' },
+    { value: '2Lt', label: 'Second Lieutenant (2Lt)' },
+    { value: 'Fg Off', label: 'Flying Officer (Fg Off)' },
+    { value: 'Plt Off', label: 'Pilot Officer (Plt Off)' }
+  ]},
+  { group: 'Adult NCO / Civilian', items: [
+    { value: 'WO', label: 'Warrant Officer (WO)' },
+    { value: 'SSI', label: 'School Staff Instructor (SSI)' },
+    { value: 'Sgt', label: 'Sergeant (Sgt)' },
+    { value: 'CI', label: 'Civilian Instructor (CI)' }
+  ]},
+  { group: 'Cadet Ranks', items: [
+    { value: 'CUO', label: 'Cadet Under Officer (CUO)' },
+    { value: 'CWO', label: 'Cadet Warrant Officer (CWO)' },
+    { value: 'Cdt FS', label: 'Cadet Flight Sergeant / Staff Sergeant' },
+    { value: 'Cdt Sgt', label: 'Cadet Sergeant' },
+    { value: 'Cdt Cpl', label: 'Cadet Corporal' },
+    { value: 'Cdt LCpl', label: 'Cadet Lance Corporal' },
+    { value: 'Cdt', label: 'Cadet' }
+  ]}
+];
+const VCC_RANKS = [
+  { group: 'Officers', items: [
+    { value: 'Maj', label: 'Major (Maj)' },
+    { value: 'Capt', label: 'Captain (Capt)' },
+    { value: 'Lt', label: 'Lieutenant (Lt)' },
+    { value: '2Lt', label: 'Second Lieutenant (2Lt)' },
+    { value: 'SLt', label: 'Sub Lieutenant (SLt)' }
+  ]},
+  { group: 'Adult NCO / Civilian', items: [
+    { value: 'WO1', label: 'Warrant Officer Class 1 (WO1)' },
+    { value: 'WO2', label: 'Warrant Officer Class 2 (WO2)' },
+    { value: 'CSgt', label: 'Colour Sergeant / Staff Sergeant' },
+    { value: 'Sgt', label: 'Sergeant (Sgt)' },
+    { value: 'CI', label: 'Civilian Instructor (CI)' }
+  ]},
+  { group: 'Cadet Ranks', items: [
+    { value: 'Cdt WO1', label: 'Cadet Warrant Officer 1' },
+    { value: 'Cdt WO2', label: 'Cadet Warrant Officer 2' },
+    { value: 'Cdt Sgt', label: 'Cadet Sergeant' },
+    { value: 'Cdt Cpl', label: 'Cadet Corporal' },
+    { value: 'Cdt LCpl', label: 'Cadet Lance Corporal' },
+    { value: 'Cdt', label: 'Cadet' },
+    { value: 'Recruit', label: 'Recruit' }
+  ]}
+];
+const RANK_SETS = { rafac: RAFAC_RANKS, acf: ACF_RANKS, scc: SCC_RANKS, ccf: CCF_RANKS, vcc: VCC_RANKS };
 let activeRankGroups = RAFAC_RANKS;
 const RANK_ORDER = {};
+function normalizeTheme(theme) {
+  const t = String(theme || 'rafac').toLowerCase();
+  if (t === 'army') return 'acf';
+  if (t === 'sea' || t === 'seacadets') return 'scc';
+  if (RANK_SETS[t]) return t;
+  return 'rafac';
+}
 function rebuildRankOrder() {
   Object.keys(RANK_ORDER).forEach(k => delete RANK_ORDER[k]);
   let i = 0;
@@ -1462,7 +1545,8 @@ function applyEditChrome(theme) {
 }
 
 function setRankTheme(theme) {
-  activeRankGroups = (theme === 'acf' || theme === 'army') ? ACF_RANKS : RAFAC_RANKS;
+  const t = normalizeTheme(theme);
+  activeRankGroups = RANK_SETS[t] || RAFAC_RANKS;
   rebuildRankOrder();
 }
 function sortPeopleInLevels() {
@@ -2717,13 +2801,28 @@ async function save(opts) {
   const reason = (opts && opts.reason) || 'manual';
   if (saveInFlight) return;
   if (silent && !hasUnsavedChanges()) return;
-  const payload = collectPayload();
-  saveInFlight = true;
   const statusEl = document.getElementById('status');
+  let payload;
+  try {
+    payload = collectPayload();
+  } catch (e) {
+    if (statusEl) {
+      statusEl.textContent = 'Save failed: ' + (e && e.message ? e.message : e);
+      statusEl.style.color = 'var(--raf-red)';
+    }
+    console.error('collectPayload failed', e);
+    return;
+  }
+  saveInFlight = true;
+  if (statusEl && !silent) {
+    statusEl.style.color = '';
+    statusEl.textContent = 'Saving…';
+  }
   try {
     const res = await fetch('/api/data', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
       body: JSON.stringify(payload)
     });
     if (res.ok) {
@@ -2737,8 +2836,7 @@ async function save(opts) {
         themeAtLoad = newTheme;
         setRankTheme(newTheme);
         applyEditChrome(newTheme);
-        renderCocBuilder();
-        // Persist crest cache for this theme (no process restart)
+        try { renderCocBuilder(); } catch (e) { console.warn(e); }
         fetch('/api/theme', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2746,18 +2844,32 @@ async function save(opts) {
           body: JSON.stringify({ theme: newTheme })
         }).catch(() => {});
       }
-      statusEl.textContent = themeChanged
-        ? 'Saved — theme applied'
-        : (reason === 'autosave' ? 'Autosaved' : 'Saved');
+      if (statusEl) {
+        statusEl.style.color = '';
+        statusEl.textContent = themeChanged
+          ? 'Saved — theme applied'
+          : (reason === 'autosave' ? 'Autosaved' : 'Saved');
+      }
     } else {
-      statusEl.textContent = 'Save failed';
+      const body = await res.json().catch(() => ({}));
+      if (statusEl) {
+        statusEl.style.color = 'var(--raf-red)';
+        statusEl.textContent = body.error || ('Save failed (' + res.status + ')');
+      }
     }
     clearTimeout(statusTimer);
-    statusTimer = setTimeout(() => { statusEl.textContent = ''; }, silent ? 2000 : 2500);
+    statusTimer = setTimeout(() => {
+      if (statusEl) { statusEl.textContent = ''; statusEl.style.color = ''; }
+    }, silent ? 2000 : 3500);
   } catch (e) {
-    statusEl.textContent = 'Save failed';
+    if (statusEl) {
+      statusEl.style.color = 'var(--raf-red)';
+      statusEl.textContent = 'Save failed: ' + (e && e.message ? e.message : e);
+    }
     clearTimeout(statusTimer);
-    statusTimer = setTimeout(() => { statusEl.textContent = ''; }, 2500);
+    statusTimer = setTimeout(() => {
+      if (statusEl) { statusEl.textContent = ''; statusEl.style.color = ''; }
+    }, 3500);
   } finally {
     saveInFlight = false;
   }
