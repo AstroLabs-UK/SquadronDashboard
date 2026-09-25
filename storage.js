@@ -73,7 +73,7 @@ function createStore({ dir, defaults, legacyDir, snapDir }) {
           ? d.chainOfCommand.people
           : (defaults.chainOfCommand && defaults.chainOfCommand.people) || []
       },
-      theme: (d.theme === 'acf' || d.theme === 'army') ? 'acf' : 'rafac',
+      theme: ['rafac','acf','scc','ccf','vcc','army','sea'].includes(d.theme) ? (d.theme === 'army' ? 'acf' : d.theme === 'sea' ? 'scc' : d.theme) : 'rafac',
       branding: {
         ...(defaults.branding || { loadingLogo: '' }),
         ...(d.branding && typeof d.branding === 'object' ? d.branding : {})
@@ -169,8 +169,13 @@ function createStore({ dir, defaults, legacyDir, snapDir }) {
     const isStr = v => typeof v === 'string';
 
     if (isStr(incoming.squadronName) && incoming.squadronName.trim()) out.squadronName = incoming.squadronName;
-    if (incoming.theme === 'acf' || incoming.theme === 'army' || incoming.theme === 'rafac') {
-      out.theme = (incoming.theme === 'acf' || incoming.theme === 'army') ? 'acf' : 'rafac';
+    if (typeof incoming.theme === 'string') {
+      const t = incoming.theme.toLowerCase();
+      if (t === 'army' || t === 'acf') out.theme = 'acf';
+      else if (t === 'sea' || t === 'scc') out.theme = 'scc';
+      else if (t === 'ccf') out.theme = 'ccf';
+      else if (t === 'vcc') out.theme = 'vcc';
+      else if (t === 'rafac') out.theme = 'rafac';
     }
     // URLs: blank (to switch a feature off) or a real http(s) address. Anything else -
     // javascript:, file://, a bare word - is ignored and the saved value is kept. This also

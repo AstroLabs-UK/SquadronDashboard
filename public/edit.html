@@ -25,6 +25,33 @@
     --raf-red: #C4A35A;
     --border: #C5D4C9;
   }
+  body[data-theme="scc"] {
+    --raf-navy: #0A1628;
+    --deep-navy: #061018;
+    --raf-blue: #00A3E0;
+    --light-blue: #E6F6FC;
+    --off-white: #F2F5F8;
+    --raf-red: #F5C400;
+    --border: #C5D0DA;
+  }
+  body[data-theme="ccf"] {
+    --raf-navy: #1A3A6E;
+    --deep-navy: #0F2448;
+    --raf-blue: #2E5A8F;
+    --light-blue: #E8EEF6;
+    --off-white: #F4F6FA;
+    --raf-red: #C9A227;
+    --border: #C8D0DC;
+  }
+  body[data-theme="vcc"] {
+    --raf-navy: #0D2137;
+    --deep-navy: #081624;
+    --raf-blue: #1A3D5C;
+    --light-blue: #E8EEF3;
+    --off-white: #F2F5F8;
+    --raf-red: #2E5A3C;
+    --border: #C5CED6;
+  }
   * { box-sizing: border-box; }
   html { -webkit-text-size-adjust: 100%; }
   body {
@@ -1009,6 +1036,9 @@
 <select id="unitTheme">
   <option value="rafac">RAF Air Cadets (RAFAC / ATC)</option>
   <option value="acf">Army Cadets (ACF)</option>
+  <option value="scc">Sea Cadets (SCC)</option>
+  <option value="ccf">Combined Cadet Force (CCF)</option>
+  <option value="vcc">Volunteer Cadet Corps (VCC)</option>
 </select>
 <p class="hint">Theme sets colours, header crest, and Chain of Command ranks. Changing theme does not delete people, but rank abbreviations may not match the other list.</p>
 <label for="squadronName">Squadron name</label>
@@ -1417,11 +1447,18 @@ function rankSeniority(rank) {
   return 999;
 }
 function applyEditChrome(theme) {
-  const t = (theme === 'acf' || theme === 'army') ? 'acf' : 'rafac';
+  const t = normalizeTheme(theme);
   document.body.setAttribute('data-theme', t);
+  const labels = {
+    rafac: 'Royal Air Force Air Cadets',
+    acf: 'Army Cadets',
+    scc: 'Sea Cadets',
+    ccf: 'Combined Cadet Force',
+    vcc: 'Volunteer Cadet Corps'
+  };
   const eye = document.getElementById('unitEyebrow');
-  if (eye) eye.textContent = t === 'acf' ? 'Army Cadets' : 'Royal Air Force Air Cadets';
-  document.title = t === 'acf' ? 'Army Cadets – Editor' : 'RAF Air Cadets – Editor';
+  if (eye) eye.textContent = labels[t] || labels.rafac;
+  document.title = (labels[t] || 'Squadron Dashboard') + ' – Editor';
 }
 
 function setRankTheme(theme) {
@@ -2439,7 +2476,7 @@ function resizeImageToDataUrlPng(file, maxSize) {
 
 function collectPayload() {
   return {
-    theme: (document.getElementById('unitTheme') && document.getElementById('unitTheme').value === 'acf') ? 'acf' : 'rafac',
+    theme: normalizeTheme(document.getElementById('unitTheme') && document.getElementById('unitTheme').value),
     squadronName: document.getElementById('squadronName').value,
     location: {
       name: document.getElementById('locName').value,
@@ -2549,7 +2586,7 @@ function bindThemeSelector() {
   if (!themeEl || themeEl.dataset.bound) return;
   themeEl.dataset.bound = '1';
   themeEl.addEventListener('change', async function() {
-    const th = this.value === 'acf' ? 'acf' : 'rafac';
+    const th = normalizeTheme(this.value);
     setRankTheme(th);
     applyEditChrome(th);
     renderCocBuilder();
@@ -2694,7 +2731,7 @@ async function save(opts) {
       updateForceButton();
       clearTimeout(autoSaveTimer);
       autoSaveTimer = null;
-      const newTheme = (payload.theme === 'acf') ? 'acf' : 'rafac';
+      const newTheme = normalizeTheme(payload.theme);
       const themeChanged = newTheme !== themeAtLoad;
       if (themeChanged) {
         themeAtLoad = newTheme;

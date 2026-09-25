@@ -26,6 +26,18 @@
     --raf-red: #C4A35A;
     --border: #C5D4C9;
   }
+  body[data-theme="scc"] {
+    --raf-navy: #0A1628; --deep-navy: #061018; --raf-blue: #00A3E0;
+    --light-blue: #E6F6FC; --off-white: #F2F5F8; --raf-red: #F5C400; --border: #C5D0DA;
+  }
+  body[data-theme="ccf"] {
+    --raf-navy: #1A3A6E; --deep-navy: #0F2448; --raf-blue: #2E5A8F;
+    --light-blue: #E8EEF6; --off-white: #F4F6FA; --raf-red: #C9A227; --border: #C8D0DC;
+  }
+  body[data-theme="vcc"] {
+    --raf-navy: #0D2137; --deep-navy: #081624; --raf-blue: #1A3D5C;
+    --light-blue: #E8EEF3; --off-white: #F2F5F8; --raf-red: #2E5A3C; --border: #C5CED6;
+  }
   * { box-sizing: border-box; }
   body {
     font-family: "Inter", Arial, Helvetica, sans-serif;
@@ -192,11 +204,15 @@
   const status = document.getElementById('status');
 
   function applyPinChrome(theme) {
-    const t = (theme === 'acf' || theme === 'army') ? 'acf' : 'rafac';
+    let t = String(theme || 'rafac').toLowerCase();
+    if (t === 'army') t = 'acf';
+    if (t === 'sea') t = 'scc';
+    if (!['rafac','acf','scc','ccf','vcc'].includes(t)) t = 'rafac';
     document.body.setAttribute('data-theme', t);
+    const labels = { rafac: 'Royal Air Force Air Cadets', acf: 'Army Cadets', scc: 'Sea Cadets', ccf: 'Combined Cadet Force', vcc: 'Volunteer Cadet Corps' };
     const eye = document.getElementById('unitEyebrow');
-    if (eye) eye.textContent = t === 'acf' ? 'Army Cadets' : 'Royal Air Force Air Cadets';
-    document.title = t === 'acf' ? 'Enter PIN – Army Cadets' : 'Enter PIN – Squadron Dashboard';
+    if (eye) eye.textContent = labels[t];
+    document.title = 'Enter PIN – ' + labels[t];
   }
 
   // Public settings include theme so the PIN screen matches the unit branding

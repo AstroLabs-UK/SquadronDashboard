@@ -27,6 +27,41 @@
     --raf-red: #C4A35A;
     --border: #C5D4C9;
   }
+  body[data-theme="scc"] {
+    --raf-navy: #0A1628;
+    --deep-navy: #061018;
+    --raf-blue: #00A3E0;
+    --light-blue: #E6F6FC;
+    --off-white: #F2F5F8;
+    --raf-red: #F5C400;
+    --border: #C5D0DA;
+  }
+  body[data-theme="ccf"] {
+    --raf-navy: #1A3A6E;
+    --deep-navy: #0F2448;
+    --raf-blue: #2E5A8F;
+    --light-blue: #E8EEF6;
+    --off-white: #F4F6FA;
+    --raf-red: #C9A227;
+    --border: #C8D0DC;
+  }
+  body[data-theme="vcc"] {
+    --raf-navy: #0D2137;
+    --deep-navy: #081624;
+    --raf-blue: #1A3D5C;
+    --light-blue: #E8EEF3;
+    --off-white: #F2F5F8;
+    --raf-red: #2E5A3C;
+    --border: #C5CED6;
+  }
+  body[data-theme="scc"] .roundel,
+  body[data-theme="ccf"] .roundel,
+  body[data-theme="vcc"] .roundel {
+    width: auto;
+    height: 48px;
+    border-radius: 0;
+    object-fit: contain;
+  }
   body[data-theme="acf"] .roundel {
     width: auto;
     height: 48px;
@@ -1433,18 +1468,25 @@ let cocScaleRaf = 0;
 
 
 let currentUnitTheme = '';
+function normalizeTheme(theme) {
+  const t = String(theme || 'rafac').toLowerCase();
+  if (t === 'army') return 'acf';
+  if (t === 'sea' || t === 'seacadets') return 'scc';
+  if (['rafac','acf','scc','ccf','vcc'].includes(t)) return t;
+  return 'rafac';
+}
 function applyUnitTheme(theme) {
-  const t = (theme === 'acf' || theme === 'army') ? 'acf' : 'rafac';
+  const t = normalizeTheme(theme);
   if (t === currentUnitTheme && document.body.getAttribute('data-theme') === t) {
-    return; // already applied
+    return;
   }
   currentUnitTheme = t;
   document.body.setAttribute('data-theme', t);
   const logo = document.getElementById('unitLogo');
   if (logo) {
-    // Bust cache so crest swaps immediately when theme changes (no process restart)
     logo.src = '/theme-logo?t=' + encodeURIComponent(t) + '&_=' + Date.now();
-    logo.alt = t === 'acf' ? 'Army Cadets' : 'RAF Air Cadets roundel';
+    const alts = { rafac: 'RAF Air Cadets', acf: 'Army Cadets', scc: 'Sea Cadets', ccf: 'Combined Cadet Force', vcc: 'Volunteer Cadet Corps' };
+    logo.alt = alts[t] || 'Unit crest';
   }
 }
 
@@ -1530,10 +1572,15 @@ function renderChainOfCommand() {
 
   // Group by level (0 = top). Peers on the same level; each level reports to the one above.
   // Sort within level by RAFAC rank seniority (highest first), then name.
-  const theme = document.body.getAttribute('data-theme') || 'rafac';
-  const RANK_ORDER = theme === 'acf'
-    ? ['Brig','Col','Lt Col','Maj','Capt','Lt','2Lt','AUO','WO1','WO2','SSgt Instr','Sgt Instr','PI','Civilian','CUO','Cdt RSM','Cdt CSM','Cdt SSgt','Cdt Sgt','Cdt Cpl','Cdt LCpl','Cdt','Cdt Recruit']
-    : ['Air Cdre','Gp Capt','Wg Cdr','Sqn Ldr','Flt Lt','Fg Off','Plt Off','APO','WO','FS','Sgt','A/Sgt','Civilian','CWO','Cdt FS','Cdt Sgt','Cdt Cpl','Cdt'];
+  const theme = normalizeTheme(document.body.getAttribute('data-theme') || 'rafac');
+  const RANK_ORDERS = {
+    rafac: ['Air Cdre','Gp Capt','Wg Cdr','Sqn Ldr','Flt Lt','Fg Off','Plt Off','APO','WO','FS','Sgt','A/Sgt','Civilian','CWO','Cdt FS','Cdt Sgt','Cdt Cpl','Cdt'],
+    acf: ['Brig','Col','Lt Col','Maj','Capt','Lt','2Lt','AUO','WO1','WO2','SSgt Instr','Sgt Instr','PI','Civilian','CUO','Cdt RSM','Cdt CSM','Cdt SSgt','Cdt Sgt','Cdt Cpl','Cdt LCpl','Cdt','Cdt Recruit'],
+    scc: ['Capt','Cdr','Lt Cdr','Lt','SLt','Mid','WO','CPO','PO','CI','POC','LC','AC','OC','Cdt','NE'],
+    ccf: ['Lt Col','Maj','Capt','Lt','2Lt','Fg Off','Plt Off','WO','SSI','Sgt','CI','CUO','CWO','Cdt FS','Cdt Sgt','Cdt Cpl','Cdt LCpl','Cdt'],
+    vcc: ['Maj','Capt','Lt','2Lt','SLt','WO1','WO2','CSgt','Sgt','CI','Cdt WO1','Cdt WO2','Cdt Sgt','Cdt Cpl','Cdt LCpl','Cdt','Recruit']
+  };
+  const RANK_ORDER = RANK_ORDERS[theme] || RANK_ORDERS.rafac;
   const rankIdx = r => { const i = RANK_ORDER.indexOf(r || ''); return i < 0 ? 999 : i; };
   const byLevel = {};
   people.forEach(p => {

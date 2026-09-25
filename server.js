@@ -145,7 +145,7 @@ const requireEditor = createEditorAuth({ dataDir: DATA_DIR, failureLimiter: pinF
 const sendPage = name => (req, res) => res.sendFile(path.join(__dirname, 'public', name));
 app.post('/api/theme', requireEditor, sensitiveLimiter, async (req, res) => {
   try {
-    const theme = (req.body && (req.body.theme === 'acf' || req.body.theme === 'army')) ? 'acf' : 'rafac';
+    const theme = themeAssets.normalizeTheme(req.body && req.body.theme);
     const current = store.load();
     const updated = store.sanitize(current, { theme });
     store.save(updated);
