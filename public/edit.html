@@ -2213,17 +2213,29 @@ function drawCocPreviewLines() {
     const lower = [...levels[i + 1].querySelectorAll('.coc-node')];
     if (!upper.length || !lower.length) continue;
     const upRects = upper.map(n => n.getBoundingClientRect());
-    const midX = (Math.min(...upRects.map(r => r.left)) + Math.max(...upRects.map(r => r.right))) / 2 - treeRect.left;
-    const topY = Math.max(...upRects.map(r => r.bottom)) - treeRect.top;
-    lower.forEach(child => {
-      const cr = child.getBoundingClientRect();
-      const cx = cr.left + cr.width / 2 - treeRect.left;
-      const cy = cr.top - treeRect.top;
-      const midY = (topY + cy) / 2;
-      paths.push('M ' + midX.toFixed(1) + ' ' + topY.toFixed(1) + ' V ' + midY.toFixed(1) + ' H ' + cx.toFixed(1) + ' V ' + cy.toFixed(1));
+    const loRects = lower.map(n => n.getBoundingClientRect());
+    const parentBottom = Math.max(...upRects.map(r => r.bottom)) - treeRect.top;
+    const parentMidX = (Math.min(...upRects.map(r => r.left)) + Math.max(...upRects.map(r => r.right))) / 2 - treeRect.left;
+    const childTops = loRects.map(r => r.top - treeRect.top);
+    const childXs = loRects.map(r => r.left + r.width / 2 - treeRect.left);
+    const minChildTop = Math.min(...childTops);
+    let busY = (parentBottom + minChildTop) / 2;
+    if (minChildTop - parentBottom < 12) busY = parentBottom + Math.max(6, (minChildTop - parentBottom) / 2);
+    const minX = Math.min(parentMidX, ...childXs);
+    const maxX = Math.max(parentMidX, ...childXs);
+    paths.push('M ' + parentMidX.toFixed(1) + ' ' + parentBottom.toFixed(1) + ' V ' + busY.toFixed(1));
+    if (Math.abs(maxX - minX) > 0.5) {
+      paths.push('M ' + minX.toFixed(1) + ' ' + busY.toFixed(1) + ' H ' + maxX.toFixed(1));
+    }
+    childXs.forEach((cx, idx) => {
+      paths.push('M ' + cx.toFixed(1) + ' ' + busY.toFixed(1) + ' V ' + childTops[idx].toFixed(1));
     });
   }
-  svg.setAttribute('viewBox', '0 0 ' + Math.max(1, tree.offsetWidth) + ' ' + Math.max(1, tree.offsetHeight));
+  const w = Math.max(1, tree.scrollWidth || tree.offsetWidth);
+  const h = Math.max(1, tree.scrollHeight || tree.offsetHeight);
+  svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+  svg.style.width = w + 'px';
+  svg.style.height = h + 'px';
   svg.innerHTML = paths.map(d => '<path d="' + d + '"/>').join('');
 }
 

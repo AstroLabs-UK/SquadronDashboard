@@ -216,10 +216,11 @@
   #cocPane .coc-svg path {
     fill: none;
     stroke: var(--raf-navy);
-    stroke-width: 2;
+    stroke-width: 2.5;
     stroke-linecap: round;
     stroke-linejoin: round;
-    opacity: 0.55;
+    opacity: 0.7;
+    vector-effect: non-scaling-stroke;
   }
   #cocPane .coc-level {
     display: flex;
@@ -1425,35 +1426,45 @@ function layoutCocTree() {
   const rows = [...tree.querySelectorAll('.coc-level-row')];
   const paths = [];
 
-  // Connect each level to the next: from centre of upper row to each node in lower row
+  // Parent level → child level: trunk down, horizontal bus, drop into each child
   for (let i = 0; i < rows.length - 1; i++) {
     const upperNodes = [...rows[i].querySelectorAll(':scope > .coc-level > .coc-node-wrap > .coc-node')];
     const lowerNodes = [...rows[i + 1].querySelectorAll(':scope > .coc-level > .coc-node-wrap > .coc-node')];
     if (!upperNodes.length || !lowerNodes.length) continue;
 
-    // Anchor from midline under the upper level group
     const upRects = upperNodes.map(n => n.getBoundingClientRect());
-    const left = Math.min(...upRects.map(r => r.left));
-    const right = Math.max(...upRects.map(r => r.right));
-    const bottom = Math.max(...upRects.map(r => r.bottom));
-    const midX = (left + right) / 2 - treeRect.left;
-    const topY = bottom - treeRect.top;
+    const loRects = lowerNodes.map(n => n.getBoundingClientRect());
 
-    lowerNodes.forEach(child => {
-      const cr = child.getBoundingClientRect();
-      const cx = cr.left + cr.width / 2 - treeRect.left;
-      const cy = cr.top - treeRect.top;
-      const midY = (topY + cy) / 2;
-      paths.push(
-        'M ' + midX.toFixed(1) + ' ' + topY.toFixed(1) +
-        ' V ' + midY.toFixed(1) +
-        ' H ' + cx.toFixed(1) +
-        ' V ' + cy.toFixed(1)
-      );
+    const parentBottom = Math.max(...upRects.map(r => r.bottom)) - treeRect.top;
+    const parentMidX = (Math.min(...upRects.map(r => r.left)) + Math.max(...upRects.map(r => r.right))) / 2 - treeRect.left;
+
+    const childTops = loRects.map(r => r.top - treeRect.top);
+    const childXs = loRects.map(r => r.left + r.width / 2 - treeRect.left);
+    const minChildTop = Math.min(...childTops);
+    // Bus sits between levels; keep at least 10px so the vertical is visible
+    let busY = (parentBottom + minChildTop) / 2;
+    if (minChildTop - parentBottom < 12) busY = parentBottom + Math.max(6, (minChildTop - parentBottom) / 2);
+
+    const minX = Math.min(parentMidX, ...childXs);
+    const maxX = Math.max(parentMidX, ...childXs);
+
+    // Trunk from parent group down to bus
+    paths.push('M ' + parentMidX.toFixed(1) + ' ' + parentBottom.toFixed(1) + ' V ' + busY.toFixed(1));
+    // Horizontal bus across children (and parent mid if outside)
+    if (Math.abs(maxX - minX) > 0.5) {
+      paths.push('M ' + minX.toFixed(1) + ' ' + busY.toFixed(1) + ' H ' + maxX.toFixed(1));
+    }
+    // Drop from bus into each child
+    childXs.forEach((cx, idx) => {
+      paths.push('M ' + cx.toFixed(1) + ' ' + busY.toFixed(1) + ' V ' + childTops[idx].toFixed(1));
     });
   }
 
-  svg.setAttribute('viewBox', '0 0 ' + Math.max(1, tree.offsetWidth) + ' ' + Math.max(1, tree.offsetHeight));
+  const w = Math.max(1, tree.scrollWidth || tree.offsetWidth);
+  const h = Math.max(1, tree.scrollHeight || tree.offsetHeight);
+  svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+  svg.style.width = w + 'px';
+  svg.style.height = h + 'px';
   svg.innerHTML = paths.map(d => '<path d="' + d + '"/>').join('');
 
   const naturalW = tree.offsetWidth;
