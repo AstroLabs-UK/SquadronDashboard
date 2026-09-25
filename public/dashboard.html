@@ -54,23 +54,11 @@
     --raf-red: #2E5A3C;
     --border: #C5CED6;
   }
+  body[data-theme="acf"] .roundel,
   body[data-theme="scc"] .roundel,
   body[data-theme="ccf"] .roundel,
   body[data-theme="vcc"] .roundel {
-    width: auto;
-    height: 48px;
     border-radius: 0;
-    object-fit: contain;
-  }
-  body[data-theme="acf"] .roundel {
-    width: auto;
-    height: 48px;
-    border-radius: 0;
-    object-fit: contain;
-  }
-  body.compact[data-theme="acf"] .roundel {
-    height: calc(24 * var(--u));
-    width: auto;
   }
   * { box-sizing: border-box; }
   /* Hide Elfsight's own branding/toolbar wherever their widget markup allows it */
@@ -95,9 +83,40 @@
     color: var(--white);
     border-bottom: 3px solid var(--raf-blue);
   }
-  .brand { display: flex; align-items: center; gap: 14px; }
-  .roundel { width: 48px; height: 48px; flex-shrink: 0; }
-  .brand-text h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: 0.01em; }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+  }
+  /* Height matches ATC roundel; width follows aspect ratio so wide wordmarks stay readable */
+  .roundel,
+  #unitLogo {
+    height: 48px;
+    width: auto;
+    max-width: min(42vw, 280px);
+    flex-shrink: 0;
+    object-fit: contain;
+    object-position: left center;
+    display: block;
+  }
+  .brand-text {
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+  }
+  .brand-text h1 {
+    margin: 0;
+    font-size: clamp(14px, 2.2vw, 24px);
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  header .clock-block { flex-shrink: 0; }
   .clockbox { text-align: right; }
   #clock { font-size: 32px; font-weight: 700; letter-spacing: 0.02em; }
   #date { font-size: 13px; color: var(--light-blue); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; }
@@ -446,8 +465,18 @@ body.loading-active
   body.compact header { padding: calc(4 * var(--u)) calc(10 * var(--u)); border-bottom-width: 2px; gap: calc(8 * var(--u)); }
   body.compact .brand { gap: calc(8 * var(--u)); min-width: 0; }
   body.compact .brand-text { min-width: 0; }
-  body.compact .roundel { width: calc(24 * var(--u)); height: calc(24 * var(--u)); }
-  body.compact .brand-text h1 { font-size: var(--fl); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  body.compact .roundel,
+  body.compact #unitLogo {
+    height: calc(24 * var(--u));
+    width: auto;
+    max-width: min(40vw, calc(90 * var(--u)));
+  }
+  body.compact .brand-text h1 {
+    font-size: var(--fl);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   body.compact #clock { font-size: var(--fl); white-space: nowrap; }
   body.compact #date { display: none; }
 
