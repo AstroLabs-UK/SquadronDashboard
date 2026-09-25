@@ -16,6 +16,15 @@
     --muted: #667788;
     --border: #D5DDE5;
   }
+  body[data-theme="acf"] {
+    --raf-navy: #003D2C;
+    --deep-navy: #00261C;
+    --raf-blue: #1B6B4A;
+    --light-blue: #E4F0E8;
+    --off-white: #F3F7F4;
+    --raf-red: #C4A35A;
+    --border: #C5D4C9;
+  }
   * { box-sizing: border-box; }
   html { -webkit-text-size-adjust: 100%; }
   body {
@@ -990,7 +999,7 @@
 </head>
 <body>
 <header>
-  <div class="eyebrow">Royal Air Force Air Cadets</div>
+  <div class="eyebrow" id="unitEyebrow">Royal Air Force Air Cadets</div>
   <h1>Edit Squadron Dashboard</h1>
 </header>
 <div class="content">
@@ -1232,6 +1241,7 @@ let statusTimer = null;
 let savedSnapshot = null;
 let updateInProgress = false;
 let loadOk = false;
+let themeAtLoad = 'rafac';
 
 function todayLocal() { return new Date().toLocaleDateString('en-CA'); }
 
@@ -1406,6 +1416,14 @@ function rankSeniority(rank) {
   if (rank && RANK_ORDER[rank] !== undefined) return RANK_ORDER[rank];
   return 999;
 }
+function applyEditChrome(theme) {
+  const t = (theme === 'acf' || theme === 'army') ? 'acf' : 'rafac';
+  document.body.setAttribute('data-theme', t);
+  const eye = document.getElementById('unitEyebrow');
+  if (eye) eye.textContent = t === 'acf' ? 'Army Cadets' : 'Royal Air Force Air Cadets';
+  document.title = t === 'acf' ? 'Army Cadets – Editor' : 'RAF Air Cadets – Editor';
+}
+
 function setRankTheme(theme) {
   activeRankGroups = (theme === 'acf' || theme === 'army') ? ACF_RANKS : RAFAC_RANKS;
   rebuildRankOrder();
@@ -2421,6 +2439,7 @@ function resizeImageToDataUrlPng(file, maxSize) {
 
 function collectPayload() {
   return {
+    theme: (document.getElementById('unitTheme') && document.getElementById('unitTheme').value === 'acf') ? 'acf' : 'rafac',
     squadronName: document.getElementById('squadronName').value,
     location: {
       name: document.getElementById('locName').value,
@@ -2532,7 +2551,7 @@ function bindThemeSelector() {
   themeEl.addEventListener('change', async function() {
     const th = this.value === 'acf' ? 'acf' : 'rafac';
     setRankTheme(th);
-    document.body.setAttribute('data-theme', th);
+    applyEditChrome(th);
     renderCocBuilder();
     try {
       const r = await fetch('/api/theme', {
@@ -2675,7 +2694,24 @@ async function save(opts) {
       updateForceButton();
       clearTimeout(autoSaveTimer);
       autoSaveTimer = null;
-      statusEl.textContent = reason === 'autosave' ? 'Autosaved' : 'Saved';
+      const newTheme = (payload.theme === 'acf') ? 'acf' : 'rafac';
+      const themeChanged = newTheme !== themeAtLoad;
+      if (themeChanged) {
+        themeAtLoad = newTheme;
+        setRankTheme(newTheme);
+        applyEditChrome(newTheme);
+        renderCocBuilder();
+        // Persist crest cache for this theme (no process restart)
+        fetch('/api/theme', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ theme: newTheme })
+        }).catch(() => {});
+      }
+      statusEl.textContent = themeChanged
+        ? 'Saved — theme applied'
+        : (reason === 'autosave' ? 'Autosaved' : 'Saved');
     } else {
       statusEl.textContent = 'Save failed';
     }

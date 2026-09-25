@@ -1432,12 +1432,17 @@ let cocResizeObs = null;
 let cocScaleRaf = 0;
 
 
+let currentUnitTheme = '';
 function applyUnitTheme(theme) {
   const t = (theme === 'acf' || theme === 'army') ? 'acf' : 'rafac';
+  if (t === currentUnitTheme && document.body.getAttribute('data-theme') === t) {
+    return; // already applied
+  }
+  currentUnitTheme = t;
   document.body.setAttribute('data-theme', t);
   const logo = document.getElementById('unitLogo');
   if (logo) {
-    // Single cached crest from server (only active theme stored on disk)
+    // Bust cache so crest swaps immediately when theme changes (no process restart)
     logo.src = '/theme-logo?t=' + encodeURIComponent(t) + '&_=' + Date.now();
     logo.alt = t === 'acf' ? 'Army Cadets' : 'RAF Air Cadets roundel';
   }

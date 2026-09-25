@@ -17,6 +17,15 @@
     --muted: #667788;
     --border: #D5DDE5;
   }
+  body[data-theme="acf"] {
+    --raf-navy: #003D2C;
+    --deep-navy: #00261C;
+    --raf-blue: #1B6B4A;
+    --light-blue: #E4F0E8;
+    --off-white: #F3F7F4;
+    --raf-red: #C4A35A;
+    --border: #C5D4C9;
+  }
   * { box-sizing: border-box; }
   body {
     font-family: "Inter", Arial, Helvetica, sans-serif;
@@ -144,8 +153,8 @@
 </head>
 <body>
 <header>
-  <div class="eyebrow">Royal Air Force Air Cadets</div>
-  <h1>Editor unlock</h1>
+  <div class="eyebrow" id="unitEyebrow">Royal Air Force Air Cadets</div>
+  <h1 id="unlockTitle">Editor unlock</h1>
 </header>
 
 <div class="content">
@@ -181,6 +190,20 @@
   const input = document.getElementById('pin');
   const btn = document.getElementById('submitBtn');
   const status = document.getElementById('status');
+
+  function applyPinChrome(theme) {
+    const t = (theme === 'acf' || theme === 'army') ? 'acf' : 'rafac';
+    document.body.setAttribute('data-theme', t);
+    const eye = document.getElementById('unitEyebrow');
+    if (eye) eye.textContent = t === 'acf' ? 'Army Cadets' : 'Royal Air Force Air Cadets';
+    document.title = t === 'acf' ? 'Enter PIN – Army Cadets' : 'Enter PIN – Squadron Dashboard';
+  }
+
+  // Public settings include theme so the PIN screen matches the unit branding
+  fetch('/api/data', { cache: 'no-store' })
+    .then(r => r.json())
+    .then(d => applyPinChrome(d && d.theme))
+    .catch(() => {});
 
   function nextUrl() {
     try {

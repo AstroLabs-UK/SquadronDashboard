@@ -149,7 +149,7 @@ app.post('/api/theme', requireEditor, sensitiveLimiter, async (req, res) => {
     const current = store.load();
     const updated = store.sanitize(current, { theme });
     store.save(updated);
-    const result = await themeAssets.ensureThemeLogo({ dataDir: DATA_DIR, cwd: __dirname, theme });
+    const result = await themeAssets.ensureThemeLogo({ dataDir: DATA_DIR, cwd: __dirname, theme, force: true });
     res.json({ ok: true, theme: result.theme, source: result.source });
   } catch (e) {
     console.error('[theme] switch failed', e);
@@ -243,7 +243,7 @@ app.post('/api/data', requireEditor, sensitiveLimiter, (req, res) => {
     store.save(updated);
     // Only keep the active theme crest on disk (fetched from repo / local seed)
     if (updated.theme !== previous.theme || !themeAssets.getCachedLogoPath(DATA_DIR)) {
-      themeAssets.ensureThemeLogo({ dataDir: DATA_DIR, cwd: __dirname, theme: updated.theme || 'rafac' })
+      themeAssets.ensureThemeLogo({ dataDir: DATA_DIR, cwd: __dirname, theme: updated.theme || 'rafac', force: true })
         .catch(e => console.warn('[theme] crest update failed', e && e.message ? e.message : e));
     }
     try { calendar.clear(); } catch (e) { /* best effort */ }
