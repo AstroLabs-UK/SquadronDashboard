@@ -62,13 +62,32 @@
   h2:first-of-type { margin-top: 0; }
   .hint { font-size: 12px; color: var(--muted); margin-top: 6px; font-weight: 400; }
   #lastChecked { color: var(--muted); font-size: 13px; margin-top: 24px; text-align: center; }
-
-  .astro-credit {
-    margin: 24px 28px 16px;
-    font-size: 12px;
-    color: var(--muted);
-    text-align: center;
+  #updateReadyBanner {
+    display: none;
+    background: #fff8e6;
+    border: 1px solid #e6c35c;
+    border-radius: 4px;
+    padding: 14px 16px;
+    margin-bottom: 18px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
   }
+  #updateReadyBanner.show { display: flex; }
+  #updateReadyBanner strong { color: var(--deep-navy); }
+  #updateReadyBanner .hint { margin: 4px 0 0; }
+  #updateReadyBanner button {
+    background: var(--raf-navy);
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 10px 16px;
+    font-weight: 700;
+    cursor: pointer;
+    min-height: 40px;
+  }
+  #updateReadyBanner button:disabled { opacity: 0.6; cursor: wait; }
 </style>
 </head>
 <body>
@@ -80,6 +99,13 @@
   <div class="refresh-note">Auto-refreshes every 30s</div>
 </header>
 <main>
+  <div id="updateReadyBanner">
+    <div>
+      <strong>Update ready — restart to apply</strong>
+      <p class="hint" id="updateReadyDetail">New code is on disk. The display keeps running until you restart.</p>
+    </div>
+    <button type="button" id="restartNowBtn">Restart now</button>
+  </div>
   <h2>Server</h2>
   <div class="grid">
     <div class="card"><div class="label">Server Status</div><div class="value" id="serverStatus">—</div></div>
@@ -205,6 +231,22 @@ async function refreshStatus() {
 
     const git = data.git || {};
     document.getElementById('gitStatus').innerHTML = dot(git.checkout ? (git.hasLocalChanges ? 'WARNING' : 'ONLINE') : 'WARNING');
+    const pending = data.restartPending || {};
+    const banner = document.getElementById('updateReadyBanner');
+    if (banner) {
+      if (pending.ready) {
+        banner.classList.add('show');
+        const d = document.getElementById('updateReadyDetail');
+        if (d) {
+          const bits = ['New code is on disk. The display keeps running until you restart.'];
+          if (pending.label || pending.short) bits.push('Version: ' + (pending.label || pending.short));
+          d.textContent = bits.join(' ');
+        }
+      } else {
+        banner.classList.remove('show');
+      }
+    }
+
     document.getElementById('gitCommit').textContent = !git.checkout
       ? (git.reason || 'Not a git checkout')
       : (git.commit || 'unknown') + (git.hasLocalChanges ? ' (local changes)' + (git.reason ? ' — ' + git.reason : '') : '');
@@ -214,9 +256,26 @@ async function refreshStatus() {
     document.getElementById('lastChecked').textContent = 'Could not reach the server for a status check (' + new Date().toLocaleTimeString() + ')';
   }
 }
+document.getElementById('restartNowBtn')?.addEventListener('click', async function() {
+  if (!confirm('Restart the dashboard now? The screen will reload in a few seconds.')) return;
+  this.disabled = true;
+  this.textContent = 'Restarting…';
+  try {
+    const r = await fetch('/api/restart', { method: 'POST', credentials: 'same-origin' });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.ok) {
+      alert((j && j.error) || 'Restart failed — you may need to sign in on /edit first, or run: sqndash --restart');
+      this.disabled = false;
+      this.textContent = 'Restart now';
+    }
+  } catch (e) {
+    // Server may drop connection during restart — expected
+    this.textContent = 'Restarting…';
+  }
+});
+
 refreshStatus();
 setInterval(refreshStatus, 30000);
 </script>
-<p class="astro-credit">AstroLabs · Lucas Stevens is very cool</p>
 </body>
 </html>

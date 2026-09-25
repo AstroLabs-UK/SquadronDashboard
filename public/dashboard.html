@@ -313,20 +313,8 @@
   body.compact #cocPane .coc-node { min-width: 72px; max-width: 110px; }
 
   #noWidgetsPane { align-items: center; justify-content: center; text-align: center; color: var(--muted); font-size: 16px; }
-  .astro-credit {
-    position: fixed;
-    right: 8px;
-    bottom: 4px;
-    z-index: 50;
-    font-size: 10px;
-    color: var(--muted);
-    opacity: 0.55;
-    pointer-events: none;
-    letter-spacing: 0.02em;
-  }
-  body.loading-active .astro-credit { display: none; }
-
-  /* Error fallback with QR */
+body.loading-active
+/* Error fallback with QR */
   .error-box { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; text-align: center; }
   .error-box p { color: var(--muted); font-size: 15px; max-width: 320px; margin: 0; }
   .qr-holder { padding: 8px; background: var(--white); border: 1px solid var(--border); border-radius: 4px; display: inline-flex; }
@@ -1487,7 +1475,7 @@ function renderChainOfCommand() {
   const people = (latestChainOfCommand && latestChainOfCommand.people) || [];
   if (!people.length) {
     if (cocResizeObs) { try { cocResizeObs.disconnect(); } catch (e) {} cocResizeObs = null; }
-    host.innerHTML = '<div class="coc-empty">No chain of command set up yet.<br>Add people on the /edit page<br>(or use Load sample hierarchy there).</div>';
+    host.innerHTML = '<div class="coc-empty">Chain of Command is on, but no people are set up yet.<br>Open <strong>/edit</strong> → Chain of Command to add ranks and names<br>(or use <strong>Load sample hierarchy</strong> to try it).</div>';
     return;
   }
 
@@ -1801,6 +1789,5 @@ function updatePanes() {
 
 applyLayout();
 </script>
-<div class="astro-credit" aria-hidden="true">AstroLabs · Lucas Stevens is very cool</div>
 </body>
 </html>

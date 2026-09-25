@@ -2,7 +2,7 @@
 # Squadron Dashboard - update from GitHub, keeping this device's own settings.
 #
 #   sqndash --update         update if there's a new version (the easy way, from anywhere)
-#   sqndash --force-update   re-download and restart even if already up to date
+#   sqndash --force-update   re-download even if already up to date (no auto-restart)
 #   bash update.sh [--force] (same things, from inside the folder)
 #   bash update.sh --check   compare this copy with the update target, change nothing
 #
@@ -13,9 +13,9 @@
 # tip of Update, so unfinished work can't reach a room screen. `sqndash --channel update` makes
 # a test device follow the Update branch instead. A device that is already ahead of the target is left alone.
 #
-# SAFETY NET: after the restart the script waits for /healthz to answer. If the new version
-# doesn't come up it goes back to the previous version, restarts that, and remembers the
-# bad release (data/skip-release.json) so it isn't retried every 30 minutes.
+# Updates code on disk only (no automatic service restart). New code loads on the next
+# launch or reboot. Use `sqndash --restart` to apply immediately. Failed safety checks
+# still roll back and record data/skip-release.json.
 #
 # Settings saved from /edit live in the data/ folder, which is git-ignored, so
 # updating the code never touches them. This script also keeps a safety copy while
@@ -400,7 +400,7 @@ rollback_update() {
   owner_run git reset --hard --quiet "$PREV" && owner_run git clean -fd --quiet
   mkdir -p "$DIR/data" 2>/dev/null
   printf '{"sha":"%s","reason":"failed the post-update health check","time":%s}\n' "$BAD" "$(date +%s)" > "$SKIP_FILE" 2>/dev/null || true
-  restart_app && wait_healthy
+  restart_app
 }
 
 case "${1:-}" in
@@ -429,23 +429,14 @@ case "$rc" in
     write_status done "Already on the latest version ($HASH) - nothing to update"
     exit 0 ;;
   10|11)
-    write_status running "Downloaded $HASH - restarting the dashboard..."
-    if restart_app; then
-      if wait_healthy; then
-        echo "[update] done - the screen reloads itself within about 10 seconds"
-        if [ "$rc" -eq 10 ]; then write_status done "Updated to $HASH and restarted"
-        else write_status done "Already on the latest version ($HASH) - re-applied it and restarted"; fi
-        exit 0
-      fi
-      if rollback_update; then
-        write_status error "Update to $HASH did not start, so it was rolled back to the previous version"
-      else
-        write_status error "Update to $HASH did not start and the rollback failed - run sqndash --restart or reboot the Pi"
-      fi
-      exit 1
+    # Code is on disk; do not restart the live display. Applies on next launch/reboot.
+    echo "[update] code updated on disk ($HASH) — takes effect on next launch (no automatic restart)"
+    if [ "$rc" -eq 10 ]; then
+      write_status done "Updated to $HASH — takes effect on next launch (sqndash --restart to apply now)"
+    else
+      write_status done "Re-applied $HASH — takes effect on next launch (sqndash --restart to apply now)"
     fi
-    write_status error "Downloaded $HASH but restarting failed - reboot the Pi or run sqndash --restart"
-    exit 1 ;;
+    exit 0 ;;
   12)
     write_status error "The newest release failed its safety check on an earlier update, so it was skipped ($HASH is still running)"
     exit 0 ;;

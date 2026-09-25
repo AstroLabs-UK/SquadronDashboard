@@ -73,9 +73,11 @@ Once configured, most content looks after itself:
 - Uniform panel from `Uniform: …` lines in events, TimeTree tags you mark as uniform sources, or a typed list
 - Leaderboard from a published Google Sheets CSV (top 5 individuals, top 3 flights)
 - News, weather, Instagram, and custom embeds as rotating panels (each can be switched off)
+- **Chain of Command** panel: levels (not per-person reports-to), ranks, photos, tags, drag-and-drop on desktop, mobile full-screen editor
+- Custom **loading logo** (transparent PNG recommended) and Astro Labs loading animation
 - Stale-source banner when the calendar feed is offline or only serving cached data
 - Screen notice / force reload from `/edit`
-- Backup download and restore as one JSON file (TimeTree password is stripped from downloads)
+- Backup download and restore as one JSON file (TimeTree password is stripped from downloads; large logos increase file size)
 
 ## After install
 
@@ -124,6 +126,14 @@ Put `Uniform: Working blues` on its own line in an event description, or `[Unifo
 
 Publish as CSV (File → Share → Publish to web → CSV). The sheet needs Name and Points columns (or close equivalents). Paste the published URL into `/edit`.
 
+### Chain of Command
+
+On `/edit`, enable the **Chain of Command** widget and build the hierarchy by **level** (Level 1 = top). Everyone on a level reports to the level above — there is no per-person “reports to”. Drag people between levels (desktop) or use ▲ ▼ on levels (mobile). Tap a person on mobile to edit in a full-screen sheet. Ranks follow the RAFAC/ATC order and people are auto-sorted by rank within each level. Use **Test preview** and **Print / PDF** for a paper copy.
+
+### Loading logo
+
+At the bottom of `/edit`, upload a **transparent PNG** (preferred) for the boot animation. Images are resized on upload and replace any previous logo.
+
 ### PIN
 
 `install.sh` creates one for you. Change it with:
@@ -138,7 +148,9 @@ Wrong PIN attempts lock out for a few minutes. Without a PIN, `/edit` is open to
 
 Stable channel devices follow tagged releases (`v1.8.0` style). The Pi checks a couple of minutes after boot and every 30 minutes via a host timer. Windows / bare Node checks at launch and every 5 minutes (`AUTO_UPDATE=0` turns that off).
 
-Before switching, the new version has to answer a health check. If it does not, the previous version is put back and that release is skipped for a while so the device is not stuck in a loop.
+Updates are applied **on disk only** — the running display does **not** restart by itself. New code loads on the next launch or reboot. `/status` shows **Update ready — restart to apply** with a **Restart now** button when a staged update is waiting. You can also run `sqndash --restart`.
+
+Before switching files, the new version has to answer a health check. If it does not, the previous version is put back and that release is skipped for a while so the device is not stuck in a loop.
 
 A test device can track the **Update** branch instead of tags:
 

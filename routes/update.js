@@ -55,13 +55,12 @@ module.exports = function updateRoutes({ cwd, dataDir, requireEditor, limiter })
       if (inProcess) {
         const requestedAt = Date.now();
         res.json({ ok: true, requestedAt, mode: 'in-process' });
-        // Respond first, then update + restart so the HTTP client is not cut off mid-body
+        // Respond first, then apply update on disk (no process restart)
         setTimeout(async () => {
           try {
             const result = await autoUpdate.checkAndUpdate({ cwd, dataDir, force: true });
             if (result.updated) {
-              console.log('[update] force update applied — restarting');
-              autoUpdate.restartProcess(cwd);
+              console.log('[update] force update applied — ready on next launch (no restart)');
             } else {
               console.log('[update] force update: ' + result.reason);
             }

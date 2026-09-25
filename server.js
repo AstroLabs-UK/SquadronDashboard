@@ -113,6 +113,7 @@ if (guardActive) {
 }
 try { fs.mkdirSync(CACHE_DIR, { recursive: true }); } catch (e) { /* best effort */ }
 const store = createStore({ dir: DATA_DIR, defaults: DEFAULT_DATA, legacyDir: __dirname, snapDir: guardActive ? SNAP_DIR : null });
+try { autoUpdate.clearRestartPending(DATA_DIR); } catch (e) {}
 if (guardActive) {
   try {
     const main = path.join(DATA_DIR, 'data.json');
@@ -260,12 +261,25 @@ app.post('/api/branding/clear-logo', requireEditor, sensitiveLimiter, (req, res)
   }
 });
 
+// Restart the dashboard process (editor only). Used after an update is staged on disk.
+app.post('/api/restart', requireEditor, sensitiveLimiter, (req, res) => {
+  res.json({ ok: true, message: 'Restarting…' });
+  setTimeout(() => {
+    try {
+      autoUpdate.restartProcess(__dirname);
+    } catch (e) {
+      console.error('[restart] failed', e);
+    }
+  }, 300);
+});
+
+
 // ---------- API: weather / news / leaderboard / status / update ----------
 app.use(apiLimiter);
 app.use(require('./routes/weather')({ store, cacheDir: CACHE_DIR }));
 app.use(require('./routes/news')({ cacheDir: CACHE_DIR }));
 app.use(require('./routes/leaderboard')({ store, cacheDir: CACHE_DIR }));
-app.use(require('./routes/status')({ store, cwd: __dirname, requireEditor, calendar }));
+app.use(require('./routes/status')({ store, cwd: __dirname, dataDir: DATA_DIR, requireEditor, calendar }));
 app.use(require('./routes/schedule')({ store, calendar }));
 app.use(control.router);
 app.use(require('./routes/config')({ store, dataDir: DATA_DIR, snapDir: SNAP_DIR, requireEditor, limiter: sensitiveLimiter }));

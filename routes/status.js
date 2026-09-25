@@ -1,6 +1,7 @@
 const fs = require('fs');
 const express = require('express');
 const { git } = require('../lib/git');
+const autoUpdate = require('../autoUpdate');
 const sysinfo = require('../lib/sysinfo');
 const { getRegisteredStats } = require('../lib/cache');
 
@@ -33,7 +34,7 @@ function fmtSource(stats) {
   };
 }
 
-module.exports = function statusRoutes({ store, cwd, requireEditor, calendar }) {
+module.exports = function statusRoutes({ store, cwd, dataDir, requireEditor, calendar }) {
   const router = express.Router();
 
   // Cheap liveness check: no git, no upstream calls. Used by Docker HEALTHCHECK, the update
@@ -119,7 +120,16 @@ module.exports = function statusRoutes({ store, cwd, requireEditor, calendar }) 
           : undefined
       };
     }
+    const pending = autoUpdate.readRestartPending(dataDir || require('path').join(cwd, 'data'));
+    status.restartPending = pending ? {
+      ready: true,
+      label: pending.label || '',
+      short: pending.short || '',
+      time: pending.time || null
+    } : { ready: false };
+
     res.json(status);
   });
   return router;
 };
+
