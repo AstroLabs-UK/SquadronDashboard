@@ -996,6 +996,12 @@
 <div class="content">
 
 <h2>General</h2>
+<label for="unitTheme">Unit theme</label>
+<select id="unitTheme">
+  <option value="rafac">RAF Air Cadets (RAFAC / ATC)</option>
+  <option value="acf">Army Cadets (ACF)</option>
+</select>
+<p class="hint">Theme sets colours, header crest, and Chain of Command ranks. Changing theme does not delete people, but rank abbreviations may not match the other list.</p>
 <label for="squadronName">Squadron name</label>
 <input id="squadronName" autocomplete="organization">
 <label for="locName">Location name</label>
@@ -1329,7 +1335,7 @@ function addEvent() {
 }
 function addWidget() { document.getElementById('customWidgets').appendChild(widgetRow()); }
 
-// Highest → lowest (official RAFAC / ATC structure)
+// Highest → lowest. Theme picks which list the CoC dropdown uses.
 const RAFAC_RANKS = [
   { group: 'Commissioned Officers', items: [
     { value: 'Air Cdre', label: 'Air Commodore (Air Cdre)' },
@@ -1356,15 +1362,53 @@ const RAFAC_RANKS = [
     { value: 'Cdt', label: 'Cadet (Cdt)' }
   ]}
 ];
-// Seniority index: lower number = higher rank (for auto-sort within a level)
+const ACF_RANKS = [
+  { group: 'Commissioned Officers', items: [
+    { value: 'Brig', label: 'Brigadier (Brig)' },
+    { value: 'Col', label: 'Colonel (Col)' },
+    { value: 'Lt Col', label: 'Lieutenant Colonel (Lt Col)' },
+    { value: 'Maj', label: 'Major (Maj)' },
+    { value: 'Capt', label: 'Captain (Capt)' },
+    { value: 'Lt', label: 'Lieutenant (Lt)' },
+    { value: '2Lt', label: 'Second Lieutenant (2Lt)' },
+    { value: 'AUO', label: 'Adult Under Officer (AUO)' }
+  ]},
+  { group: 'Adult NCO / WO / Civilian', items: [
+    { value: 'WO1', label: 'Warrant Officer Class 1 (WO1 / RSM)' },
+    { value: 'WO2', label: 'Warrant Officer Class 2 (WO2 / CSM / RQMS)' },
+    { value: 'SSgt Instr', label: 'Staff Sergeant Instructor (or Colour Sergeant Instructor)' },
+    { value: 'Sgt Instr', label: 'Sergeant Instructor' },
+    { value: 'PI', label: 'Probationary Instructor' },
+    { value: 'Civilian', label: 'Civilian Assistant (non-uniformed)' }
+  ]},
+  { group: 'Cadet Ranks', items: [
+    { value: 'CUO', label: 'Cadet Under Officer (CUO)' },
+    { value: 'Cdt RSM', label: 'Cadet Regimental Sergeant Major (Cdt RSM)' },
+    { value: 'Cdt CSM', label: 'Cadet Company Sergeant Major (Cdt CSM)' },
+    { value: 'Cdt SSgt', label: 'Cadet Staff Sergeant / Colour Sergeant' },
+    { value: 'Cdt Sgt', label: 'Cadet Sergeant' },
+    { value: 'Cdt Cpl', label: 'Cadet Corporal' },
+    { value: 'Cdt LCpl', label: 'Cadet Lance Corporal' },
+    { value: 'Cdt', label: 'Cadet' },
+    { value: 'Cdt Recruit', label: 'Cadet Recruit' }
+  ]}
+];
+
+let activeRankGroups = RAFAC_RANKS;
 const RANK_ORDER = {};
-(function() {
+function rebuildRankOrder() {
+  Object.keys(RANK_ORDER).forEach(k => delete RANK_ORDER[k]);
   let i = 0;
-  RAFAC_RANKS.forEach(g => g.items.forEach(r => { RANK_ORDER[r.value] = i++; }));
-})();
+  activeRankGroups.forEach(g => g.items.forEach(r => { RANK_ORDER[r.value] = i++; }));
+}
+rebuildRankOrder();
 function rankSeniority(rank) {
   if (rank && RANK_ORDER[rank] !== undefined) return RANK_ORDER[rank];
   return 999;
+}
+function setRankTheme(theme) {
+  activeRankGroups = (theme === 'acf' || theme === 'army') ? ACF_RANKS : RAFAC_RANKS;
+  rebuildRankOrder();
 }
 function sortPeopleInLevels() {
   cocPeople.sort((a, b) => {
@@ -1399,7 +1443,7 @@ function newPersonId() { return 'p' + Date.now().toString(36) + Math.random().to
 
 function rankOptionsHtml(selected) {
   let html = '<option value="">— Rank —</option>';
-  RAFAC_RANKS.forEach(g => {
+  activeRankGroups.forEach(g => {
     html += '<optgroup label="' + g.group + '">';
     g.items.forEach(r => {
       html += '<option value="' + r.value + '"' + (selected === r.value ? ' selected' : '') + '>' + r.label + '</option>';
@@ -2481,6 +2525,32 @@ async function maybeShowPinReminder() {
   } catch (e) { /* ignore */ }
 }
 
+function bindThemeSelector() {
+  const themeEl = document.getElementById('unitTheme');
+  if (!themeEl || themeEl.dataset.bound) return;
+  themeEl.dataset.bound = '1';
+  themeEl.addEventListener('change', async function() {
+    const th = this.value === 'acf' ? 'acf' : 'rafac';
+    setRankTheme(th);
+    document.body.setAttribute('data-theme', th);
+    renderCocBuilder();
+    try {
+      const r = await fetch('/api/theme', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ theme: th })
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) {
+        console.warn('Theme crest download failed', j.error || r.status);
+      }
+    } catch (e) {
+      console.warn('Theme crest download failed', e);
+    }
+  });
+}
+
 async function load() {
   loadOk = false;
   data = await (await fetch('/api/data', { cache: 'no-store' })).json();
@@ -2568,6 +2638,7 @@ async function load() {
   loadOk = true;
   loadVersionInfo();
   maybeShowPinReminder();
+  bindThemeSelector();
 }
 
 let autoSaveTimer = null;

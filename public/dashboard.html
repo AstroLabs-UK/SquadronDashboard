@@ -17,6 +17,26 @@
     --muted: #667788;
     --border: #D5DDE5;
   }
+  /* Army Cadets UK brand: core dark green Pantone 3305 + supporting greens */
+  body[data-theme="acf"] {
+    --raf-navy: #003D2C;
+    --deep-navy: #00261C;
+    --raf-blue: #1B6B4A;
+    --light-blue: #E4F0E8;
+    --off-white: #F3F7F4;
+    --raf-red: #C4A35A;
+    --border: #C5D4C9;
+  }
+  body[data-theme="acf"] .roundel {
+    width: auto;
+    height: 48px;
+    border-radius: 0;
+    object-fit: contain;
+  }
+  body.compact[data-theme="acf"] .roundel {
+    height: calc(24 * var(--u));
+    width: auto;
+  }
   * { box-sizing: border-box; }
   /* Hide Elfsight's own branding/toolbar wherever their widget markup allows it */
   .eapps-widget-toolbar, .global-styles, a[href*="elfsight.com"] { display: none !important; }
@@ -548,7 +568,7 @@ body.loading-active
 <div id="sourceBanner" role="status"></div>
   <header>
     <div class="brand">
-      <img class="roundel" src="/roundel.png" alt="RAF Air Cadets roundel">
+      <img class="roundel" id="unitLogo" src="/theme-logo" alt="Unit crest">
       <div class="brand-text"><h1 id="squadronName">Your Squadron</h1></div>
     </div>
     <div class="clockbox">
@@ -1165,6 +1185,7 @@ async function loadSettings() {
     const data = await res.json();
     if (!data || typeof data !== 'object') throw new Error('settings response invalid');
     errorReportUrl = data.errorReportUrl || '';
+    applyUnitTheme(data.theme);
     if (data.squadronName) document.getElementById('squadronName').textContent = data.squadronName;
     if (data.location && data.location.name) {
       document.getElementById('weatherLocationName').textContent = data.location.name;
@@ -1410,6 +1431,18 @@ const hasUniform = () => latestUniform.thisWeek.length + latestUniform.nextWeek.
 let cocResizeObs = null;
 let cocScaleRaf = 0;
 
+
+function applyUnitTheme(theme) {
+  const t = (theme === 'acf' || theme === 'army') ? 'acf' : 'rafac';
+  document.body.setAttribute('data-theme', t);
+  const logo = document.getElementById('unitLogo');
+  if (logo) {
+    // Single cached crest from server (only active theme stored on disk)
+    logo.src = '/theme-logo?t=' + encodeURIComponent(t) + '&_=' + Date.now();
+    logo.alt = t === 'acf' ? 'Army Cadets' : 'RAF Air Cadets roundel';
+  }
+}
+
 function layoutCocTree() {
   const pane = document.getElementById('cocPane');
   const scaleEl = document.getElementById('cocScale');
@@ -1492,7 +1525,10 @@ function renderChainOfCommand() {
 
   // Group by level (0 = top). Peers on the same level; each level reports to the one above.
   // Sort within level by RAFAC rank seniority (highest first), then name.
-  const RANK_ORDER = ['Air Cdre','Gp Capt','Wg Cdr','Sqn Ldr','Flt Lt','Fg Off','Plt Off','APO','WO','FS','Sgt','A/Sgt','Civilian','CWO','Cdt FS','Cdt Sgt','Cdt Cpl','Cdt'];
+  const theme = document.body.getAttribute('data-theme') || 'rafac';
+  const RANK_ORDER = theme === 'acf'
+    ? ['Brig','Col','Lt Col','Maj','Capt','Lt','2Lt','AUO','WO1','WO2','SSgt Instr','Sgt Instr','PI','Civilian','CUO','Cdt RSM','Cdt CSM','Cdt SSgt','Cdt Sgt','Cdt Cpl','Cdt LCpl','Cdt','Cdt Recruit']
+    : ['Air Cdre','Gp Capt','Wg Cdr','Sqn Ldr','Flt Lt','Fg Off','Plt Off','APO','WO','FS','Sgt','A/Sgt','Civilian','CWO','Cdt FS','Cdt Sgt','Cdt Cpl','Cdt'];
   const rankIdx = r => { const i = RANK_ORDER.indexOf(r || ''); return i < 0 ? 999 : i; };
   const byLevel = {};
   people.forEach(p => {

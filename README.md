@@ -88,6 +88,7 @@ Open `http://<device-IP>:3000/edit` from anything on the same network.
 | Setting | Notes |
 |---------|--------|
 | Squadron / unit name | Header text |
+| Unit theme | RAF Air Cadets or Army Cadets (colours, crest, CoC ranks) |
 | Weather location | Name plus lat/lon |
 | Leaderboard CSV URL | Publish the sheet as CSV first |
 | "See all events" URL | QR on the events panel |

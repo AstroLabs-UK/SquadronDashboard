@@ -6,6 +6,7 @@ const { createStore } = require('./storage');
 const { securityHeaders, rateLimit } = require('./lib/security');
 const { createEditorAuth } = require('./lib/auth');
 const autoUpdate = require('./autoUpdate');
+const themeAssets = require('./lib/themeAssets');
 const guard = require('./lib/settingsGuard');
 const { removeTempFiles } = require('./lib/cleanup');
 const { createCalendarService } = require('./lib/calendar');
@@ -71,6 +72,7 @@ const DEFAULT_DATA = {
   layout: "auto",
   events: [],
   chainOfCommand: { people: [] },
+  theme: "rafac",
   branding: { loadingLogo: '' }
 };
 
@@ -141,6 +143,41 @@ const requireEditor = createEditorAuth({ dataDir: DATA_DIR, failureLimiter: pinF
 
 // ---------- pages ----------
 const sendPage = name => (req, res) => res.sendFile(path.join(__dirname, 'public', name));
+app.post('/api/theme', requireEditor, sensitiveLimiter, async (req, res) => {
+  try {
+    const theme = (req.body && (req.body.theme === 'acf' || req.body.theme === 'army')) ? 'acf' : 'rafac';
+    const current = store.load();
+    const updated = store.sanitize(current, { theme });
+    store.save(updated);
+    const result = await themeAssets.ensureThemeLogo({ dataDir: DATA_DIR, cwd: __dirname, theme });
+    res.json({ ok: true, theme: result.theme, source: result.source });
+  } catch (e) {
+    console.error('[theme] switch failed', e);
+    res.status(500).json({ ok: false, error: String(e && e.message ? e.message : e) });
+  }
+});
+
+app.get('/theme-logo', async (req, res) => {
+  try {
+    const data = store.load();
+    const theme = data.theme || 'rafac';
+    let file = themeAssets.getCachedLogoPath(DATA_DIR);
+    if (!file) {
+      await themeAssets.ensureThemeLogo({ dataDir: DATA_DIR, cwd: __dirname, theme });
+      file = themeAssets.getCachedLogoPath(DATA_DIR);
+    }
+    if (!file) {
+      // last resort: packaged roundel
+      return res.sendFile(path.join(__dirname, 'public', 'roundel.png'));
+    }
+    res.setHeader('Cache-Control', 'no-cache');
+    return res.sendFile(file);
+  } catch (e) {
+    console.warn('[theme] serve logo failed', e && e.message ? e.message : e);
+    return res.sendFile(path.join(__dirname, 'public', 'roundel.png'));
+  }
+});
+
 app.get('/', sendPage('dashboard.html'));
 app.get('/pin', sendPage('pin.html'));
 app.get('/edit', requireEditor, sendPage('edit.html'));
@@ -204,6 +241,11 @@ app.post('/api/data', requireEditor, sensitiveLimiter, (req, res) => {
     const previous = store.load();
     const updated = store.sanitize(previous, req.body);
     store.save(updated);
+    // Only keep the active theme crest on disk (fetched from repo / local seed)
+    if (updated.theme !== previous.theme || !themeAssets.getCachedLogoPath(DATA_DIR)) {
+      themeAssets.ensureThemeLogo({ dataDir: DATA_DIR, cwd: __dirname, theme: updated.theme || 'rafac' })
+        .catch(e => console.warn('[theme] crest update failed', e && e.message ? e.message : e));
+    }
     try { calendar.clear(); } catch (e) { /* best effort */ }
     try { guard.snapshot(DATA_DIR, SNAP_DIR); } catch (snapErr) {
       console.warn('[storage] external snapshot failed after save', snapErr && snapErr.message ? snapErr.message : snapErr);
@@ -336,6 +378,8 @@ app.listen(PORT, HOST, () => {
     // Windows / bare-metal Node: check GitHub at launch and every 5 minutes
     // (skipped under systemd / Docker and during the update safety check - see autoUpdate.js)
     autoUpdate.startAutoUpdate({ cwd: __dirname, dataDir: DATA_DIR, intervalMs: 5 * 60 * 1000 });
+    themeAssets.ensureThemeLogo({ dataDir: DATA_DIR, cwd: __dirname, theme: (store.load().theme || 'rafac') })
+      .catch(e => console.warn('[theme] initial crest', e && e.message ? e.message : e));
   });
 }
 

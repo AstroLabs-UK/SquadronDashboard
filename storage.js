@@ -73,6 +73,7 @@ function createStore({ dir, defaults, legacyDir, snapDir }) {
           ? d.chainOfCommand.people
           : (defaults.chainOfCommand && defaults.chainOfCommand.people) || []
       },
+      theme: (d.theme === 'acf' || d.theme === 'army') ? 'acf' : 'rafac',
       branding: {
         ...(defaults.branding || { loadingLogo: '' }),
         ...(d.branding && typeof d.branding === 'object' ? d.branding : {})
@@ -168,6 +169,9 @@ function createStore({ dir, defaults, legacyDir, snapDir }) {
     const isStr = v => typeof v === 'string';
 
     if (isStr(incoming.squadronName) && incoming.squadronName.trim()) out.squadronName = incoming.squadronName;
+    if (incoming.theme === 'acf' || incoming.theme === 'army' || incoming.theme === 'rafac') {
+      out.theme = (incoming.theme === 'acf' || incoming.theme === 'army') ? 'acf' : 'rafac';
+    }
     // URLs: blank (to switch a feature off) or a real http(s) address. Anything else -
     // javascript:, file://, a bare word - is ignored and the saved value is kept. This also
     // stops the server being pointed at file:// or other odd schemes when it fetches the sheet.
