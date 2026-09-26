@@ -1224,12 +1224,12 @@
 </div>
 <div id="controlStatus" class="hint"></div>
 
-<h2>Backup</h2>
-<p class="hint">Live: <code>data/data.json</code>. One in-app backup: <code>data/data.backup.json</code>. One external backup: <code>sqndash-data-backup/</code> (next to the app). Changes autosave after 30s idle. <strong>Download</strong> includes branding (loading logo) and chain of command; large logos make the JSON bigger.</p>
+<h2>Export &amp; upload settings</h2>
+<p class="hint"><strong>Export settings</strong> downloads a JSON file (theme, widgets, calendar, chain of command, loading logo, etc.). TimeTree passwords are stripped for safety. <strong>Upload settings</strong> restores from a previously exported file. On-device copies: <code>data/data.json</code>, <code>data/data.backup.json</code>, and <code>sqndash-data-backup/</code>.</p>
 <div class="actions">
-  <button class="primary" type="button" onclick="backupNow()">Backup now</button>
-  <button class="add" type="button" onclick="location.href='/api/config/export'">Download</button>
-  <button class="add" type="button" onclick="document.getElementById('importFile').click()">Restore…</button>
+  <button class="primary" type="button" id="exportSettingsBtn" onclick="exportSettings()">Export settings</button>
+  <button class="primary" type="button" id="uploadSettingsBtn" onclick="document.getElementById('importFile').click()">Upload settings</button>
+  <button class="add" type="button" onclick="backupNow()">Backup on device</button>
 </div>
 <input type="file" id="importFile" accept="application/json,.json" style="display:none" onchange="importConfig(this)">
 <div id="backupStatus" class="hint"></div>
@@ -3124,6 +3124,17 @@ async function backupNow() {
   } catch (e) {
     status.style.color = 'var(--raf-red)';
     status.textContent = 'Backup failed: ' + (e.message || e);
+  }
+}
+
+function exportSettings() {
+  const el = document.getElementById('backupStatus');
+  if (el) { el.style.color = ''; el.textContent = 'Preparing download…'; }
+  // Full export via authenticated GET (session cookie)
+  window.location.href = '/api/config/export?_=' + Date.now();
+  if (el) {
+    setTimeout(() => { el.textContent = 'Export started — check your downloads.'; }, 400);
+    setTimeout(() => { if (el.textContent.indexOf('Export started') === 0) el.textContent = ''; }, 4000);
   }
 }
 
