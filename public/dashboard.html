@@ -165,14 +165,26 @@
   .rotate-pane.active { display: flex; }
   .rotate-pane ul { list-style: none; padding: 0; margin: 0; overflow: hidden; flex: 1; min-height: 0; }
 
-  /* News cards – scraped BBC headlines */
-  #newsPane { padding: 4px 0 0 0; gap: 0; }
+  /* News cards – scraped BBC headlines (centred in the rotating panel) */
+  #newsPane {
+    padding: 4px 0 0 0;
+    gap: 0;
+    align-items: center;
+  }
+  #newsPane .panel-header {
+    align-self: stretch;
+    width: 100%;
+  }
   #newsList {
     flex: 1; min-height: 0; overflow: hidden;
     display: grid;
     grid-template-columns: 1fr;
     grid-auto-rows: minmax(0, 1fr);
     gap: 12px;
+    width: 100%;
+    max-width: 920px;
+    margin: 0 auto;
+    align-content: center;
   }
   /* Horizontal cards: small thumbnail on the left, headline + description always visible on the right */
   .news-card {
@@ -237,6 +249,28 @@
   .lb-col td.rank { color: var(--raf-blue); font-weight: 700; }
   .lb-col th:last-child, .lb-col td.points { width: 90px; }
   .lb-col td.points { text-align: right; font-weight: 700; color: var(--raf-navy); }
+  /* Podium: 1st gold, 2nd silver, 3rd bronze */
+  .lb-col tbody tr:nth-child(1) td {
+    background: linear-gradient(90deg, rgba(212, 175, 55, 0.28), rgba(212, 175, 55, 0.08));
+    border-bottom-color: rgba(184, 134, 11, 0.35);
+  }
+  .lb-col tbody tr:nth-child(1) td.rank { color: #B8860B; }
+  .lb-col tbody tr:nth-child(1) td.points { color: #8B6914; }
+  .lb-col tbody tr:nth-child(2) td {
+    background: linear-gradient(90deg, rgba(160, 160, 170, 0.28), rgba(160, 160, 170, 0.08));
+    border-bottom-color: rgba(120, 120, 130, 0.35);
+  }
+  .lb-col tbody tr:nth-child(2) td.rank { color: #6E6E78; }
+  .lb-col tbody tr:nth-child(2) td.points { color: #5A5A64; }
+  .lb-col tbody tr:nth-child(3) td {
+    background: linear-gradient(90deg, rgba(184, 115, 51, 0.28), rgba(184, 115, 51, 0.08));
+    border-bottom-color: rgba(140, 90, 40, 0.35);
+  }
+  .lb-col tbody tr:nth-child(3) td.rank { color: #A0522D; }
+  .lb-col tbody tr:nth-child(3) td.points { color: #8B4513; }
+  .lb-col tbody tr:nth-child(1) td,
+  .lb-col tbody tr:nth-child(2) td,
+  .lb-col tbody tr:nth-child(3) td { font-weight: 700; }
   .lb-unavailable { color: var(--muted); font-size: 14px; padding: 12px 0; }
   @media (max-width: 700px) {
     #lbPane { flex-direction: column; }
