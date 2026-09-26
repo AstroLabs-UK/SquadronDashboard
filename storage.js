@@ -75,7 +75,9 @@ function createStore({ dir, defaults, legacyDir, snapDir }) {
       },
       theme: ['rafac','acf','scc','ccf','vcc','army','sea'].includes(d.theme) ? (d.theme === 'army' ? 'acf' : d.theme === 'sea' ? 'scc' : d.theme) : 'rafac',
       branding: {
-        ...(defaults.branding || { loadingLogo: '' }),
+        loadingLogo: '',
+        unitCrest: '',
+        ...(defaults.branding || {}),
         ...(d.branding && typeof d.branding === 'object' ? d.branding : {})
       }
     };
@@ -354,7 +356,18 @@ function createStore({ dir, defaults, legacyDir, snapDir }) {
         if (!logo) next.loadingLogo = '';
         else if (logo.startsWith('data:image/') && logo.length <= 1_500_000) next.loadingLogo = logo;
       }
-      out.branding = { loadingLogo: next.loadingLogo || '' };
+      if (typeof incoming.branding.unitCrest === 'string') {
+        const crest = incoming.branding.unitCrest;
+        if (!crest) next.unitCrest = '';
+        else if (crest.startsWith('data:image/') && crest.length <= 1_500_000) next.unitCrest = crest;
+      }
+      // Preserve fields not sent in this request
+      if (incoming.branding.loadingLogo === undefined && current.branding) next.loadingLogo = current.branding.loadingLogo || next.loadingLogo;
+      if (incoming.branding.unitCrest === undefined && current.branding) next.unitCrest = current.branding.unitCrest || next.unitCrest;
+      out.branding = {
+        loadingLogo: next.loadingLogo || '',
+        unitCrest: next.unitCrest || ''
+      };
     }
     return out;
   }

@@ -7,7 +7,6 @@
 <style>
   :root {
     --raf-navy: #00205B;
-    /* acf overrides applied via JS */
     --deep-navy: #071525;
     --raf-blue: #0066A1;
     --light-blue: #D9EAF3;
@@ -18,6 +17,22 @@
     --warn-amber: #D98E04;
     --muted: #667788;
     --border: #D5DDE5;
+  }
+  body[data-theme="acf"] {
+    --raf-navy: #003D2C; --deep-navy: #00261C; --raf-blue: #1B6B4A;
+    --light-blue: #E4F0E8; --off-white: #F3F7F4; --raf-red: #C4A35A; --border: #C5D4C9;
+  }
+  body[data-theme="scc"] {
+    --raf-navy: #0A1628; --deep-navy: #061018; --raf-blue: #00A3E0;
+    --light-blue: #E6F6FC; --off-white: #F2F5F8; --raf-red: #F5C400; --border: #C5D0DA;
+  }
+  body[data-theme="ccf"] {
+    --raf-navy: #1A3A6E; --deep-navy: #0F2448; --raf-blue: #2E5A8F;
+    --light-blue: #E8EEF6; --off-white: #F4F6FA; --raf-red: #C9A227; --border: #C8D0DC;
+  }
+  body[data-theme="vcc"] {
+    --raf-navy: #0D2137; --deep-navy: #081624; --raf-blue: #1A3D5C;
+    --light-blue: #E8EEF3; --off-white: #F2F5F8; --raf-red: #2E5A3C; --border: #C5CED6;
   }
   * { box-sizing: border-box; }
   body {
@@ -168,9 +183,25 @@ function formatUptime(seconds) {
   return `${h}h ${m}m ${s}s`;
 }
 
+function applyStatusTheme(theme) {
+  let t = String(theme || 'rafac').toLowerCase();
+  if (t === 'army') t = 'acf';
+  if (t === 'sea') t = 'scc';
+  if (!['rafac','acf','scc','ccf','vcc'].includes(t)) t = 'rafac';
+  document.body.setAttribute('data-theme', t);
+  const labels = { rafac: 'Royal Air Force Air Cadets', acf: 'Army Cadets', scc: 'Sea Cadets', ccf: 'Combined Cadet Force', vcc: 'Volunteer Cadet Corps' };
+  const eye = document.querySelector('header .eyebrow');
+  if (eye) eye.textContent = labels[t] || 'Royal Air Force Air Cadets';
+}
+
 async function refreshStatus() {
   try {
     const data = await (await fetch('/api/status')).json();
+    // Match unit theme colours (from settings)
+    try {
+      const settings = await (await fetch('/api/data', { cache: 'no-store' })).json();
+      applyStatusTheme(settings && settings.theme);
+    } catch (e) {}
     document.getElementById('serverStatus').innerHTML = dot(data.serverStatus || 'OFFLINE');
     document.getElementById('uptime').textContent = formatUptime(data.uptimeSeconds || 0);
     document.getElementById('currentTime').textContent = new Date(data.currentTime).toLocaleString();

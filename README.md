@@ -34,6 +34,16 @@ Point Chromium at the board when the desktop comes up:
 
 ```bash
 chromium-browser --kiosk --noerrdialogs --disable-infobars http://localhost:3000
+
+To **wait until a monitor is connected** (avoids a blank loading screen on slow TVs):
+
+```bash
+/opt/squadron-dashboard/scripts/kiosk-wait-display.sh
+# or from the repo folder:
+./scripts/kiosk-wait-display.sh
+```
+
+Optional env: `SQNDASH_URL` (default `http://localhost:3000`), `SQNDASH_DISPLAY_WAIT` (seconds, default 120).
 ```
 
 Autostart file depends on your Pi OS version (often `~/.config/lxsession/LXDE-pi/autostart`, with `@` in front of the line on older setups). The app reloads itself after an update, so you rarely need to touch the screen.

@@ -73,7 +73,7 @@ const DEFAULT_DATA = {
   events: [],
   chainOfCommand: { people: [] },
   theme: "rafac",
-  branding: { loadingLogo: '' }
+  branding: { loadingLogo: '', unitCrest: '' }
 };
 
 // Settings are NEVER kept only in memory - every read goes to disk, and every
@@ -160,6 +160,16 @@ app.post('/api/theme', requireEditor, sensitiveLimiter, async (req, res) => {
 app.get('/theme-logo', async (req, res) => {
   try {
     const data = store.load();
+    // Custom unit crest overrides theme logo
+    const crest = data.branding && data.branding.unitCrest;
+    if (crest && typeof crest === 'string' && crest.startsWith('data:image/')) {
+      const m = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(crest);
+      if (m) {
+        res.setHeader('Content-Type', m[1]);
+        res.setHeader('Cache-Control', 'no-cache');
+        return res.send(Buffer.from(m[2], 'base64'));
+      }
+    }
     const theme = data.theme || 'rafac';
     let file = themeAssets.getCachedLogoPath(DATA_DIR);
     if (!file) {
@@ -167,7 +177,6 @@ app.get('/theme-logo', async (req, res) => {
       file = themeAssets.getCachedLogoPath(DATA_DIR);
     }
     if (!file) {
-      // last resort: packaged roundel
       return res.sendFile(path.join(__dirname, 'public', 'roundel.png'));
     }
     res.setHeader('Cache-Control', 'no-cache');
@@ -216,8 +225,8 @@ app.get('/api/data', apiLimiter, (req, res) => {
     ? data
     : { ...data, icsUrl: '', timetreePassword: '', timetreeEmail: '' };
   const branding = data.branding && typeof data.branding === 'object'
-    ? { loadingLogo: data.branding.loadingLogo || '' }
-    : { loadingLogo: '' };
+    ? { loadingLogo: data.branding.loadingLogo || '', unitCrest: data.branding.unitCrest || '' }
+    : { loadingLogo: '', unitCrest: '' };
   const body = {
     ...visible,
     branding,
@@ -252,8 +261,8 @@ app.post('/api/data', requireEditor, sensitiveLimiter, (req, res) => {
     }
     // Don't echo the real password back to the editor
     const safeBrand = updated.branding && typeof updated.branding === 'object'
-      ? { loadingLogo: updated.branding.loadingLogo || '' }
-      : { loadingLogo: '' };
+      ? { loadingLogo: updated.branding.loadingLogo || '', unitCrest: updated.branding.unitCrest || '' }
+      : { loadingLogo: '', unitCrest: '' };
     const safe = { ...updated, timetreePassword: updated.timetreePassword ? '********' : '', branding: safeBrand };
     res.json({ ok: true, data: safe });
   } catch (e) {
@@ -291,10 +300,46 @@ app.post('/api/branding/process-logo', requireEditor, sensitiveLimiter, (req, re
   }
 });
 
+app.post('/api/branding/process-crest', requireEditor, sensitiveLimiter, (req, res) => {
+  try {
+    const imageDataUrl = req.body && req.body.image;
+    if (!imageDataUrl || typeof imageDataUrl !== 'string' || !imageDataUrl.startsWith('data:image/')) {
+      return res.status(400).json({ ok: false, error: 'Expected a data:image/... payload' });
+    }
+    if (imageDataUrl.length > 1_500_000) {
+      return res.status(400).json({ ok: false, error: 'Image too large' });
+    }
+    const current = store.load();
+    const next = store.sanitize(current, {
+      branding: { unitCrest: imageDataUrl, loadingLogo: (current.branding && current.branding.loadingLogo) || '' }
+    });
+    store.save(next);
+    try { guard.snapshot(DATA_DIR, SNAP_DIR); } catch (e) {}
+    res.json({ ok: true, unitCrest: imageDataUrl });
+  } catch (e) {
+    console.error('[branding] process-crest failed', e);
+    res.status(500).json({ ok: false, error: String(e && e.message ? e.message : e) });
+  }
+});
+
+app.post('/api/branding/clear-crest', requireEditor, sensitiveLimiter, (req, res) => {
+  try {
+    const current = store.load();
+    const next = store.sanitize(current, {
+      branding: { unitCrest: '', loadingLogo: (current.branding && current.branding.loadingLogo) || '' }
+    });
+    store.save(next);
+    try { guard.snapshot(DATA_DIR, SNAP_DIR); } catch (e) {}
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: 'clear failed' });
+  }
+});
+
 app.post('/api/branding/clear-logo', requireEditor, sensitiveLimiter, (req, res) => {
   try {
     const current = store.load();
-    const next = store.sanitize(current, { branding: { loadingLogo: '' } });
+    const next = store.sanitize(current, { branding: { loadingLogo: '', unitCrest: '' } });
     store.save(next);
     try { guard.snapshot(DATA_DIR, SNAP_DIR); } catch (e) {}
     res.json({ ok: true });

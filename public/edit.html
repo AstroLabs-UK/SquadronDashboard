@@ -1041,6 +1041,19 @@
   <option value="vcc">Volunteer Cadet Corps (VCC)</option>
 </select>
 <p class="hint">Theme sets colours, header crest, and Chain of Command ranks. Changing theme does not delete people, but rank abbreviations may not match the other list.</p>
+<label>Custom unit crest <span id="themeDirtyBadge" style="display:none;color:var(--raf-red);font-weight:700;">(unsaved theme)</span></label>
+<p class="hint">Optional. Overrides the theme logo on the board header. Transparent PNG recommended. Clear to use the theme crest again.</p>
+<div class="person-photo-row" style="margin-top:6px;">
+  <img id="unitCrestPreview" class="person-photo-preview" alt="" style="border-radius:8px;width:72px;height:72px;object-fit:contain;background:repeating-conic-gradient(#ddd 0% 25%, #fff 0% 50%) 50% / 12px 12px;">
+  <div class="person-photo-actions" style="flex:1;">
+    <input type="file" id="unitCrestFile" accept="image/png,image/svg+xml,image/webp,image/jpeg,.png,.svg,.webp,.jpg,.jpeg">
+    <div class="actions" style="margin-top:6px;">
+      <button type="button" class="add" onclick="applyUnitCrest()">Use this crest</button>
+      <button type="button" class="danger" onclick="clearUnitCrest()" style="margin-top:0;">Clear crest</button>
+    </div>
+  </div>
+</div>
+<div id="unitCrestStatus" class="hint"></div>
 <label for="squadronName">Squadron name</label>
 <input id="squadronName" autocomplete="organization">
 <label for="locName">Location name</label>
@@ -1459,29 +1472,40 @@ const SCC_RANKS = [
   ]}
 ];
 const CCF_RANKS = [
-  { group: 'Officers', items: [
-    { value: 'Lt Col', label: 'Lieutenant Colonel (Lt Col)' },
-    { value: 'Maj', label: 'Major (Maj)' },
-    { value: 'Capt', label: 'Captain (Capt)' },
-    { value: 'Lt', label: 'Lieutenant (Lt)' },
-    { value: '2Lt', label: 'Second Lieutenant (2Lt)' },
-    { value: 'Fg Off', label: 'Flying Officer (Fg Off)' },
-    { value: 'Plt Off', label: 'Pilot Officer (Plt Off)' }
+  { group: 'CCF (RN) — Officers & rates', items: [
+    { value: 'Lt Cdr', label: 'Lt Cdr (RN section)' },
+    { value: 'Lt RN', label: 'Lieutenant (RN section)' },
+    { value: 'SLt', label: 'Sub Lieutenant (RN section)' },
+    { value: 'Mid', label: 'Midshipman (RN section)' },
+    { value: 'CPO', label: 'Chief Petty Officer (adult)' },
+    { value: 'PO', label: 'Petty Officer (adult)' }
   ]},
-  { group: 'Adult NCO / Civilian', items: [
-    { value: 'WO', label: 'Warrant Officer (WO)' },
+  { group: 'CCF (Army) — Officers & NCOs', items: [
+    { value: 'Lt Col', label: 'Lieutenant Colonel' },
+    { value: 'Maj', label: 'Major' },
+    { value: 'Capt', label: 'Captain' },
+    { value: 'Lt', label: 'Lieutenant' },
+    { value: '2Lt', label: 'Second Lieutenant' },
+    { value: 'WO', label: 'Warrant Officer' },
     { value: 'SSI', label: 'School Staff Instructor (SSI)' },
-    { value: 'Sgt', label: 'Sergeant (Sgt)' },
-    { value: 'CI', label: 'Civilian Instructor (CI)' }
+    { value: 'Sgt', label: 'Sergeant' }
   ]},
-  { group: 'Cadet Ranks', items: [
+  { group: 'CCF (RAF) — Officers & SNCOs', items: [
+    { value: 'Sqn Ldr', label: 'Squadron Leader' },
+    { value: 'Flt Lt', label: 'Flight Lieutenant' },
+    { value: 'Fg Off', label: 'Flying Officer' },
+    { value: 'Plt Off', label: 'Pilot Officer' },
+    { value: 'FS', label: 'Flight Sergeant (adult)' }
+  ]},
+  { group: 'Cadet ranks (all sections)', items: [
     { value: 'CUO', label: 'Cadet Under Officer (CUO)' },
     { value: 'CWO', label: 'Cadet Warrant Officer (CWO)' },
     { value: 'Cdt FS', label: 'Cadet Flight Sergeant / Staff Sergeant' },
     { value: 'Cdt Sgt', label: 'Cadet Sergeant' },
     { value: 'Cdt Cpl', label: 'Cadet Corporal' },
     { value: 'Cdt LCpl', label: 'Cadet Lance Corporal' },
-    { value: 'Cdt', label: 'Cadet' }
+    { value: 'Cdt', label: 'Cadet' },
+    { value: 'CI', label: 'Civilian Instructor (CI)' }
   ]}
 ];
 const VCC_RANKS = [
@@ -2453,6 +2477,46 @@ function closeCocPreview() {
   document.getElementById('cocPreviewOverlay').classList.remove('open');
 }
 
+async function applyUnitCrest() {
+  const status = document.getElementById('unitCrestStatus');
+  const fileEl = document.getElementById('unitCrestFile');
+  const file = fileEl && fileEl.files && fileEl.files[0];
+  if (!file) {
+    if (status) { status.textContent = 'Choose an image first.'; status.style.color = 'var(--raf-red)'; }
+    return;
+  }
+  try {
+    if (status) { status.style.color = ''; status.textContent = 'Processing…'; }
+    const dataUrl = await resizeImageToDataUrlPng(file, 512);
+    const res = await fetch('/api/branding/process-crest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ image: dataUrl })
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body.ok) throw new Error(body.error || 'Upload failed');
+    const prev = document.getElementById('unitCrestPreview');
+    if (prev) { prev.src = dataUrl; prev.style.display = ''; }
+    if (status) { status.textContent = 'Crest saved — board header will use it.'; status.style.color = ''; }
+  } catch (e) {
+    if (status) { status.textContent = 'Failed: ' + (e.message || e); status.style.color = 'var(--raf-red)'; }
+  }
+}
+async function clearUnitCrest() {
+  const status = document.getElementById('unitCrestStatus');
+  try {
+    const res = await fetch('/api/branding/clear-crest', { method: 'POST', credentials: 'same-origin' });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body.ok) throw new Error(body.error || 'Clear failed');
+    const prev = document.getElementById('unitCrestPreview');
+    if (prev) { prev.removeAttribute('src'); }
+    if (status) { status.textContent = 'Custom crest cleared — theme logo will be used.'; status.style.color = ''; }
+  } catch (e) {
+    if (status) { status.textContent = 'Failed: ' + (e.message || e); status.style.color = 'var(--raf-red)'; }
+  }
+}
+
 async function applyLoadingLogo() {
   const status = document.getElementById('loadingLogoStatus');
   const fileInput = document.getElementById('loadingLogoFile');
@@ -2665,6 +2729,13 @@ async function maybeShowPinReminder() {
   } catch (e) { /* ignore */ }
 }
 
+function updateThemeDirtyBadge() {
+  const badge = document.getElementById('themeDirtyBadge');
+  if (!badge) return;
+  const el = document.getElementById('unitTheme');
+  const cur = normalizeTheme(el && el.value);
+  badge.style.display = (cur !== themeAtLoad) ? 'inline' : 'none';
+}
 function bindThemeSelector() {
   const themeEl = document.getElementById('unitTheme');
   if (!themeEl || themeEl.dataset.bound) return;
@@ -2673,6 +2744,7 @@ function bindThemeSelector() {
     const th = normalizeTheme(this.value);
     setRankTheme(th);
     applyEditChrome(th);
+    updateThemeDirtyBadge();
     renderCocBuilder();
     try {
       const r = await fetch('/api/theme', {
@@ -2834,6 +2906,7 @@ async function save(opts) {
       const themeChanged = newTheme !== themeAtLoad;
       if (themeChanged) {
         themeAtLoad = newTheme;
+        updateThemeDirtyBadge();
         setRankTheme(newTheme);
         applyEditChrome(newTheme);
         try { renderCocBuilder(); } catch (e) { console.warn(e); }
