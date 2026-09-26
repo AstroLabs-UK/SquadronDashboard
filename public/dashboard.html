@@ -649,6 +649,39 @@ body.loading-active
     #astroBlackout { transition-duration: .01s; }
   }
 
+  /* Small offline note — bottom-right, does not block the board */
+  #offlineChip {
+    position: fixed;
+    right: 10px;
+    bottom: 8px;
+    z-index: 9000;
+    max-width: min(240px, 42vw);
+    padding: 5px 10px;
+    border-radius: 4px;
+    background: rgba(7, 21, 37, 0.82);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    line-height: 1.3;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.25s ease;
+  }
+  #offlineChip.show {
+    opacity: 1;
+    visibility: visible;
+  }
+  body.compact #offlineChip {
+    font-size: 10px;
+    padding: 4px 8px;
+    bottom: 6px;
+    right: 8px;
+  }
+  body.loading-active #offlineChip { display: none; }
+
 </style>
 </head>
 <body class="loading-active">
@@ -664,6 +697,7 @@ body.loading-active
 <div id="astroBlackout"></div>
 
 <div id="sourceBanner" role="status"></div>
+<div id="offlineChip" role="status" aria-live="polite">No internet connection</div>
   <header>
     <div class="brand">
       <img class="roundel" id="unitLogo" src="/theme-logo" alt="Unit crest">
@@ -1617,6 +1651,44 @@ function layoutCocTree() {
   const scale = Math.min(1, (paneW - pad) / naturalW, (paneH - pad) / naturalH);
   scaleEl.style.transform = 'scale(' + scale.toFixed(4) + ')';
 }
+
+
+// Offline disclaimer (bottom-right)
+function updateOfflineChip(offline) {
+  const el = document.getElementById('offlineChip');
+  if (!el) return;
+  if (offline) el.classList.add('show');
+  else el.classList.remove('show');
+}
+function initConnectivityWatch() {
+  window.addEventListener('online', () => { updateOfflineChip(false); probeConnectivity(); });
+  window.addEventListener('offline', () => updateOfflineChip(true));
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) updateOfflineChip(true);
+  async function probeConnectivity() {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      updateOfflineChip(true);
+      return;
+    }
+    try {
+      const r = await fetch('/healthz?_=' + Date.now(), { cache: 'no-store', signal: AbortSignal.timeout(4000) });
+      if (!r.ok) { updateOfflineChip(true); return; }
+    } catch (e) {
+      updateOfflineChip(true);
+      return;
+    }
+    try {
+      await fetch('https://api.open-meteo.com/v1/forecast?latitude=0&longitude=0&current=temperature_2m', {
+        cache: 'no-store', mode: 'cors', signal: AbortSignal.timeout(5000)
+      });
+      updateOfflineChip(false);
+    } catch (e) {
+      updateOfflineChip(true);
+    }
+  }
+  setInterval(probeConnectivity, 60000);
+  setTimeout(probeConnectivity, 3000);
+}
+initConnectivityWatch();
 
 function scheduleCocLayout() {
   cancelAnimationFrame(cocScaleRaf);
