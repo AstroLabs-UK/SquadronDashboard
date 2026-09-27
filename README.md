@@ -13,9 +13,13 @@ Clock, weather, BBC news, individual and flight leaderboard, events, uniform of 
 On a Pi with network access:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/AstroLabs-UK/SquadronDashboard/refs/heads/Stable/install.sh | bash
+# Download then run (recommended — shows the first-time menu)
+curl -fsSL https://raw.githubusercontent.com/AstroLabs-UK/SquadronDashboard/refs/heads/Stable/install.sh -o install.sh
+bash install.sh
 sudo reboot
 ```
+
+Piping straight into `bash` (`curl … | bash`) skips the menu because there is no interactive terminal. Use the two-line form above for questions, or `INSTALL_NONINTERACTIVE=1 bash install.sh` for defaults.
 
 Or from a clone:
 
@@ -24,6 +28,15 @@ git clone https://github.com/AstroLabs-UK/SquadronDashboard.git
 cd SquadronDashboard
 ./install.sh
 ```
+
+On **first run only**, the installer asks (interactive terminal):
+
+- Install **Chromium** for kiosk?
+- Install a **desktop** (for Raspberry Pi OS Lite)?
+- Which **unit theme**?
+- Set an **editor PIN** now, or generate a random one?
+
+Re-running `install.sh` later skips that menu. Non-interactive: `INSTALL_NONINTERACTIVE=1` or `./install.sh --yes`.
 
 `install.sh` is safe to run again. It will:
 
@@ -37,7 +50,7 @@ After install: display at `http://localhost:3000`, settings at `http://localhost
 
 ### Kiosk (full-screen Chromium)
 
-Chromium is **not** installed by the script. On Raspberry Pi OS:
+Chromium is **optional** — choose it in the first-run menu, or install later with apt. On Raspberry Pi OS:
 
 ```bash
 sudo apt-get update
@@ -170,7 +183,8 @@ Disable auto-check with `AUTO_UPDATE=0`.
 
 | Command | Purpose |
 |---------|---------|
-| `sqndash` / `--start` | Start or show service status |
+| `sqndash` (no args) | Show help |
+| `sqndash --start` | Start the dashboard service |
 | `sqndash --stop` | Stop |
 | `sqndash --restart` | Restart the process |
 | `sqndash --set-pin` | Set or change editor PIN |

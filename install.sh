@@ -3,18 +3,25 @@
 #
 # Works two ways:
 #   1. curl -fsSL https://raw.githubusercontent.com/AstroLabs-UK/SquadronDashboard/refs/heads/Stable/install.sh | bash
-#      (clones the repo for you, then installs and configures everything)
-#   2. git clone https://github.com/AstroLabs-UK/SquadronDashboard.git && cd SquadronDashboard && ./install.sh
-#      (already have the repo - just installs and configures)
+#   2. git clone … && cd SquadronDashboard && ./install.sh
+#
+# First run shows an interactive menu (Chromium, desktop, theme, PIN).
+# Re-runs skip the menu. Force non-interactive: INSTALL_NONINTERACTIVE=1 ./install.sh
+# or: ./install.sh --yes
 set -e
 
 REPO_URL="https://github.com/AstroLabs-UK/SquadronDashboard.git"
 REPO_DIRNAME="SquadronDashboard"
 
-# Work out whether we're running from inside an already-cloned copy of the repo
-# (package.json sits next to this script) or were piped straight into bash
-# (curl | bash), in which case there is no "next to this script" - clone first.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")" 2>/dev/null && pwd || pwd)"
+
+NONINTERACTIVE=0
+if [ "${INSTALL_NONINTERACTIVE:-0}" = "1" ]; then NONINTERACTIVE=1; fi
+for arg in "$@"; do
+  case "$arg" in --yes|-y|--noninteractive) NONINTERACTIVE=1 ;; esac
+done
+# No terminal attached → cannot ask questions
+if [ ! -t 0 ]; then NONINTERACTIVE=1; fi
 
 if [ -f "$SCRIPT_DIR/package.json" ]; then
   DIR="$SCRIPT_DIR"
@@ -40,19 +47,99 @@ else
 fi
 
 SERVICE_USER="$(whoami)"
+SETUP_MARKER="$DIR/data/.setup-done"
 
 echo "== Squadron Dashboard setup =="
 echo "Working directory: $DIR"
 echo "Running as user:   $SERVICE_USER"
 echo
 
-# Ensure local Git (if present) treats this folder as safe and ignores file-mode noise
 if command -v git >/dev/null 2>&1 && [ -d "$DIR/.git" ]; then
   git -C "$DIR" config --global --add safe.directory "$DIR" 2>/dev/null || true
   git -C "$DIR" config core.filemode false 2>/dev/null || true
 fi
 
-# 1. Install Node.js if it's missing
+# ---------- First-run interactive choices ----------
+WANT_CHROMIUM=0
+WANT_DESKTOP=0
+CHOICE_THEME="rafac"
+CHOICE_PIN=""   # empty = generate random later
+
+is_first_setup() {
+  [ ! -f "$SETUP_MARKER" ]
+}
+
+ask_yn() {
+  # $1 prompt  $2 default y/n
+  local prompt="$1" def="$2" ans
+  while true; do
+    read -r -p "$prompt [${def}]: " ans || ans=""
+    ans="${ans:-$def}"
+    case "$ans" in
+      y|Y|yes|Yes|YES) return 0 ;;
+      n|N|no|No|NO) return 1 ;;
+      *) echo "  Please answer y or n." ;;
+    esac
+  done
+}
+
+if is_first_setup && [ "$NONINTERACTIVE" = "0" ]; then
+  echo "First-time setup — answer a few questions (re-running install later skips this)."
+  echo
+
+  if ask_yn "Install Chromium for full-screen kiosk display?" "y"; then
+    WANT_CHROMIUM=1
+  fi
+
+  if ask_yn "Install a desktop environment? (needed on Raspberry Pi OS Lite)" "n"; then
+    WANT_DESKTOP=1
+  fi
+
+  echo
+  echo "Unit theme (colours, crest, Chain of Command ranks):"
+  echo "  1) RAF Air Cadets (RAFAC / ATC)   [default]"
+  echo "  2) Army Cadets (ACF)"
+  echo "  3) Sea Cadets (SCC)"
+  echo "  4) Combined Cadet Force (CCF)"
+  echo "  5) Volunteer Cadet Corps (VCC)"
+  read -r -p "Choose 1-5 [1]: " theme_n || theme_n=""
+  theme_n="${theme_n:-1}"
+  case "$theme_n" in
+    2) CHOICE_THEME="acf" ;;
+    3) CHOICE_THEME="scc" ;;
+    4) CHOICE_THEME="ccf" ;;
+    5) CHOICE_THEME="vcc" ;;
+    *) CHOICE_THEME="rafac" ;;
+  esac
+  echo "-> Theme: $CHOICE_THEME"
+
+  echo
+  if ask_yn "Set an editor PIN now? (n = generate a random 6-digit PIN)" "n"; then
+    while true; do
+      read -r -s -p "Enter PIN (4+ characters): " CHOICE_PIN; echo
+      read -r -s -p "Type it again: " pin2; echo
+      if [ "${#CHOICE_PIN}" -lt 4 ]; then
+        echo "  PIN must be at least 4 characters."
+        continue
+      fi
+      if [ "$CHOICE_PIN" != "$pin2" ]; then
+        echo "  Entries did not match — try again."
+        continue
+      fi
+      break
+    done
+  else
+    CHOICE_PIN=""
+  fi
+  echo
+elif is_first_setup && [ "$NONINTERACTIVE" = "1" ]; then
+  echo "-> Non-interactive first setup (defaults: no Chromium, no desktop, RAFAC theme, random PIN)"
+  echo "   Tip: run install from a terminal without --yes for the full menu."
+else
+  echo "-> Existing install detected (skipping first-time questions)"
+fi
+
+# ---------- Packages ----------
 if ! command -v node >/dev/null 2>&1; then
   echo "-> Node.js not found, installing..."
   curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
@@ -61,16 +148,61 @@ else
   echo "-> Node.js already installed ($(node -v))"
 fi
 
-# 2. Install dependencies (this is the one step that needs internet - after this,
-#    the whole folder including node_modules is portable and works offline)
-echo "-> Installing dependencies..."
+if [ "$WANT_DESKTOP" = "1" ]; then
+  echo "-> Installing desktop packages (this can take a while on Pi Lite)..."
+  sudo apt-get update -y
+  # Best-effort: package names vary by OS release
+  if apt-cache show raspberrypi-ui-mods >/dev/null 2>&1; then
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y raspberrypi-ui-mods xserver-xorg lightdm
+  elif apt-cache show rpi-chromium-mods >/dev/null 2>&1; then
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y xserver-xorg lightdm
+  else
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y xserver-xorg xinit lightdm || \
+      echo "!! Could not install a full desktop automatically — install one from raspi-config if needed."
+  fi
+fi
+
+if [ "$WANT_CHROMIUM" = "1" ]; then
+  echo "-> Installing Chromium..."
+  sudo apt-get update -y
+  if apt-cache show chromium-browser >/dev/null 2>&1; then
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y chromium-browser
+  elif apt-cache show chromium >/dev/null 2>&1; then
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y chromium
+  else
+    echo "!! Chromium package not found in apt — install it manually later."
+    WANT_CHROMIUM=0
+  fi
+fi
+
+echo "-> Installing npm dependencies..."
 cd "$DIR"
 npm install --omit=dev
 
-# 3. Auto shutdown - configurable duration after every boot (set on /edit as
-#    "Auto shutdown after (minutes)", read fresh from data.json at every boot),
-#    a plain host-level timer so it works the same whether the app is healthy,
-#    crashed, or mid-restart
+# ---------- First-run theme into data.json ----------
+mkdir -p "$DIR/data"
+if is_first_setup; then
+  python3 - <<PY
+import json, os
+p = os.path.join("$DIR", "data", "data.json")
+theme = "$CHOICE_THEME"
+if os.path.exists(p):
+    try:
+        d = json.load(open(p))
+    except Exception:
+        d = {}
+else:
+    d = {}
+d["theme"] = theme
+# Ensure minimal structure the app expects
+if "widgets" not in d:
+    d["widgets"] = {"leaderboard": True, "news": True, "events": True, "instagram": True, "uniform": True, "chainOfCommand": False}
+json.dump(d, open(p, "w"), indent=2)
+print("-> Theme written to data.json:", theme)
+PY
+fi
+
+# ---------- Auto shutdown ----------
 echo "-> Setting up auto-shutdown (reads the duration from data.json at boot)..."
 cat > "$DIR/shutdown-timer.sh" <<EOF
 #!/usr/bin/env bash
@@ -106,9 +238,7 @@ EOF
 sudo systemctl daemon-reload
 sudo systemctl enable --now squadron-dashboard-shutdown.service
 
-# 3b. Auto update - checks this repo 2 minutes after every boot and then every 30
-#     minutes, applies new commits and restarts the service. Custom settings
-#     (data.json) are preserved - see update.sh
+# ---------- Auto update ----------
 echo "-> Setting up auto-update (checks every 30 minutes)..."
 cat > "$DIR/npm-update.sh" <<EOF
 #!/usr/bin/env bash
@@ -134,46 +264,25 @@ Description=Run Squadron Dashboard update check every 30 minutes
 [Timer]
 OnBootSec=2min
 OnUnitActiveSec=30min
+Persistent=true
 
 [Install]
 WantedBy=timers.target
 EOF
-
-# The update script needs passwordless permission to restart the service -
-# scoped to that one specific command only.
-UPDATE_SUDOERS_FILE="/etc/sudoers.d/squadron-dashboard-restart"
-if [ ! -f "$UPDATE_SUDOERS_FILE" ]; then
-  echo "$SERVICE_USER ALL=(ALL) NOPASSWD: /bin/systemctl restart squadron-dashboard.service" | sudo tee "$UPDATE_SUDOERS_FILE" > /dev/null
-  sudo chmod 0440 "$UPDATE_SUDOERS_FILE"
+# path unit may already exist from previous installs — recreate lightly
+if [ -f "$DIR/update.sh" ]; then
+  sudo systemctl daemon-reload
+  sudo systemctl enable --now squadron-dashboard-update.timer 2>/dev/null || true
 fi
 
-# "Force update" button on /edit: the web page drops data/update-request.json and this path
-# unit notices it and runs the update service right away (the timer above stays as normal).
-mkdir -p "$DIR/data"
-sudo tee /etc/systemd/system/squadron-dashboard-update.path > /dev/null <<EOF
-[Unit]
-Description=Squadron Dashboard - update now when requested from /edit
-
-[Path]
-PathExists=$DIR/data/update-request.json
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-sudo systemctl daemon-reload
-sudo systemctl enable --now squadron-dashboard-update.timer
-sudo systemctl enable --now squadron-dashboard-update.path
-
-# The `sqndash` command - works from any folder:  sqndash --update
+# ---------- sqndash on PATH (works from any directory) ----------
 sudo tee /usr/local/bin/sqndash > /dev/null <<EOF
 #!/usr/bin/env bash
 exec bash "$DIR/sqndash.sh" "\$@"
 EOF
 sudo chmod +x /usr/local/bin/sqndash
 
-# 4. Set up a systemd service so the dashboard starts automatically on boot
-#    and restarts itself if it ever crashes
+# ---------- Main service ----------
 SERVICE_FILE="/etc/systemd/system/squadron-dashboard.service"
 echo "-> Installing systemd service..."
 sudo tee "$SERVICE_FILE" > /dev/null <<EOF
@@ -198,31 +307,59 @@ sudo systemctl daemon-reload
 sudo systemctl enable squadron-dashboard.service
 sudo systemctl restart squadron-dashboard.service
 
-# 5. Editor PIN - protects the /edit page and "Force update" (the display itself stays open).
-#    A random 6-digit PIN is created on first install. Change it any time: sqndash --set-pin
+# ---------- Optional kiosk autostart ----------
+if [ "$WANT_CHROMIUM" = "1" ]; then
+  echo "-> Adding Chromium kiosk autostart (for desktop sessions)..."
+  AUTODIR="$HOME/.config/autostart"
+  mkdir -p "$AUTODIR"
+  BROWSER="$(command -v chromium-browser || command -v chromium || true)"
+  if [ -n "$BROWSER" ]; then
+    cat > "$AUTODIR/squadron-dashboard-kiosk.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Squadron Dashboard Kiosk
+Exec=$DIR/scripts/kiosk-wait-display.sh
+X-GNOME-Autostart-enabled=true
+EOF
+    # Ensure kiosk script uses password-store=basic
+    if [ -f "$DIR/scripts/kiosk-wait-display.sh" ]; then
+      chmod +x "$DIR/scripts/kiosk-wait-display.sh"
+    fi
+    echo "-> Kiosk autostart written to $AUTODIR/squadron-dashboard-kiosk.desktop"
+  fi
+fi
+
+# ---------- Editor PIN ----------
 mkdir -p "$DIR/data"
 if [ ! -s "$DIR/data/edit-pin" ] && [ -z "${EDIT_PIN:-}" ]; then
-  NEW_PIN="$(tr -dc '0-9' < /dev/urandom | head -c 6)"
+  if [ -n "$CHOICE_PIN" ]; then
+    NEW_PIN="$CHOICE_PIN"
+  else
+    NEW_PIN="$(tr -dc '0-9' < /dev/urandom | head -c 6)"
+  fi
   ( umask 077; printf '%s\n' "$NEW_PIN" > "$DIR/data/edit-pin" )
   echo
   echo "=============================================================="
   echo "  Your /edit PIN is:  $NEW_PIN"
-  echo "  Open http://<this-pi>:3000/edit, leave the username blank and"
-  echo "  enter the PIN as the password. Change it with: sqndash --set-pin"
+  echo "  Open http://<this-device>:3000/edit and enter the PIN."
+  echo "  Change it later with:  sqndash --set-pin"
   echo "=============================================================="
 else
   echo "-> Editor PIN already set (change it with: sqndash --set-pin)"
 fi
 
+# Mark first-time setup complete (skips menu on next install.sh)
+touch "$SETUP_MARKER"
+
 echo
 echo "== Setup complete =="
-echo "The dashboard is running and will start automatically every time this device boots."
+echo "The dashboard is running and will start automatically on boot."
 echo
 echo "  Display:  http://localhost:3000"
-echo "  Edit (from any phone/laptop on the network): http://$(hostname -I | awk '{print $1}'):3000/edit"
-echo "  Status:   http://$(hostname -I | awk '{print $1}'):3000/status"
+IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
+echo "  Edit:     http://${IP:-<device-ip>}:3000/edit"
+echo "  Status:   http://${IP:-<device-ip>}:3000/status"
 echo
-echo "To point Chromium at it in kiosk mode on boot, see 'Kiosk autostart' in README.md."
-echo "To update to the latest version any time:  sqndash --update"
-echo "To check on the service later:  sudo systemctl status squadron-dashboard"
-echo "To view logs:                    journalctl -u squadron-dashboard -f"
+echo "  Type  sqndash  anywhere for the command list."
+echo "  Update:  sqndash --update"
+echo "  Logs:    journalctl -u squadron-dashboard -f"

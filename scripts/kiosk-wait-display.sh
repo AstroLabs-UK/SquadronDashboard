@@ -48,4 +48,4 @@ for i in 1 2 3 4 5 6 7 8 9 10; do
   sleep 2
 done
 
-exec "$BROWSER" --kiosk --noerrdialogs --disable-infobars --disable-session-crashed-bubble   --check-for-update-interval=31536000 "$URL"
+exec "$BROWSER" --kiosk --noerrdialogs --disable-infobars --disable-session-crashed-bubble --password-store=basic --check-for-update-interval=31536000 "$URL"
