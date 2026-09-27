@@ -4,6 +4,7 @@ Self-hosted room screen for UK cadet units. Themes for **RAF Air Cadets (RAFAC /
 
 Clock, weather, BBC news, individual and flight leaderboard, events, uniform of the week, Instagram or custom embeds, and a **Chain of Command** panel. Configure from a phone-friendly `/edit` page. Health checks on `/status`.
 
+**Version:** 1.9.0  
 **Repo:** [github.com/AstroLabs-UK/SquadronDashboard](https://github.com/AstroLabs-UK/SquadronDashboard)
 
 ---

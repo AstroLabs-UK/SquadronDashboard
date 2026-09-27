@@ -83,6 +83,15 @@ ask_yn() {
   done
 }
 
+if is_first_setup && [ "$NONINTERACTIVE" = "1" ] && [ ! -t 0 ]; then
+  echo
+  echo "NOTE: Install was started without an interactive terminal (e.g. curl | bash)."
+  echo "      The first-time menu was skipped. For the menu, run:"
+  echo "        curl -fsSL .../install.sh -o install.sh && bash install.sh"
+  echo "      Or:  bash $DIR/install.sh"
+  echo
+fi
+
 if is_first_setup && [ "$NONINTERACTIVE" = "0" ]; then
   echo "First-time setup — answer a few questions (re-running install later skips this)."
   echo
@@ -149,28 +158,46 @@ else
 fi
 
 if [ "$WANT_DESKTOP" = "1" ]; then
-  echo "-> Installing desktop packages (this can take a while on Pi Lite)..."
-  sudo apt-get update -y
-  # Best-effort: package names vary by OS release
+  echo "-> Installing desktop packages (this can take a long time on Pi OS Lite)..."
+  echo "   If this fails, use: sudo raspi-config → System Options → Boot / Auto Login → Desktop"
+  sudo apt-get update -y || true
+  DESK_OK=0
   if apt-cache show raspberrypi-ui-mods >/dev/null 2>&1; then
-    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y raspberrypi-ui-mods xserver-xorg lightdm
-  elif apt-cache show rpi-chromium-mods >/dev/null 2>&1; then
-    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y xserver-xorg lightdm
+    if sudo DEBIAN_FRONTEND=noninteractive apt-get install -y raspberrypi-ui-mods xserver-xorg lightdm; then
+      DESK_OK=1
+    fi
+  fi
+  if [ "$DESK_OK" != "1" ]; then
+    if sudo DEBIAN_FRONTEND=noninteractive apt-get install -y xserver-xorg xinit lightdm 2>/dev/null; then
+      DESK_OK=1
+      echo "-> Installed a minimal X11 + lightdm stack (not a full Pi desktop)."
+    fi
+  fi
+  if [ "$DESK_OK" != "1" ]; then
+    echo "!! Desktop packages could not be installed automatically."
+    echo "   The dashboard server will still run. Use raspi-config for a desktop if needed."
   else
-    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y xserver-xorg xinit lightdm || \
-      echo "!! Could not install a full desktop automatically — install one from raspi-config if needed."
+    echo "-> Desktop packages installed. A reboot may be required before a GUI appears."
   fi
 fi
 
 if [ "$WANT_CHROMIUM" = "1" ]; then
   echo "-> Installing Chromium..."
   sudo apt-get update -y
-  if apt-cache show chromium-browser >/dev/null 2>&1; then
-    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y chromium-browser
-  elif apt-cache show chromium >/dev/null 2>&1; then
-    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y chromium
-  else
-    echo "!! Chromium package not found in apt — install it manually later."
+  CHROMIUM_OK=0
+  for pkg in chromium chromium-browser; do
+    if apt-cache show "$pkg" >/dev/null 2>&1; then
+      if sudo DEBIAN_FRONTEND=noninteractive apt-get install -y "$pkg"; then
+        CHROMIUM_OK=1
+        echo "-> Installed package: $pkg"
+        break
+      fi
+    fi
+  done
+  if [ "$CHROMIUM_OK" != "1" ]; then
+    echo "!! Chromium could not be installed automatically."
+    echo "   Try:  sudo apt-get install -y chromium"
+    echo "     or:  sudo apt-get install -y chromium-browser"
     WANT_CHROMIUM=0
   fi
 fi
@@ -193,12 +220,14 @@ if os.path.exists(p):
         d = {}
 else:
     d = {}
-d["theme"] = theme
-# Ensure minimal structure the app expects
+if not d.get("theme"):
+    d["theme"] = theme
+    print("-> Theme written to data.json:", theme)
+else:
+    print("-> Keeping existing theme in data.json:", d.get("theme"))
 if "widgets" not in d:
     d["widgets"] = {"leaderboard": True, "news": True, "events": True, "instagram": True, "uniform": True, "chainOfCommand": False}
 json.dump(d, open(p, "w"), indent=2)
-print("-> Theme written to data.json:", theme)
 PY
 fi
 
@@ -306,6 +335,24 @@ EOF
 sudo systemctl daemon-reload
 sudo systemctl enable squadron-dashboard.service
 sudo systemctl restart squadron-dashboard.service
+
+echo "-> Checking that the dashboard responds..."
+SMOKE_OK=0
+for i in 1 2 3 4 5 6 7 8 9 10; do
+  if curl -sf -o /dev/null --max-time 2 "http://127.0.0.1:3000/healthz" 2>/dev/null \
+     || curl -sf -o /dev/null --max-time 2 "http://127.0.0.1:3000/" 2>/dev/null; then
+    SMOKE_OK=1
+    break
+  fi
+  sleep 1
+done
+if [ "$SMOKE_OK" = "1" ]; then
+  echo "-> Smoke test OK (http://127.0.0.1:3000)"
+else
+  echo "!! Smoke test: dashboard did not respond on :3000 yet."
+  echo "   Check:  sudo systemctl status squadron-dashboard"
+  echo "   Logs:   journalctl -u squadron-dashboard -n 50 --no-pager"
+fi
 
 # ---------- Optional kiosk autostart ----------
 if [ "$WANT_CHROMIUM" = "1" ]; then
