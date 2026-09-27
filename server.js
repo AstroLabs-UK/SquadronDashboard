@@ -6,6 +6,7 @@ const { createStore } = require('./storage');
 const { securityHeaders, rateLimit } = require('./lib/security');
 const { createEditorAuth } = require('./lib/auth');
 const autoUpdate = require('./autoUpdate');
+const themeAssets = require('./lib/themeAssets');
 const guard = require('./lib/settingsGuard');
 const { removeTempFiles } = require('./lib/cleanup');
 const { createCalendarService } = require('./lib/calendar');
@@ -66,10 +67,13 @@ const DEFAULT_DATA = {
   weatherEmbedCode: "",
   // News panel is always the scraped BBC News feed (no embed code).
   importantInfo: { enabled: false, title: "IMPORTANT INFORMATION", message: "" },
-  widgets: { leaderboard: true, news: true, events: true, instagram: true, uniform: true },
+  widgets: { leaderboard: true, news: true, events: true, instagram: true, uniform: true, chainOfCommand: false },
   customWidgets: [],
   layout: "auto",
-  events: []
+  events: [],
+  chainOfCommand: { people: [] },
+  theme: "rafac",
+  branding: { loadingLogo: '', unitCrest: '' }
 };
 
 // Settings are NEVER kept only in memory - every read goes to disk, and every
@@ -111,6 +115,7 @@ if (guardActive) {
 }
 try { fs.mkdirSync(CACHE_DIR, { recursive: true }); } catch (e) { /* best effort */ }
 const store = createStore({ dir: DATA_DIR, defaults: DEFAULT_DATA, legacyDir: __dirname, snapDir: guardActive ? SNAP_DIR : null });
+try { autoUpdate.clearRestartPending(DATA_DIR); } catch (e) {}
 if (guardActive) {
   try {
     const main = path.join(DATA_DIR, 'data.json');
@@ -138,6 +143,50 @@ const requireEditor = createEditorAuth({ dataDir: DATA_DIR, failureLimiter: pinF
 
 // ---------- pages ----------
 const sendPage = name => (req, res) => res.sendFile(path.join(__dirname, 'public', name));
+app.post('/api/theme', requireEditor, sensitiveLimiter, async (req, res) => {
+  try {
+    const theme = themeAssets.normalizeTheme(req.body && req.body.theme);
+    const current = store.load();
+    const updated = store.sanitize(current, { theme });
+    store.save(updated);
+    const result = await themeAssets.ensureThemeLogo({ dataDir: DATA_DIR, cwd: __dirname, theme, force: true });
+    res.json({ ok: true, theme: result.theme, source: result.source });
+  } catch (e) {
+    console.error('[theme] switch failed', e);
+    res.status(500).json({ ok: false, error: String(e && e.message ? e.message : e) });
+  }
+});
+
+app.get('/theme-logo', async (req, res) => {
+  try {
+    const data = store.load();
+    // Custom unit crest overrides theme logo
+    const crest = data.branding && data.branding.unitCrest;
+    if (crest && typeof crest === 'string' && crest.startsWith('data:image/')) {
+      const m = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(crest);
+      if (m) {
+        res.setHeader('Content-Type', m[1]);
+        res.setHeader('Cache-Control', 'no-cache');
+        return res.send(Buffer.from(m[2], 'base64'));
+      }
+    }
+    const theme = data.theme || 'rafac';
+    let file = themeAssets.getCachedLogoPath(DATA_DIR);
+    if (!file) {
+      await themeAssets.ensureThemeLogo({ dataDir: DATA_DIR, cwd: __dirname, theme });
+      file = themeAssets.getCachedLogoPath(DATA_DIR);
+    }
+    if (!file) {
+      return res.sendFile(path.join(__dirname, 'public', 'roundel.png'));
+    }
+    res.setHeader('Cache-Control', 'no-cache');
+    return res.sendFile(file);
+  } catch (e) {
+    console.warn('[theme] serve logo failed', e && e.message ? e.message : e);
+    return res.sendFile(path.join(__dirname, 'public', 'roundel.png'));
+  }
+});
+
 app.get('/', sendPage('dashboard.html'));
 app.get('/pin', sendPage('pin.html'));
 app.get('/edit', requireEditor, sendPage('edit.html'));
@@ -175,8 +224,12 @@ app.get('/api/data', apiLimiter, (req, res) => {
   const visible = requireEditor.isEditor(req)
     ? data
     : { ...data, icsUrl: '', timetreePassword: '', timetreeEmail: '' };
+  const branding = data.branding && typeof data.branding === 'object'
+    ? { loadingLogo: data.branding.loadingLogo || '', unitCrest: data.branding.unitCrest || '' }
+    : { loadingLogo: '', unitCrest: '' };
   const body = {
     ...visible,
+    branding,
     icsUrlSet: !!data.icsUrl,
     timetreeConfigured: !!(data.timetreeEmail && data.timetreePassword),
     // never echo the real password back even to the editor — UI keeps a "unchanged" blank
@@ -197,12 +250,20 @@ app.post('/api/data', requireEditor, sensitiveLimiter, (req, res) => {
     const previous = store.load();
     const updated = store.sanitize(previous, req.body);
     store.save(updated);
+    // Only keep the active theme crest on disk (fetched from repo / local seed)
+    if (updated.theme !== previous.theme || !themeAssets.getCachedLogoPath(DATA_DIR)) {
+      themeAssets.ensureThemeLogo({ dataDir: DATA_DIR, cwd: __dirname, theme: updated.theme || 'rafac', force: true })
+        .catch(e => console.warn('[theme] crest update failed', e && e.message ? e.message : e));
+    }
     try { calendar.clear(); } catch (e) { /* best effort */ }
     try { guard.snapshot(DATA_DIR, SNAP_DIR); } catch (snapErr) {
       console.warn('[storage] external snapshot failed after save', snapErr && snapErr.message ? snapErr.message : snapErr);
     }
     // Don't echo the real password back to the editor
-    const safe = { ...updated, timetreePassword: updated.timetreePassword ? '********' : '' };
+    const safeBrand = updated.branding && typeof updated.branding === 'object'
+      ? { loadingLogo: updated.branding.loadingLogo || '', unitCrest: updated.branding.unitCrest || '' }
+      : { loadingLogo: '', unitCrest: '' };
+    const safe = { ...updated, timetreePassword: updated.timetreePassword ? '********' : '', branding: safeBrand };
     res.json({ ok: true, data: safe });
   } catch (e) {
     console.error('[storage] save failed', e);
@@ -211,12 +272,101 @@ app.post('/api/data', requireEditor, sensitiveLimiter, (req, res) => {
   }
 });
 
+// ---------- API: branding / loading logo ----------
+app.post('/api/branding/process-logo', requireEditor, sensitiveLimiter, (req, res) => {
+  try {
+    const body = req.body || {};
+    const imageDataUrl = typeof body.image === 'string' ? body.image : '';
+    if (!imageDataUrl.startsWith('data:image/')) {
+      return res.status(400).json({ ok: false, error: 'Expected a data:image/... payload' });
+    }
+    if (imageDataUrl.length > 1_500_000) {
+      return res.status(400).json({ ok: false, error: 'Image too large' });
+    }
+    const current = store.load();
+    const next = store.sanitize(current, {
+      branding: { loadingLogo: imageDataUrl }
+    });
+    store.save(next);
+    try { guard.snapshot(DATA_DIR, SNAP_DIR); } catch (e) {}
+    res.json({
+      ok: true,
+      loadingLogo: imageDataUrl,
+      note: 'Logo saved and resized; previous logo replaced. Transparent PNG works best.'
+    });
+  } catch (e) {
+    console.error('[branding] process-logo failed', e);
+    res.status(500).json({ ok: false, error: String(e && e.message ? e.message : e) });
+  }
+});
+
+app.post('/api/branding/process-crest', requireEditor, sensitiveLimiter, (req, res) => {
+  try {
+    const imageDataUrl = req.body && req.body.image;
+    if (!imageDataUrl || typeof imageDataUrl !== 'string' || !imageDataUrl.startsWith('data:image/')) {
+      return res.status(400).json({ ok: false, error: 'Expected a data:image/... payload' });
+    }
+    if (imageDataUrl.length > 1_500_000) {
+      return res.status(400).json({ ok: false, error: 'Image too large' });
+    }
+    const current = store.load();
+    const next = store.sanitize(current, {
+      branding: { unitCrest: imageDataUrl, loadingLogo: (current.branding && current.branding.loadingLogo) || '' }
+    });
+    store.save(next);
+    try { guard.snapshot(DATA_DIR, SNAP_DIR); } catch (e) {}
+    res.json({ ok: true, unitCrest: imageDataUrl });
+  } catch (e) {
+    console.error('[branding] process-crest failed', e);
+    res.status(500).json({ ok: false, error: String(e && e.message ? e.message : e) });
+  }
+});
+
+app.post('/api/branding/clear-crest', requireEditor, sensitiveLimiter, (req, res) => {
+  try {
+    const current = store.load();
+    const next = store.sanitize(current, {
+      branding: { unitCrest: '', loadingLogo: (current.branding && current.branding.loadingLogo) || '' }
+    });
+    store.save(next);
+    try { guard.snapshot(DATA_DIR, SNAP_DIR); } catch (e) {}
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: 'clear failed' });
+  }
+});
+
+app.post('/api/branding/clear-logo', requireEditor, sensitiveLimiter, (req, res) => {
+  try {
+    const current = store.load();
+    const next = store.sanitize(current, { branding: { loadingLogo: '', unitCrest: '' } });
+    store.save(next);
+    try { guard.snapshot(DATA_DIR, SNAP_DIR); } catch (e) {}
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: 'clear failed' });
+  }
+});
+
+// Restart the dashboard process (editor only). Used after an update is staged on disk.
+app.post('/api/restart', requireEditor, sensitiveLimiter, (req, res) => {
+  res.json({ ok: true, message: 'Restarting…' });
+  setTimeout(() => {
+    try {
+      autoUpdate.restartProcess(__dirname);
+    } catch (e) {
+      console.error('[restart] failed', e);
+    }
+  }, 300);
+});
+
+
 // ---------- API: weather / news / leaderboard / status / update ----------
 app.use(apiLimiter);
 app.use(require('./routes/weather')({ store, cacheDir: CACHE_DIR }));
 app.use(require('./routes/news')({ cacheDir: CACHE_DIR }));
 app.use(require('./routes/leaderboard')({ store, cacheDir: CACHE_DIR }));
-app.use(require('./routes/status')({ store, cwd: __dirname, requireEditor, calendar }));
+app.use(require('./routes/status')({ store, cwd: __dirname, dataDir: DATA_DIR, requireEditor, calendar }));
 app.use(require('./routes/schedule')({ store, calendar }));
 app.use(control.router);
 app.use(require('./routes/config')({ store, dataDir: DATA_DIR, snapDir: SNAP_DIR, requireEditor, limiter: sensitiveLimiter }));
@@ -273,6 +423,8 @@ app.listen(PORT, HOST, () => {
     // Windows / bare-metal Node: check GitHub at launch and every 5 minutes
     // (skipped under systemd / Docker and during the update safety check - see autoUpdate.js)
     autoUpdate.startAutoUpdate({ cwd: __dirname, dataDir: DATA_DIR, intervalMs: 5 * 60 * 1000 });
+    themeAssets.ensureThemeLogo({ dataDir: DATA_DIR, cwd: __dirname, theme: (store.load().theme || 'rafac') })
+      .catch(e => console.warn('[theme] initial crest', e && e.message ? e.message : e));
   });
 }
 

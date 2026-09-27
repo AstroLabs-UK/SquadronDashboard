@@ -1,24 +1,27 @@
 # Squadron Dashboard
 
-Self-hosted room screen for RAF Air Cadets (or similar units). Clock, weather, BBC news, individual + flight leaderboard, events, Instagram, and a few embed slots. Settings live on a phone-friendly `/edit` page. `/status` is for health checks.
+Self-hosted room screen for UK cadet units. Themes for **RAF Air Cadets (RAFAC / ATC)**, **Army Cadets (ACF)**, **Sea Cadets (SCC)**, **Combined Cadet Force (CCF)**, and **Volunteer Cadet Corps (VCC)**.
 
-Repo: [github.com/AstroLabs-UK/SquadronDashboard](https://github.com/AstroLabs-UK/SquadronDashboard)
+Clock, weather, BBC news, individual and flight leaderboard, events, uniform of the week, Instagram or custom embeds, and a **Chain of Command** panel. Configure from a phone-friendly `/edit` page. Health checks on `/status`.
 
-## Install on a Raspberry Pi
+**Repo:** [github.com/AstroLabs-UK/SquadronDashboard](https://github.com/AstroLabs-UK/SquadronDashboard)
 
-One line on a fresh Pi OS box:
+---
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/AstroLabs-UK/SquadronDashboard/refs/heads/Stable/install.sh | bash
-```
+## Quick start (Raspberry Pi)
 
-Then reboot:
+On a Pi with network access:
 
 ```bash
+# Download then run (recommended — shows the first-time menu)
+curl -fsSL https://raw.githubusercontent.com/AstroLabs-UK/SquadronDashboard/refs/heads/Stable/install.sh -o install.sh
+bash install.sh
 sudo reboot
 ```
 
-If you already have the repo:
+Piping straight into `bash` (`curl … | bash`) skips the menu because there is no interactive terminal. Use the two-line form above for questions, or `INSTALL_NONINTERACTIVE=1 bash install.sh` for defaults.
+
+Or from a clone:
 
 ```bash
 git clone https://github.com/AstroLabs-UK/SquadronDashboard.git
@@ -26,21 +29,62 @@ cd SquadronDashboard
 ./install.sh
 ```
 
-`install.sh` is safe to run again. It installs Node if needed, runs the app as a systemd service (starts on boot, restarts on crash), sets up auto-update and auto-shutdown, and puts `sqndash` on your PATH. At the end it prints a random 6-digit editor PIN. Write that down.
+On **first run only**, the installer asks (interactive terminal):
 
-### Kiosk mode
+- Install **Chromium** for kiosk?
+- Install a **desktop** (for Raspberry Pi OS Lite)?
+- Which **unit theme**?
+- Set an **editor PIN** now, or generate a random one?
 
-Point Chromium at the board when the desktop comes up:
+Re-running `install.sh` later skips that menu. Non-interactive: `INSTALL_NONINTERACTIVE=1` or `./install.sh --yes`.
+
+`install.sh` is safe to run again. It will:
+
+- Install **Git** and **Node.js** if needed (**not** Chromium)
+- Install npm dependencies and run the app as a **systemd** service (starts on boot, restarts on crash)
+- Set up optional auto-update and auto-shutdown
+- Put `sqndash` on your PATH
+- Print a random **6-digit editor PIN** — save it
+
+After install: display at `http://localhost:3000`, settings at `http://localhost:3000/edit`.
+
+### Kiosk (full-screen Chromium)
+
+Chromium is **optional** — choose it in the first-run menu, or install later with apt. On Raspberry Pi OS:
 
 ```bash
-chromium-browser --kiosk --noerrdialogs --disable-infobars http://localhost:3000
+sudo apt-get update
+sudo apt-get install -y chromium-browser
 ```
 
-Autostart file depends on your Pi OS version (often `~/.config/lxsession/LXDE-pi/autostart`, with `@` in front of the line on older setups). The app reloads itself after an update, so you rarely need to touch the screen.
+Simple kiosk command:
 
-## Windows / Linux (no install script)
+```bash
+chromium-browser --kiosk --noerrdialogs --disable-infobars \
+  --password-store=basic \
+  http://localhost:3000
+```
 
-Install [Node.js LTS](https://nodejs.org/) and Git, then:
+`--password-store=basic` avoids the “Unlock keyring” dialog on many Pis.
+
+To **wait for a monitor** before opening the browser (slow TVs):
+
+```bash
+./scripts/kiosk-wait-display.sh
+```
+
+| Environment variable | Default | Meaning |
+|----------------------|---------|---------|
+| `SQNDASH_URL` | `http://localhost:3000` | Page to open |
+| `SQNDASH_DISPLAY_WAIT` | `120` | Max seconds to wait for a display |
+
+Add the command to your desktop autostart (path depends on Pi OS version; older LXDE often uses `~/.config/lxsession/LXDE-pi/autostart` with `@` before the line).
+
+---
+
+## Windows / Linux (manual)
+
+Install [Node.js LTS](https://nodejs.org/) (18+) and Git:
 
 ```bash
 git clone https://github.com/AstroLabs-UK/SquadronDashboard.git
@@ -49,194 +93,172 @@ npm install --omit=dev
 npm start
 ```
 
-Open http://localhost:3000 for the display and http://localhost:3000/edit for settings.
+| Page | URL |
+|------|-----|
+| Display | http://localhost:3000/ |
+| Edit | http://localhost:3000/edit |
+| Status | http://localhost:3000/status |
 
-Docker works too:
+Docker:
 
 ```bash
 docker compose up -d --build
 ```
 
-## What you get
+---
 
-| Page | URL |
-|------|-----|
-| Display | `http://<host>:3000/` |
-| Edit | `http://<host>:3000/edit` (PIN protected once you set one) |
-| Status | `http://<host>:3000/status` |
+## Pages
 
-Default port is 3000. Override with `PORT`. Bind address with `SQNDASH_HOST` (default is all interfaces).
+| Page | Path | Notes |
+|------|------|--------|
+| Display | `/` | Room screen — no editor buttons |
+| Edit | `/edit` | PIN protected once a PIN is set |
+| Status | `/status` | Health, upstream checks, staged updates |
+| PIN | `/pin` | Unlock editor session |
 
-Once configured, most content looks after itself:
+Port: `PORT` (default `3000`). Bind address: `SQNDASH_HOST` (default all interfaces).
 
-- Calendar from an ICS link or TimeTree (sign in on `/edit`, pick a calendar, optionally filter by tags)
-- Uniform panel from `Uniform: …` lines in events, TimeTree tags you mark as uniform sources, or a typed list
-- Leaderboard from a published Google Sheets CSV (top 5 individuals, top 3 flights)
-- News, weather, Instagram, and custom embeds as rotating panels (each can be switched off)
-- Stale-source banner when the calendar feed is offline or only serving cached data
-- Screen notice / force reload from `/edit`
-- Backup download and restore as one JSON file (TimeTree password is stripped from downloads)
+---
 
-## After install
+## Features
 
-Open `http://<device-IP>:3000/edit` from anything on the same network.
+### Display board
 
-### Core settings
+- Local clock and date (works without internet)
+- Weather via Open-Meteo, or a custom weather embed
+- Rotating widgets: **leaderboard**, **BBC news**, **events**, **uniform**, **Instagram / embeds**, **Chain of Command**
+- Optional important-information banner
+- Loading animation (default Astro Labs logo, or your PNG)
+- Small **No internet connection** notice (bottom-right) when offline
+- Header uses unit **theme colours** and crest
 
-| Setting | Notes |
-|---------|--------|
-| Squadron / unit name | Header text |
-| Weather location | Name plus lat/lon |
-| Leaderboard CSV URL | Publish the sheet as CSV first |
-| "See all events" URL | QR on the events panel |
-| Error report URL | QR when a panel fails; blank disables it |
-| Auto shutdown (minutes) | Pi only; applies from next boot |
-| Screen layout | Automatic, always full, or always compact |
+### Unit themes (`/edit`)
 
-### Calendar
+| Theme | Look |
+|-------|------|
+| RAF Air Cadets | Navy / light blue, RAF roundel |
+| Army Cadets | Dark green / gold |
+| Sea Cadets | Navy / cyan / gold |
+| Combined Cadet Force | Royal blue / gold; ranks by RN / Army / RAF section |
+| Volunteer Cadet Corps | Navy / green |
 
-Above the calendar fields there is a **Calendar source** dropdown: ICS import or TimeTree.
+Optional **custom unit crest** overrides the theme logo (transparent PNG recommended). Clear it to use the theme crest again.
 
-**ICS** (Google, Outlook, iCloud, anything with a subscribe link):
+Theme crests are kept as a single active file under `data/theme-cache/`. Files in `public/` work offline; otherwise the app can fetch the matching logo from GitHub when online.
 
-1. In Google Calendar, open Settings for the squadron calendar, scroll to Integrate calendar, copy **Secret address in iCal format**.
-2. Paste it on `/edit`, Save, then Test calendar.
+### Chain of Command
 
-**TimeTree** (built in, no extra process):
+- Level-based hierarchy (everyone on a level reports to the level above)
+- Rank, name, role tag, photo (crop guide) or pastel colour avatar
+- Desktop: drag levels and people; mobile: level arrows and full-screen person editor
+- Rank lists follow the selected theme
+- **Test preview** and **Print / PDF** on `/edit` only (not on the room display)
 
-1. Set source to TimeTree.
-2. Enter email and password, click Connect.
-3. Pick a calendar, tick the tags you want on the board (none checked = show everything).
-4. Optional: mark some tags as **Uniform tags** so those event titles feed the Uniform panel.
-5. Save, then Test calendar.
+### Calendar and tags
 
-Credentials stay in `data/data.json` on the device. The public display never sees the password. Events refresh at most every 10 minutes. If TimeTree is briefly down, the last good copy is kept for up to a day.
+- **ICS** secret link (Google, Outlook, iCloud, …), or **TimeTree** email + password
+- **Tags to show on the board** — filters which TimeTree events appear in the **Events** panel. Leave all unchecked to show every event; tick tags to limit to those labels
+- **Uniform tags** — separate; used for “uniform of the week”
+- Time zone and “days ahead” controls
 
-This uses the same unofficial TimeTree web API as [timetree-live-ics](https://github.com/mr-onadasky/timetree-live-ics). A few HTTP calls on a timer, no browser automation. Fine to run on the same Pi as the rest of the app.
+### Leaderboard
 
-Tag names are refreshed about once a week in the background so renamed tags do not go stale in the edit UI.
+Google Sheet published as CSV (name + points; optional flight column). Empty data shows a clear message on the board. Top rows use gold / silver / bronze highlighting.
 
-### Uniform
+### Backup and branding
 
-Put `Uniform: Working blues` on its own line in an event description, or `[Uniform: PT kit]` in the title. Or use TimeTree uniform tags as above. Typed rows on `/edit` still work for one-offs.
+- **Export settings** / **Upload settings** — JSON backup (TimeTree password stripped from exports)
+- On-device backup snapshot
+- Custom **loading logo** (PNG with transparent background preferred)
 
-### Leaderboard sheet
+### Updates
 
-Publish as CSV (File → Share → Publish to web → CSV). The sheet needs Name and Points columns (or close equivalents). Paste the published URL into `/edit`.
+Stable follows version tags. Updates are **downloaded to disk only** — the display does not restart by itself. Apply with **Restart now** on `/edit` or `/status`, reboot, or `sqndash --restart`.
 
-### PIN
+Disable auto-check with `AUTO_UPDATE=0`.
 
-`install.sh` creates one for you. Change it with:
-
-```bash
-sqndash --set-pin
-```
-
-Wrong PIN attempts lock out for a few minutes. Without a PIN, `/edit` is open to anyone on the network.
-
-## Auto-update
-
-Stable channel devices follow tagged releases (`v1.8.0` style). The Pi checks a couple of minutes after boot and every 30 minutes via a host timer. Windows / bare Node checks at launch and every 5 minutes (`AUTO_UPDATE=0` turns that off).
-
-Before switching, the new version has to answer a health check. If it does not, the previous version is put back and that release is skipped for a while so the device is not stuck in a loop.
-
-A test device can track the **Update** branch instead of tags:
-
-```bash
-sqndash --channel update
-```
-
-Back to tags:
-
-```bash
-sqndash --channel stable
-```
-
-### Manual update
-
-```bash
-cd /path/to/SquadronDashboard
-git fetch --tags origin
-git reset --hard v1.8.0        # or origin/Stable
-git clean -fd
-npm install --omit=dev
-# restart: npm start, or docker compose up -d --build
-```
-
-### Cutting a release (maintainers)
-
-```bash
-git checkout Stable && git pull
-# bump version in package.json, update this README, merge, then:
-git tag v1.8.0
-git push origin v1.8.0
-```
-
-Tags must match `vMAJOR.MINOR.PATCH`. Anything else is ignored on the stable channel. Day-to-day work sits on the **Update** branch.
+---
 
 ## `sqndash` commands
 
-| Command | What it does |
-|---------|----------------|
-| `sqndash --check` / `--version` | Local git vs update target |
-| `sqndash --update` | Pull newer version if available, then restart |
-| `sqndash --force-update` | Re-apply the target even if it looks current |
-| `sqndash --restart` | Restart only |
-| `sqndash --set-pin [PIN]` | Set the `/edit` PIN |
-| `sqndash --clear-pin` | Remove the PIN |
-| `sqndash --channel [stable\|update]` | Show or change channel |
-| `sqndash --help` | Help |
+| Command | Purpose |
+|---------|---------|
+| `sqndash` (no args) | Show help |
+| `sqndash --start` | Start the dashboard service |
+| `sqndash --stop` | Stop |
+| `sqndash --restart` | Restart the process |
+| `sqndash --set-pin` | Set or change editor PIN |
+| `sqndash --check` | Local / remote version info |
+| `sqndash --force-update` | Pull latest allowed release onto disk |
 
-On Windows use `sqndash.cmd` or `.\sqndash.ps1` from the project folder (or put that folder on PATH).
+Windows: use `sqndash.cmd` from the project folder if needed.
 
-## Status and health
+---
 
-`/status` refreshes about every 30 seconds: uptime, data sources, PIN status, calendar (including TimeTree name/tags when configured), and on a Pi CPU temp, memory, disk, Wi-Fi, and OS uptime.
+## Data layout
 
-`/healthz` is a cheap liveness check used by Docker and the update safety net.
+Runtime settings are under **`data/`** (not in git):
+
+| Path | Role |
+|------|------|
+| `data/data.json` | Live settings |
+| `data/data.backup.json` | In-app backup |
+| `data/theme-cache/` | Active theme crest |
+| External snapshot folder | Safety copy used by install/update |
+
+---
+
+## Environment variables
+
+| Variable | Purpose |
+|----------|---------|
+| `PORT` | HTTP port (default `3000`) |
+| `SQNDASH_HOST` | Bind address |
+| `DATA_DIR` | Settings directory (default `./data`) |
+| `AUTO_UPDATE` | Set `0` to disable auto-update checks |
+| `SQNDASH_URL` | Kiosk script URL |
+| `SQNDASH_DISPLAY_WAIT` | Kiosk display wait (seconds) |
+
+---
 
 ## Project layout
 
-```text
-SquadronDashboard/
-  server.js          Pages, settings API, security, route wiring
-  routes/            weather, news, leaderboard, schedule, control, config, status, update, timetree
-  lib/
-    auth.js          Editor PIN
-    security.js      Headers + rate limits
-    calendar.js      ICS fetch + cache
-    timetree.js      TimeTree login / calendars / labels / events
-    ics.js           Parse ICS (including repeats)
-    events.js        Merge typed + calendar events
-    uniform.js       This week / next week uniform list
-    cache.js         TTL cache, serve stale on error
-    release.js       Stable tags vs Update branch
-    canary.js        Health-check a new version before switching
-  public/            dashboard, edit, pin, status HTML
-  data/              Runtime settings (not in git)
-  install.sh         Pi installer
-  update.sh          Update helper used by the timer / force update
-  sqndash.sh / .ps1 / .cmd
 ```
+server.js              HTTP application
+storage.js             Settings load / save / sanitize
+autoUpdate.js          Staged updates (no forced restart)
+updater.js             Supervised update requests
+lib/                   Calendar, news, leaderboard, auth, themes, …
+public/                dashboard, edit, pin, status + logos
+scripts/               kiosk-wait-display.sh, update helpers
+routes/                API route modules
+data.example.json      Example settings shape
+install.sh             Pi installer
+update.sh              Host update helper
+sqndash.sh / .ps1 / .cmd
+test/                  Node test suite
+```
+
+---
 
 ## Troubleshooting
 
 | Symptom | What to try |
 |---------|-------------|
-| Can't open `/edit` | PIN set? Use the one from install, or `sqndash --set-pin` on the device |
-| Too many wrong PIN attempts | Wait 5 minutes |
-| `sqndash` not found on Windows | Run from the project folder: `.\sqndash.cmd --check` |
-| Update failed its safety check | New version did not start, old one kept. Check logs, fix, tag again. `sqndash --force-update` retries |
-| Devices not picking up a release | Is the tag `vX.Y.Z` pushed? `sqndash --check` shows the target. Update-channel devices ignore tags |
-| Force update can't find remote | `git remote -v`, then `git fetch --tags origin` |
-| Empty leaderboard | Sheet published as CSV? Name/Points headers? Open `/api/leaderboard` |
-| Empty news | News ticked on `/edit`? Check `/api/news` |
-| Settings gone after update | Restored from `.squadron-dashboard-backup` (next to the app folder) on start or next update |
-| Dashboard stopped after update | Pi should restart within 30 minutes, or run `sqndash --restart`. Windows: `sqndash --restart` or `npm start` |
-| Force update button hangs on Pi | Re-run `install.sh`, or SSH in and run `sqndash --force-update` |
-| TimeTree tags empty after refresh | Password still saved? Connect once more on `/edit`, or wait for the weekly refresh |
-| Want to wake a powered-off Pi from your phone | Visiting `:3000` cannot do that. Use a Wake-on-LAN app with the Pi's MAC on the same LAN (Ethernet is more reliable than Wi-Fi) |
+| Cannot open `/edit` | Enter the install PIN, or run `sqndash --set-pin` |
+| Too many wrong PIN attempts | Wait a few minutes |
+| Unlock keyring dialog | Use `--password-store=basic` on Chromium, or set an empty Login keyring password in Passwords and Keys |
+| Black screen / no browser | Install Chromium; configure autostart; try `scripts/kiosk-wait-display.sh` |
+| Wrong theme or crest | Save on `/edit`; clear custom crest to restore theme logo |
+| Empty leaderboard | Publish sheet as CSV; open `/api/leaderboard` |
+| Empty or offline news | Enable the news widget; check network and `/api/news` |
+| Events missing | Events widget on? TimeTree tags filter too strict? |
+| Settings lost after update | Use **Export settings** regularly; app restores from safety backup when possible |
+| Code updated but board unchanged | Restart the service or reboot (updates are staged until then) |
+| Force update hangs on Pi | Re-run `install.sh`, or `sqndash --force-update` over SSH |
+
+---
 
 ## Licence
 
-See [LICENSE](LICENSE).
+See [LICENSE](LICENSE). Copyright (c) 2026 AstroLabs.

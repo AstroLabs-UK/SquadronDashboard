@@ -67,6 +67,28 @@ function writeStatus(dataDir, state, message) {
   } catch (e) { /* best effort */ }
 }
 
+// Flag for /status: code on disk is newer than the running process until next launch
+function writeRestartPending(dataDir, info) {
+  try {
+    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+    const file = path.join(dataDir, 'restart-pending.json');
+    fs.writeFileSync(file, JSON.stringify({
+      label: (info && info.label) || '',
+      short: (info && info.short) || '',
+      time: Math.floor(Date.now() / 1000)
+    }));
+  } catch (e) { /* best effort */ }
+}
+function clearRestartPending(dataDir) {
+  try { fs.unlinkSync(path.join(dataDir, 'restart-pending.json')); } catch (e) { /* none */ }
+}
+function readRestartPending(dataDir) {
+  try {
+    const j = JSON.parse(fs.readFileSync(path.join(dataDir, 'restart-pending.json'), 'utf8'));
+    return j && typeof j === 'object' ? j : null;
+  } catch (e) { return null; }
+}
+
 // systemd (INVOCATION_ID) or Docker (/.dockerenv) already supervises the process and the Pi's
 // own update timer handles updates - a second, in-process updater would fight it, and
 // re-spawning a detached process outside systemd's control gets it killed.
@@ -157,7 +179,8 @@ async function checkAndUpdate({ cwd, dataDir, force = false, canary = runCanary,
     return { updated: false, rolledBack: true, reason: 'rolled back: ' + check.reason, local: localSha, remote: target.sha, label: target.label };
   }
 
-  writeStatus(dataDir, 'done', 'Updated to ' + target.label + ' (' + target.short + ') — restarting');
+  writeStatus(dataDir, 'done', 'Updated to ' + target.label + ' (' + target.short + ') — takes effect on next launch');
+  writeRestartPending(dataDir, { label: target.label, short: target.short });
   return { updated: true, reason: 'updated', local: localSha, remote: target.sha, short: target.short, label: target.label };
 }
 
@@ -199,8 +222,8 @@ function startAutoUpdate({ cwd, dataDir, intervalMs }) {
       console.log('[auto-update] ' + label + '…');
       const result = await checkAndUpdate({ cwd, dataDir, force: false });
       if (result.updated) {
-        console.log('[auto-update] applied ' + (result.short || result.remote) + ' — restarting process');
-        restartProcess(cwd);
+        // Files on disk are updated; keep this process running. New code loads on next launch/restart.
+        console.log('[auto-update] applied ' + (result.short || result.remote) + ' — ready on next launch (no restart)');
         return;
       }
       console.log('[auto-update] ' + result.reason);
@@ -217,4 +240,4 @@ function startAutoUpdate({ cwd, dataDir, intervalMs }) {
   console.log('[auto-update] enabled (' + release.readChannel(dataDir) + ' channel) — check at launch, then every ' + Math.round(ms / 60000) + ' min');
 }
 
-module.exports = { checkAndUpdate, startAutoUpdate, restartProcess, writeStatus, isSupervised };
+module.exports = { checkAndUpdate, startAutoUpdate, restartProcess, writeStatus, isSupervised, writeRestartPending, clearRestartPending, readRestartPending };

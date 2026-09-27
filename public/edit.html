@@ -16,6 +16,42 @@
     --muted: #667788;
     --border: #D5DDE5;
   }
+  body[data-theme="acf"] {
+    --raf-navy: #003D2C;
+    --deep-navy: #00261C;
+    --raf-blue: #1B6B4A;
+    --light-blue: #E4F0E8;
+    --off-white: #F3F7F4;
+    --raf-red: #C4A35A;
+    --border: #C5D4C9;
+  }
+  body[data-theme="scc"] {
+    --raf-navy: #0A1628;
+    --deep-navy: #061018;
+    --raf-blue: #00A3E0;
+    --light-blue: #E6F6FC;
+    --off-white: #F2F5F8;
+    --raf-red: #F5C400;
+    --border: #C5D0DA;
+  }
+  body[data-theme="ccf"] {
+    --raf-navy: #1A3A6E;
+    --deep-navy: #0F2448;
+    --raf-blue: #2E5A8F;
+    --light-blue: #E8EEF6;
+    --off-white: #F4F6FA;
+    --raf-red: #C9A227;
+    --border: #C8D0DC;
+  }
+  body[data-theme="vcc"] {
+    --raf-navy: #0D2137;
+    --deep-navy: #081624;
+    --raf-blue: #1A3D5C;
+    --light-blue: #E8EEF3;
+    --off-white: #F2F5F8;
+    --raf-red: #2E5A3C;
+    --border: #C5CED6;
+  }
   * { box-sizing: border-box; }
   html { -webkit-text-size-adjust: 100%; }
   body {
@@ -236,12 +272,603 @@
 
   .hint { color: var(--muted); font-size: 13px; margin: 6px 0 0; line-height: 1.35; }
 
-  .event-row, .widget-row {
+  .event-row, .widget-row, .person-row {
     border: 1px solid var(--border);
     border-radius: 4px;
     padding: 12px;
     margin-top: 10px;
     background: var(--white);
+  }
+  .person-row .person-top {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  .person-row .person-rank-wrap {
+    flex: 0 0 140px;
+    min-width: 0;
+  }
+  .person-row .person-name-wrap {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .person-row .person-photo-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-top: 10px;
+  }
+  .person-row .person-photo-preview {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: var(--light-blue);
+    border: 2px solid var(--border);
+    flex-shrink: 0;
+  }
+  .person-row .person-photo-preview.empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .person-row .person-photo-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+  .person-row .person-photo-actions input[type=file] {
+    font-size: 13px;
+    padding: 6px 0;
+    border: none;
+    background: transparent;
+  }
+  .person-row .pastel-swatches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .person-row .pastel-swatches.hidden { display: none; }
+  .person-row .pastel-swatch {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    padding: 0;
+    margin: 0;
+    min-height: 28px;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
+  }
+  .person-row .pastel-swatch.selected {
+    border-color: var(--raf-navy);
+    box-shadow: 0 0 0 2px rgba(0, 102, 161, 0.25);
+  }
+  .person-row .photo-crop-stage {
+    display: none;
+    margin-top: 10px;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--off-white);
+  }
+  .person-row .photo-crop-stage.open { display: block; }
+  .person-row .photo-crop-hint {
+    font-size: 12px;
+    color: var(--muted);
+    margin: 0 0 8px;
+    line-height: 1.35;
+  }
+  .person-row .photo-crop-frame {
+    position: relative;
+    width: min(100%, 220px);
+    aspect-ratio: 1;
+    margin: 0 auto;
+    overflow: hidden;
+    border-radius: 50%;
+    border: 2px solid var(--raf-navy);
+    background: #e8eef3;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+  }
+  .person-row .photo-crop-frame:active { cursor: grabbing; }
+  .person-row .photo-crop-frame img {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    max-width: none;
+    pointer-events: none;
+    transform-origin: center center;
+  }
+  .person-row .photo-crop-frame::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,0.7);
+    pointer-events: none;
+  }
+  .person-row .photo-crop-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+    justify-content: center;
+  }
+  .person-row .photo-crop-actions button {
+    margin-top: 0;
+    min-height: 36px;
+    padding: 6px 12px;
+    font-size: 11px;
+  }
+  .person-row .person-reports {
+    margin-top: 8px;
+  }
+
+  .person-row { position: relative; }
+  .person-row.drag-over {
+    outline: 2px solid var(--raf-blue);
+    outline-offset: 2px;
+    background: #eef6fb;
+  }
+  .person-row.dragging { opacity: 0.55; }
+  .person-row .drag-handle {
+    cursor: grab;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    user-select: none;
+    padding: 4px 0;
+    margin-bottom: 4px;
+  }
+  .person-row .drag-handle:active { cursor: grabbing; }
+  .person-row .person-tag-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+  .person-row .person-tag-row > div { flex: 1 1 140px; min-width: 0; }
+  .person-row .p-tag-custom-wrap { display: none; }
+  .person-row .p-tag-custom-wrap.show { display: block; }
+  #cocDropTop {
+    border: 1px dashed var(--border);
+    border-radius: 4px;
+    padding: 10px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-top: 10px;
+    background: var(--white);
+  }
+  #cocDropTop.drag-over {
+    border-color: var(--raf-blue);
+    background: #eef6fb;
+    color: var(--raf-navy);
+  }
+
+  .coc-builder {
+    margin-top: 10px;
+  }
+  .coc-level-row {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    margin-top: 10px;
+    position: relative;
+  }
+  .coc-level-handle-col {
+    flex: 0 0 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 6px;
+  }
+  .coc-level-handle {
+    width: 28px;
+    height: 40px;
+    border: none;
+    background: transparent;
+    cursor: grab;
+    color: var(--muted);
+    opacity: 0;
+    padding: 0;
+    margin: 0;
+    min-height: 40px;
+    font-size: 16px;
+    line-height: 1;
+    letter-spacing: 2px;
+    transition: opacity 0.15s ease;
+    user-select: none;
+    touch-action: none;
+  }
+  .coc-level-row:hover .coc-level-handle,
+  .coc-level-row.level-dragging .coc-level-handle {
+    opacity: 1;
+  }
+  .coc-level-handle:active { cursor: grabbing; }
+  .coc-builder-level {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--white);
+    padding: 10px;
+    transition: box-shadow 0.15s ease, transform 0.12s ease, opacity 0.12s ease;
+  }
+  .coc-builder-level.drag-over {
+    border-color: var(--raf-blue);
+    background: #eef6fb;
+  }
+  .coc-builder-level-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .coc-builder-level-head strong {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--raf-navy);
+  }
+  .coc-level-row.level-dragging {
+    opacity: 0.35;
+  }
+  .coc-level-row.level-drop-before {
+    /* space reserved via ghost placement; keep a cue on the row */
+  }
+  .coc-level-ghost {
+    border: 2px dashed var(--raf-blue);
+    border-radius: 4px;
+    background: rgba(0, 102, 161, 0.06);
+    margin-top: 10px;
+    margin-left: 34px; /* align with boxes (handle col + gap) */
+    pointer-events: none;
+    box-sizing: border-box;
+  }
+  .coc-level-float {
+    position: fixed;
+    z-index: 3000;
+    pointer-events: none;
+    opacity: 0.92;
+    box-shadow: 0 12px 28px rgba(7, 21, 37, 0.22);
+    border-radius: 4px;
+    transform: rotate(1deg);
+    max-width: min(640px, calc(100vw - 48px));
+  }
+  .coc-level-float .coc-builder-level {
+    margin: 0;
+  }
+  .coc-builder-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-height: 44px;
+  }
+  .coc-chip {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    background: var(--off-white);
+    cursor: pointer;
+    min-width: 88px;
+    text-align: center;
+    user-select: none;
+  }
+  .coc-chip.selected {
+    border-color: var(--raf-navy);
+    box-shadow: 0 0 0 2px rgba(0, 102, 161, 0.2);
+    background: var(--white);
+  }
+  .coc-chip.dragging { opacity: 0.35; }
+  .coc-chip { touch-action: none; }
+  .coc-person-float {
+    position: fixed;
+    z-index: 3100;
+    pointer-events: none;
+    opacity: 0.92;
+    box-shadow: 0 10px 24px rgba(7, 21, 37, 0.22);
+    border-radius: 8px;
+    transform: scale(1.05);
+  }
+  .coc-person-float .coc-chip { margin: 0; }
+  body.coc-dragging-person { overflow: hidden; touch-action: none; }
+  body.coc-dragging-person #cocBuilder { touch-action: none; }
+  .coc-chip-photo {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin: 0 auto 4px;
+    display: block;
+    border: 2px solid var(--raf-navy);
+    background: var(--light-blue);
+  }
+  .coc-chip-photo.ph {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--raf-navy);
+  }
+  .coc-chip-rank {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--raf-blue);
+    text-transform: uppercase;
+  }
+  .coc-chip-name {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--deep-navy);
+  }
+  .coc-chip-tag {
+    font-size: 10px;
+    color: var(--muted);
+  }
+  .coc-settings {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+  .coc-settings .person-photo-row { margin-top: 8px; }
+
+  /* Level arrows (mobile) + sheet editor */
+  .coc-level-arrows {
+    display: none;
+    flex-direction: column;
+    gap: 4px;
+    flex: 0 0 28px;
+    margin-right: 6px;
+    justify-content: center;
+  }
+  .coc-level-arrows button {
+    min-height: 32px;
+    padding: 4px 0;
+    margin: 0;
+    font-size: 12px;
+    line-height: 1;
+    border-radius: 4px;
+  }
+  #cocPersonSheet {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 2500;
+    background: rgba(7, 21, 37, 0.45);
+    align-items: stretch;
+    justify-content: center;
+  }
+  #cocPersonSheet.open { display: flex; }
+  #cocPersonSheet .sheet-panel {
+    background: var(--white);
+    width: 100%;
+    max-width: 520px;
+    margin: 0 auto;
+    max-height: 100%;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 0 40px rgba(0,0,0,0.25);
+  }
+  #cocPersonSheet .sheet-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 14px 16px;
+    background: var(--raf-navy);
+    color: var(--white);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+  #cocPersonSheet .sheet-head h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+  }
+  #cocPersonSheet .sheet-body {
+    padding: 16px;
+    flex: 1 1 auto;
+  }
+  #cocPersonSheet .sheet-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px 16px 20px;
+    border-top: 1px solid var(--border);
+    background: var(--off-white);
+    position: sticky;
+    bottom: 0;
+  }
+  #cocPersonSheet .sheet-actions button { margin-top: 0; }
+  @media (max-width: 720px) {
+    .coc-level-handle-col { display: none; }
+    .coc-level-arrows { display: flex; }
+    .coc-level-row:hover .coc-level-handle { opacity: 0; }
+    /* On mobile, settings expand in-row is hidden — use sheet */
+    .coc-builder .coc-settings { display: none !important; }
+  }
+  @media (min-width: 721px) {
+    .coc-level-arrows { display: none !important; }
+  }
+
+  .coc-toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .coc-toolbar .hint { flex: 1 1 100%; margin: 0; }
+
+  #cocPreviewOverlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(7, 21, 37, 0.55);
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  #cocPreviewOverlay.open { display: flex; }
+  #cocPreviewCard {
+    background: var(--white);
+    border-radius: 6px;
+    max-width: 960px;
+    width: 100%;
+    max-height: 90vh;
+    overflow: auto;
+    box-shadow: 0 12px 40px rgba(7, 21, 37, 0.25);
+    border: 1px solid var(--border);
+  }
+  #cocPreviewCard header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: var(--raf-navy);
+    color: var(--white);
+    border-bottom: 3px solid var(--raf-blue);
+  }
+  #cocPreviewCard header h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  #cocPreviewCard .preview-body {
+    padding: 16px;
+    min-height: 200px;
+  }
+  #cocPreviewCard .preview-close {
+    background: transparent;
+    color: var(--white);
+    border: 1px solid rgba(255,255,255,0.4);
+    margin: 0;
+    min-height: 36px;
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  #cocPreviewCard .preview-close:hover {
+    background: var(--raf-blue);
+  }
+  /* Org chart preview — SVG connectors drawn after layout */
+  .coc-viewport {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    overflow: auto;
+    max-height: 70vh;
+    padding: 8px 0;
+  }
+  .coc-tree {
+    position: relative;
+    display: inline-block;
+    padding: 12px 16px;
+  }
+  .coc-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    overflow: visible;
+  }
+  .coc-svg path {
+    fill: none;
+    stroke: var(--raf-navy);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.55;
+  }
+  .coc-level {
+    display: flex;
+    justify-content: center;
+    flex-wrap: nowrap;
+    gap: 24px;
+    position: relative;
+    z-index: 1;
+  }
+  .coc-node-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .coc-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    min-width: 100px;
+    max-width: 140px;
+    position: relative;
+    z-index: 1;
+  }
+  .coc-photo {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: var(--light-blue);
+    border: 3px solid var(--raf-navy);
+    margin-bottom: 6px;
+  }
+  .coc-photo.placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--raf-navy);
+    font-weight: 700;
+    font-size: 18px;
+  }
+  .coc-rank {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--raf-blue);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    line-height: 1.2;
+  }
+  .coc-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--deep-navy);
+    line-height: 1.25;
+    margin-top: 2px;
+  }
+  .coc-tag {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .coc-children {
+    display: flex;
+    justify-content: center;
+    flex-wrap: nowrap;
+    gap: 24px;
+    margin-top: 36px;
+    position: relative;
+    z-index: 1;
+  }
+  .coc-empty {
+    color: var(--muted);
+    text-align: center;
+    padding: 24px;
+    font-size: 14px;
   }
 
   button {
@@ -399,12 +1026,34 @@
 </head>
 <body>
 <header>
-  <div class="eyebrow">Royal Air Force Air Cadets</div>
+  <div class="eyebrow" id="unitEyebrow">Royal Air Force Air Cadets</div>
   <h1>Edit Squadron Dashboard</h1>
 </header>
 <div class="content">
 
 <h2>General</h2>
+<label for="unitTheme">Unit theme</label>
+<select id="unitTheme">
+  <option value="rafac">RAF Air Cadets (RAFAC / ATC)</option>
+  <option value="acf">Army Cadets (ACF)</option>
+  <option value="scc">Sea Cadets (SCC)</option>
+  <option value="ccf">Combined Cadet Force (CCF)</option>
+  <option value="vcc">Volunteer Cadet Corps (VCC)</option>
+</select>
+<p class="hint">Theme sets colours, header crest, and Chain of Command ranks. Changing theme does not delete people, but rank abbreviations may not match the other list.</p>
+<label>Custom unit crest <span id="themeDirtyBadge" style="display:none;color:var(--raf-red);font-weight:700;">(unsaved theme)</span></label>
+<p class="hint">Optional. Overrides the theme logo on the board header. Transparent PNG recommended. Clear to use the theme crest again.</p>
+<div class="person-photo-row" style="margin-top:6px;">
+  <img id="unitCrestPreview" class="person-photo-preview" alt="" style="border-radius:8px;width:72px;height:72px;object-fit:contain;background:repeating-conic-gradient(#ddd 0% 25%, #fff 0% 50%) 50% / 12px 12px;">
+  <div class="person-photo-actions" style="flex:1;">
+    <input type="file" id="unitCrestFile" accept="image/png,image/svg+xml,image/webp,image/jpeg,.png,.svg,.webp,.jpg,.jpeg">
+    <div class="actions" style="margin-top:6px;">
+      <button type="button" class="add" onclick="applyUnitCrest()">Use this crest</button>
+      <button type="button" class="danger" onclick="clearUnitCrest()" style="margin-top:0;">Clear crest</button>
+    </div>
+  </div>
+</div>
+<div id="unitCrestStatus" class="hint"></div>
 <label for="squadronName">Squadron name</label>
 <input id="squadronName" autocomplete="organization">
 <label for="locName">Location name</label>
@@ -501,12 +1150,51 @@
   <label class="check"><input type="checkbox" id="w-events"> Events</label>
   <label class="check"><input type="checkbox" id="w-uniform"> Uniform</label>
   <label class="check"><input type="checkbox" id="w-instagram"> Instagram</label>
+  <label class="check"><input type="checkbox" id="w-chainOfCommand"> Chain of Command</label>
 </div>
 <label for="instagramEmbedCode">Instagram embed</label>
 <textarea id="instagramEmbedCode" rows="2" placeholder="Script + div, or blank to hide"></textarea>
 <label>Extra embeds</label>
 <div id="customWidgets"></div>
 <button class="add" type="button" onclick="addWidget()">+ Add embed</button>
+
+<h2>Chain of Command</h2>
+<p class="hint">People are arranged by <strong>level</strong> (top = Level 1). Everyone on a level reports to the level above — no per-person “reports to”. Click a person to edit their details. Drag people between levels. On desktop, drag the ⋮⋮ handle to reorder levels. On mobile, use ▲ ▼. People are auto-sorted by rank within each level. On mobile, tap a person to edit in a full-screen sheet.</p>
+<div id="cocBuilder" class="coc-builder"></div>
+<div class="actions coc-toolbar">
+  <button class="add" type="button" onclick="cocAddPerson()">+ Add person</button>
+  <button class="add" type="button" onclick="cocAddLevel()">+ Add level</button>
+  <button class="add" type="button" onclick="previewChainOfCommand()">Test preview</button>
+  <button class="add" type="button" onclick="loadSampleChainOfCommand()">Load sample hierarchy</button>
+  <span class="hint" id="cocEmptyHint"></span>
+</div>
+
+<div id="cocPersonSheet" aria-hidden="true">
+  <div class="sheet-panel">
+    <div class="sheet-head">
+      <h3 id="cocSheetTitle">Edit person</h3>
+      <button type="button" class="preview-close" id="cocSheetClose" style="background:transparent;border:1px solid rgba(255,255,255,0.35);color:#fff;">Close</button>
+    </div>
+    <div class="sheet-body" id="cocSheetBody"></div>
+    <div class="sheet-actions">
+      <button type="button" class="primary" id="cocSheetDone">Done</button>
+      <button type="button" class="danger" id="cocSheetRemove">Remove person</button>
+    </div>
+  </div>
+</div>
+
+<div id="cocPreviewOverlay">
+  <div id="cocPreviewCard">
+    <header>
+      <h3>Chain of Command preview</h3>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button type="button" class="add" id="cocPrintBtn" onclick="printCocPreview()" style="margin:0;min-height:36px;">Print / PDF</button>
+        <button type="button" class="preview-close" onclick="closeCocPreview()">Close</button>
+      </div>
+    </header>
+    <div class="preview-body" id="cocPreviewBody"></div>
+  </div>
+</div>
 
 <h2>Banner</h2>
 <label class="check"><input type="checkbox" id="importantInfoEnabled"> Show banner on display</label>
@@ -549,18 +1237,36 @@
 </div>
 <div id="controlStatus" class="hint"></div>
 
-<h2>Backup</h2>
-<p class="hint">Live: <code>data/data.json</code>. One in-app backup: <code>data/data.backup.json</code>. One external backup: <code>sqndash-data-backup/</code> (next to the app). Changes autosave after 30s idle.</p>
+<h2>Export &amp; upload settings</h2>
+<p class="hint"><strong>Export settings</strong> downloads a JSON file (theme, widgets, calendar, chain of command, loading logo, etc.). TimeTree passwords are stripped for safety. <strong>Upload settings</strong> restores from a previously exported file. On-device copies: <code>data/data.json</code>, <code>data/data.backup.json</code>, and <code>sqndash-data-backup/</code>.</p>
 <div class="actions">
-  <button class="primary" type="button" onclick="backupNow()">Backup now</button>
-  <button class="add" type="button" onclick="location.href='/api/config/export'">Download</button>
-  <button class="add" type="button" onclick="document.getElementById('importFile').click()">Restore…</button>
+  <button class="primary" type="button" id="exportSettingsBtn" onclick="exportSettings()">Export settings</button>
+  <button class="primary" type="button" id="uploadSettingsBtn" onclick="document.getElementById('importFile').click()">Upload settings</button>
+  <button class="add" type="button" onclick="backupNow()">Backup on device</button>
 </div>
 <input type="file" id="importFile" accept="application/json,.json" style="display:none" onchange="importConfig(this)">
 <div id="backupStatus" class="hint"></div>
 
+<h2>Loading logo</h2>
+<p class="hint"><strong>Best format: PNG with a transparent background</strong> (square works best). JPG will show a solid box on the cream loading screen. SVG is accepted too. Images are <strong>resized on upload</strong> and replace any previous logo (the old one is discarded).</p>
+<div class="person-photo-row" style="margin-top:8px;">
+  <img id="loadingLogoPreview" class="person-photo-preview" alt="" style="border-radius:8px;width:72px;height:72px;object-fit:contain;background:repeating-conic-gradient(#ddd 0% 25%, #fff 0% 50%) 50% / 12px 12px;">
+  <div class="person-photo-actions" style="flex:1;">
+    <input type="file" id="loadingLogoFile" accept="image/png,image/svg+xml,image/webp,image/jpeg,.png,.svg,.webp,.jpg,.jpeg">
+    <div class="actions" style="margin-top:6px;">
+      <button type="button" class="add" id="loadingLogoApplyBtn" onclick="applyLoadingLogo()">Use this logo</button>
+      <button type="button" class="danger" id="loadingLogoClearBtn" onclick="clearLoadingLogo()" style="margin-top:0;">Remove logo</button>
+    </div>
+  </div>
+</div>
+<div id="loadingLogoStatus" class="hint"></div>
+
 <p class="hint" id="versionInfo" style="margin-top:18px;">Checking version…</p>
+<p class="hint">Force update downloads new code to disk only — the display keeps running until you restart (or reboot). Use <strong>Restart now</strong> after an update if you want it applied immediately.</p>
 <div id="updateStatus"></div>
+<div class="actions" style="margin-top:8px;">
+  <button type="button" class="primary" id="restartAfterUpdateBtn" style="display:none;" onclick="restartDashboard()">Restart now</button>
+</div>
 </div>
 
 <div class="save-bar">
@@ -578,6 +1284,7 @@ let statusTimer = null;
 let savedSnapshot = null;
 let updateInProgress = false;
 let loadOk = false;
+let themeAtLoad = 'rafac';
 
 function todayLocal() { return new Date().toLocaleDateString('en-CA'); }
 
@@ -681,8 +1388,1243 @@ function addEvent() {
 }
 function addWidget() { document.getElementById('customWidgets').appendChild(widgetRow()); }
 
+// Highest → lowest. Theme picks which list the CoC dropdown uses.
+const RAFAC_RANKS = [
+  { group: 'Commissioned Officers', items: [
+    { value: 'Air Cdre', label: 'Air Commodore (Air Cdre)' },
+    { value: 'Gp Capt', label: 'Group Captain (Gp Capt)' },
+    { value: 'Wg Cdr', label: 'Wing Commander (Wg Cdr)' },
+    { value: 'Sqn Ldr', label: 'Squadron Leader (Sqn Ldr)' },
+    { value: 'Flt Lt', label: 'Flight Lieutenant (Flt Lt)' },
+    { value: 'Fg Off', label: 'Flying Officer (Fg Off)' },
+    { value: 'Plt Off', label: 'Pilot Officer (Plt Off)' },
+    { value: 'APO', label: 'Acting Pilot Officer (APO)' }
+  ]},
+  { group: 'Adult SNCO / Civilian', items: [
+    { value: 'WO', label: 'Warrant Officer (WO / WO ATC)' },
+    { value: 'FS', label: 'Flight Sergeant (FS / FS ATC)' },
+    { value: 'Sgt', label: 'Sergeant (Sgt / Sgt ATC)' },
+    { value: 'A/Sgt', label: 'Acting Sergeant (A/Sgt)' },
+    { value: 'Civilian', label: 'Civilian Staff / Civilian Instructor / Padre' }
+  ]},
+  { group: 'Cadet Ranks', items: [
+    { value: 'CWO', label: 'Cadet Warrant Officer (CWO)' },
+    { value: 'Cdt FS', label: 'Cadet Flight Sergeant (Cdt FS)' },
+    { value: 'Cdt Sgt', label: 'Cadet Sergeant (Cdt Sgt)' },
+    { value: 'Cdt Cpl', label: 'Cadet Corporal (Cdt Cpl)' },
+    { value: 'Cdt', label: 'Cadet (Cdt)' }
+  ]}
+];
+const ACF_RANKS = [
+  { group: 'Commissioned Officers', items: [
+    { value: 'Brig', label: 'Brigadier (Brig)' },
+    { value: 'Col', label: 'Colonel (Col)' },
+    { value: 'Lt Col', label: 'Lieutenant Colonel (Lt Col)' },
+    { value: 'Maj', label: 'Major (Maj)' },
+    { value: 'Capt', label: 'Captain (Capt)' },
+    { value: 'Lt', label: 'Lieutenant (Lt)' },
+    { value: '2Lt', label: 'Second Lieutenant (2Lt)' },
+    { value: 'AUO', label: 'Adult Under Officer (AUO)' }
+  ]},
+  { group: 'Adult NCO / WO / Civilian', items: [
+    { value: 'WO1', label: 'Warrant Officer Class 1 (WO1 / RSM)' },
+    { value: 'WO2', label: 'Warrant Officer Class 2 (WO2 / CSM / RQMS)' },
+    { value: 'SSgt Instr', label: 'Staff Sergeant Instructor (or Colour Sergeant Instructor)' },
+    { value: 'Sgt Instr', label: 'Sergeant Instructor' },
+    { value: 'PI', label: 'Probationary Instructor' },
+    { value: 'Civilian', label: 'Civilian Assistant (non-uniformed)' }
+  ]},
+  { group: 'Cadet Ranks', items: [
+    { value: 'CUO', label: 'Cadet Under Officer (CUO)' },
+    { value: 'Cdt RSM', label: 'Cadet Regimental Sergeant Major (Cdt RSM)' },
+    { value: 'Cdt CSM', label: 'Cadet Company Sergeant Major (Cdt CSM)' },
+    { value: 'Cdt SSgt', label: 'Cadet Staff Sergeant / Colour Sergeant' },
+    { value: 'Cdt Sgt', label: 'Cadet Sergeant' },
+    { value: 'Cdt Cpl', label: 'Cadet Corporal' },
+    { value: 'Cdt LCpl', label: 'Cadet Lance Corporal' },
+    { value: 'Cdt', label: 'Cadet' },
+    { value: 'Cdt Recruit', label: 'Cadet Recruit' }
+  ]}
+];
+
+const SCC_RANKS = [
+  { group: 'Officers', items: [
+    { value: 'Capt', label: 'Captain (Capt)' },
+    { value: 'Cdr', label: 'Commander (Cdr)' },
+    { value: 'Lt Cdr', label: 'Lieutenant Commander (Lt Cdr)' },
+    { value: 'Lt', label: 'Lieutenant (Lt)' },
+    { value: 'SLt', label: 'Sub Lieutenant (SLt)' },
+    { value: 'Mid', label: 'Midshipman (Mid)' }
+  ]},
+  { group: 'Adult Rates / Civilian', items: [
+    { value: 'WO', label: 'Warrant Officer (WO)' },
+    { value: 'CPO', label: 'Chief Petty Officer (CPO)' },
+    { value: 'PO', label: 'Petty Officer (PO)' },
+    { value: 'CI', label: 'Civilian Instructor (CI)' }
+  ]},
+  { group: 'Cadet Ranks', items: [
+    { value: 'POC', label: 'Petty Officer Cadet (POC)' },
+    { value: 'LC', label: 'Leading Cadet (LC)' },
+    { value: 'AC', label: 'Able Cadet (AC)' },
+    { value: 'OC', label: 'Ordinary Cadet (OC)' },
+    { value: 'Cdt', label: 'Cadet' },
+    { value: 'NE', label: 'New Entry (NE)' }
+  ]}
+];
+const CCF_RANKS = [
+  { group: 'CCF (RN) — Officers & rates', items: [
+    { value: 'Lt Cdr', label: 'Lt Cdr (RN section)' },
+    { value: 'Lt RN', label: 'Lieutenant (RN section)' },
+    { value: 'SLt', label: 'Sub Lieutenant (RN section)' },
+    { value: 'Mid', label: 'Midshipman (RN section)' },
+    { value: 'CPO', label: 'Chief Petty Officer (adult)' },
+    { value: 'PO', label: 'Petty Officer (adult)' }
+  ]},
+  { group: 'CCF (Army) — Officers & NCOs', items: [
+    { value: 'Lt Col', label: 'Lieutenant Colonel' },
+    { value: 'Maj', label: 'Major' },
+    { value: 'Capt', label: 'Captain' },
+    { value: 'Lt', label: 'Lieutenant' },
+    { value: '2Lt', label: 'Second Lieutenant' },
+    { value: 'WO', label: 'Warrant Officer' },
+    { value: 'SSI', label: 'School Staff Instructor (SSI)' },
+    { value: 'Sgt', label: 'Sergeant' }
+  ]},
+  { group: 'CCF (RAF) — Officers & SNCOs', items: [
+    { value: 'Sqn Ldr', label: 'Squadron Leader' },
+    { value: 'Flt Lt', label: 'Flight Lieutenant' },
+    { value: 'Fg Off', label: 'Flying Officer' },
+    { value: 'Plt Off', label: 'Pilot Officer' },
+    { value: 'FS', label: 'Flight Sergeant (adult)' }
+  ]},
+  { group: 'Cadet ranks (all sections)', items: [
+    { value: 'CUO', label: 'Cadet Under Officer (CUO)' },
+    { value: 'CWO', label: 'Cadet Warrant Officer (CWO)' },
+    { value: 'Cdt FS', label: 'Cadet Flight Sergeant / Staff Sergeant' },
+    { value: 'Cdt Sgt', label: 'Cadet Sergeant' },
+    { value: 'Cdt Cpl', label: 'Cadet Corporal' },
+    { value: 'Cdt LCpl', label: 'Cadet Lance Corporal' },
+    { value: 'Cdt', label: 'Cadet' },
+    { value: 'CI', label: 'Civilian Instructor (CI)' }
+  ]}
+];
+const VCC_RANKS = [
+  { group: 'Officers', items: [
+    { value: 'Maj', label: 'Major (Maj)' },
+    { value: 'Capt', label: 'Captain (Capt)' },
+    { value: 'Lt', label: 'Lieutenant (Lt)' },
+    { value: '2Lt', label: 'Second Lieutenant (2Lt)' },
+    { value: 'SLt', label: 'Sub Lieutenant (SLt)' }
+  ]},
+  { group: 'Adult NCO / Civilian', items: [
+    { value: 'WO1', label: 'Warrant Officer Class 1 (WO1)' },
+    { value: 'WO2', label: 'Warrant Officer Class 2 (WO2)' },
+    { value: 'CSgt', label: 'Colour Sergeant / Staff Sergeant' },
+    { value: 'Sgt', label: 'Sergeant (Sgt)' },
+    { value: 'CI', label: 'Civilian Instructor (CI)' }
+  ]},
+  { group: 'Cadet Ranks', items: [
+    { value: 'Cdt WO1', label: 'Cadet Warrant Officer 1' },
+    { value: 'Cdt WO2', label: 'Cadet Warrant Officer 2' },
+    { value: 'Cdt Sgt', label: 'Cadet Sergeant' },
+    { value: 'Cdt Cpl', label: 'Cadet Corporal' },
+    { value: 'Cdt LCpl', label: 'Cadet Lance Corporal' },
+    { value: 'Cdt', label: 'Cadet' },
+    { value: 'Recruit', label: 'Recruit' }
+  ]}
+];
+const RANK_SETS = { rafac: RAFAC_RANKS, acf: ACF_RANKS, scc: SCC_RANKS, ccf: CCF_RANKS, vcc: VCC_RANKS };
+let activeRankGroups = RAFAC_RANKS;
+const RANK_ORDER = {};
+function normalizeTheme(theme) {
+  const t = String(theme || 'rafac').toLowerCase();
+  if (t === 'army') return 'acf';
+  if (t === 'sea' || t === 'seacadets') return 'scc';
+  if (RANK_SETS[t]) return t;
+  return 'rafac';
+}
+function rebuildRankOrder() {
+  Object.keys(RANK_ORDER).forEach(k => delete RANK_ORDER[k]);
+  let i = 0;
+  activeRankGroups.forEach(g => g.items.forEach(r => { RANK_ORDER[r.value] = i++; }));
+}
+rebuildRankOrder();
+function rankSeniority(rank) {
+  if (rank && RANK_ORDER[rank] !== undefined) return RANK_ORDER[rank];
+  return 999;
+}
+function applyEditChrome(theme) {
+  const t = normalizeTheme(theme);
+  document.body.setAttribute('data-theme', t);
+  const labels = {
+    rafac: 'Royal Air Force Air Cadets',
+    acf: 'Army Cadets',
+    scc: 'Sea Cadets',
+    ccf: 'Combined Cadet Force',
+    vcc: 'Volunteer Cadet Corps'
+  };
+  const eye = document.getElementById('unitEyebrow');
+  if (eye) eye.textContent = labels[t] || labels.rafac;
+  document.title = (labels[t] || 'Squadron Dashboard') + ' – Editor';
+}
+
+function setRankTheme(theme) {
+  const t = normalizeTheme(theme);
+  activeRankGroups = RANK_SETS[t] || RAFAC_RANKS;
+  rebuildRankOrder();
+}
+function sortPeopleInLevels() {
+  cocPeople.sort((a, b) => {
+    const la = Math.max(0, parseInt(a.level, 10) || 0);
+    const lb = Math.max(0, parseInt(b.level, 10) || 0);
+    if (la !== lb) return la - lb;
+    const ra = rankSeniority(a.rank);
+    const rb = rankSeniority(b.rank);
+    if (ra !== rb) return ra - rb;
+    return String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' });
+  });
+}
+
+const PASTEL_COLORS = ['#A8D5E5', '#F5C6AA', '#C7E2B0', '#E2C4E8', '#F5E6A8', '#B8C9E8'];
+const ROLE_TAGS = [
+  { value: '', label: '— No tag —' },
+  { value: 'OC', label: 'OC' },
+  { value: 'Adj', label: 'Adjutant' },
+  { value: 'Trg Off', label: 'Training Officer' },
+  { value: 'A Flight', label: 'A Flight' },
+  { value: 'B Flight', label: 'B Flight' },
+  { value: 'C Flight', label: 'C Flight' },
+  { value: 'Staff', label: 'Staff' },
+  { value: '__custom__', label: 'Custom…' }
+];
+
+let cocPeople = [];
+let cocSelectedId = null;
+let cocMaxLevel = 0; // highest level index in use (0-based)
+
+function newPersonId() { return 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
+function rankOptionsHtml(selected) {
+  let html = '<option value="">— Rank —</option>';
+  activeRankGroups.forEach(g => {
+    html += '<optgroup label="' + g.group + '">';
+    g.items.forEach(r => {
+      html += '<option value="' + r.value + '"' + (selected === r.value ? ' selected' : '') + '>' + r.label + '</option>';
+    });
+    html += '</optgroup>';
+  });
+  return html;
+}
+
+function tagOptionsHtml(selected) {
+  const sel = selected || '';
+  const known = ROLE_TAGS.some(t => t.value && t.value !== '__custom__' && t.value === sel);
+  let html = '';
+  ROLE_TAGS.forEach(t => {
+    let chosen = false;
+    if (t.value === '__custom__') chosen = !known && !!sel;
+    else chosen = known && sel === t.value;
+    if (!sel && t.value === '') chosen = true;
+    html += '<option value="' + t.value + '"' + (chosen ? ' selected' : '') + '>' + t.label + '</option>';
+  });
+  return html;
+}
+
+function normalizeLevels() {
+  if (!cocPeople.length) { cocMaxLevel = 0; return; }
+  const used = [...new Set(cocPeople.map(p => p.level))].sort((a, b) => a - b);
+  const map = {};
+  used.forEach((lv, i) => { map[lv] = i; });
+  cocPeople.forEach(p => { p.level = map[p.level] ?? 0; });
+  cocMaxLevel = Math.max(0, ...cocPeople.map(p => p.level));
+  sortPeopleInLevels();
+}
+
+function collectPeople() {
+  // Sync open settings panel into state first
+  cocFlushSettings();
+  sortPeopleInLevels();
+  return cocPeople
+    .filter(p => (p.name || '').trim())
+    .map(p => ({
+      id: p.id,
+      rank: p.rank || '',
+      name: (p.name || '').trim(),
+      photo: p.photo || '',
+      color: p.color || PASTEL_COLORS[0],
+      tag: p.tag || '',
+      level: Math.max(0, parseInt(p.level, 10) || 0)
+    }));
+}
+
+function cocFlushSettings() {
+  if (!cocSelectedId) return;
+  const panel = document.getElementById('cocSettingsPanel');
+  if (!panel) return;
+  const person = cocPeople.find(p => p.id === cocSelectedId);
+  if (!person) return;
+  person.rank = panel.querySelector('.p-rank')?.value || '';
+  person.name = panel.querySelector('.p-name')?.value || '';
+  const tagSel = panel.querySelector('.p-tag')?.value || '';
+  if (tagSel === '__custom__') person.tag = (panel.querySelector('.p-tag-custom')?.value || '').trim().slice(0, 40);
+  else person.tag = tagSel;
+  person.color = panel.dataset.color || person.color || PASTEL_COLORS[0];
+  if (panel.dataset.photo) person.photo = panel.dataset.photo;
+  else if (panel.dataset.photo === '') person.photo = '';
+}
+
+function cocSelect(id) {
+  if (isCocMobile()) {
+    openCocPersonSheet(id);
+    return;
+  }
+  cocFlushSettings();
+  cocSelectedId = (cocSelectedId === id) ? null : id;
+  renderCocBuilder();
+}
+
+function cocAddPerson() {
+  cocFlushSettings();
+  const id = newPersonId();
+  cocPeople.push({
+    id,
+    rank: '',
+    name: '',
+    photo: '',
+    color: PASTEL_COLORS[cocPeople.length % PASTEL_COLORS.length],
+    tag: '',
+    level: cocMaxLevel
+  });
+  cocSelectedId = id;
+  renderCocBuilder();
+  updateCocEmptyHint();
+}
+
+function cocAddLevel() {
+  cocFlushSettings();
+  cocMaxLevel = (cocPeople.length ? Math.max(...cocPeople.map(p => p.level)) : -1) + 1;
+  if (cocMaxLevel < 0) cocMaxLevel = 0;
+  renderCocBuilder();
+}
+
+function cocRemovePerson(id) {
+  cocFlushSettings();
+  cocPeople = cocPeople.filter(p => p.id !== id);
+  if (cocSelectedId === id) cocSelectedId = null;
+  normalizeLevels();
+  renderCocBuilder();
+  updateCocEmptyHint();
+}
+
+function applyRankLevelMatch(personId, newRank) {
+  if (!newRank) return false;
+  const others = cocPeople.filter(p => p.id !== personId && (p.rank || '') === newRank);
+  if (!others.length) return false;
+  // Use the level of the first matching peer (all same rank should share a level ideally)
+  const targetLevel = Math.max(0, parseInt(others[0].level, 10) || 0);
+  const me = cocPeople.find(p => p.id === personId);
+  if (!me) return false;
+  if (me.level === targetLevel) return false;
+  me.level = targetLevel;
+  return true;
+}
+
+function cocMoveToLevel(id, level) {
+  const p = cocPeople.find(x => x.id === id);
+  if (!p) return;
+  p.level = Math.max(0, Math.min(20, level));
+  cocMaxLevel = Math.max(cocMaxLevel, p.level);
+  renderCocBuilder();
+}
+
+function updateCocEmptyHint() {
+  const hint = document.getElementById('cocEmptyHint');
+  if (!hint) return;
+  hint.textContent = cocPeople.length ? '' : 'No people yet — add some, or load a sample hierarchy.';
+}
+
+function chipHtml(p) {
+  const initials = (p.name || '?').split(/\s+/).map(s => s[0] || '').join('').slice(0, 2).toUpperCase() || '?';
+  const photo = p.photo
+    ? '<img class="coc-chip-photo" src="' + String(p.photo).replace(/"/g, '&quot;') + '" alt="">'
+    : '<div class="coc-chip-photo ph" style="background:' + (p.color || PASTEL_COLORS[0]) + '">' + initials + '</div>';
+  return '<div class="coc-chip' + (p.id === cocSelectedId ? ' selected' : '') + '" data-id="' + p.id + '">' +
+    photo +
+    '<div class="coc-chip-rank">' + (p.rank || '—') + '</div>' +
+    '<div class="coc-chip-name">' + (p.name || 'Unnamed') + '</div>' +
+    (p.tag ? '<div class="coc-chip-tag">' + p.tag + '</div>' : '') +
+    '</div>';
+}
+
+function settingsHtml(p) {
+  const known = ROLE_TAGS.some(t => t.value && t.value !== '__custom__' && t.value === (p.tag || ''));
+  const tagSel = p.tag ? (known ? p.tag : '__custom__') : '';
+  const swatches = PASTEL_COLORS.map(c =>
+    '<button type="button" class="pastel-swatch' + ((p.color || '').toLowerCase() === c.toLowerCase() ? ' selected' : '') +
+    '" data-color="' + c + '" style="background:' + c + '"></button>'
+  ).join('');
+  const hasPhoto = !!(p.photo && p.photo.startsWith('data:image/'));
+  return '<div class="coc-settings" id="cocSettingsPanel" data-id="' + p.id + '" data-color="' + (p.color || PASTEL_COLORS[0]) + '"' +
+    (hasPhoto ? ' data-photo="' + p.photo.replace(/"/g, '&quot;') + '"' : '') + '>' +
+    '<div class="person-top">' +
+      '<div class="person-rank-wrap"><label>Rank</label><select class="p-rank">' + rankOptionsHtml(p.rank || '') + '</select></div>' +
+      '<div class="person-name-wrap"><label>Name</label><input class="p-name" placeholder="Full name" value="' + String(p.name || '').replace(/"/g, '&quot;') + '"></div>' +
+    '</div>' +
+    '<div class="person-tag-row">' +
+      '<div><label>Role / tag</label><select class="p-tag">' + tagOptionsHtml(tagSel) + '</select></div>' +
+      '<div class="p-tag-custom-wrap' + (tagSel === '__custom__' ? ' show' : '') + '"><label>Custom tag</label><input class="p-tag-custom" maxlength="40" value="' + (tagSel === '__custom__' ? String(p.tag || '').replace(/"/g, '&quot;') : '') + '"></div>' +
+    '</div>' +
+    '<div class="person-photo-row">' +
+      (hasPhoto
+        ? '<img class="person-photo-preview" alt="" src="' + p.photo.replace(/"/g, '&quot;') + '">'
+        : '<div class="person-photo-preview empty" style="background:' + (p.color || PASTEL_COLORS[0]) + '">Photo</div>') +
+      '<div class="person-photo-actions">' +
+        '<input type="file" class="p-photo-file" accept="image/*">' +
+        '<button type="button" class="danger p-photo-clear" style="margin-top:0;min-height:32px;padding:4px 10px;font-size:11px;' + (hasPhoto ? '' : 'display:none') + '">Remove photo</button>' +
+        '<div class="pastel-swatches' + (hasPhoto ? ' hidden' : '') + '">' + swatches + '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="photo-crop-stage">' +
+      '<p class="photo-crop-hint">Drag to reposition. The circle is the final crop.</p>' +
+      '<div class="photo-crop-frame"><img class="photo-crop-img" alt=""></div>' +
+      '<div class="photo-crop-actions">' +
+        '<button type="button" class="primary p-photo-apply">Apply</button>' +
+        '<button type="button" class="add p-photo-cancel">Cancel</button>' +
+      '</div>' +
+    '</div>' +
+    '<div class="actions" style="margin-top:8px;">' +
+      '<button type="button" class="danger" onclick="cocRemovePerson(\'' + p.id + '\')">Remove person</button>' +
+    '</div>' +
+    '</div>';
+}
+
+function bindSettingsPanel(panel) {
+  if (!panel) return;
+  const id = panel.dataset.id;
+  panel.querySelector('.p-tag')?.addEventListener('change', function() {
+    panel.querySelector('.p-tag-custom-wrap')?.classList.toggle('show', this.value === '__custom__');
+  });
+  // live sync name to chip on input
+  panel.querySelector('.p-name')?.addEventListener('input', function() {
+    const p = cocPeople.find(x => x.id === id);
+    if (p) p.name = this.value;
+  });
+  panel.querySelector('.p-rank')?.addEventListener('change', function() {
+    const p = cocPeople.find(x => x.id === id);
+    if (!p) return;
+    p.rank = this.value;
+    const moved = applyRankLevelMatch(id, this.value);
+    if (moved) {
+      // Keep sheet open on mobile; refresh hierarchy under it
+      sortPeopleInLevels();
+      if (!isCocMobile()) {
+        cocFlushSettings();
+        renderCocBuilder();
+      } else {
+        // Update sheet title / keep panel; re-render builder behind sheet
+        const keepId = cocSelectedId;
+        const sheetOpen = document.getElementById('cocPersonSheet')?.classList.contains('open');
+        cocFlushSettings();
+        renderCocBuilder();
+        if (sheetOpen && keepId) {
+          // Re-open sheet content after re-render
+          openCocPersonSheet(keepId);
+        }
+      }
+    }
+  });
+
+  panel.querySelectorAll('.pastel-swatch').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const c = this.getAttribute('data-color');
+      panel.dataset.color = c;
+      const p = cocPeople.find(x => x.id === id);
+      if (p) p.color = c;
+      panel.querySelectorAll('.pastel-swatch').forEach(b => b.classList.remove('selected'));
+      this.classList.add('selected');
+      const prev = panel.querySelector('.person-photo-preview');
+      if (prev && prev.classList.contains('empty')) prev.style.background = c;
+    });
+  });
+
+  const cropStage = panel.querySelector('.photo-crop-stage');
+  const cropFrame = panel.querySelector('.photo-crop-frame');
+  const cropImg = panel.querySelector('.photo-crop-img');
+  const fileInput = panel.querySelector('.p-photo-file');
+  const clearBtn = panel.querySelector('.p-photo-clear');
+  const swatchBox = panel.querySelector('.pastel-swatches');
+  let cropState = null;
+
+  function layoutCrop() {
+    if (!cropState) return;
+    cropImg.style.width = (cropState.naturalW * cropState.scale) + 'px';
+    cropImg.style.height = (cropState.naturalH * cropState.scale) + 'px';
+    cropImg.style.transform = 'translate(calc(-50% + ' + cropState.x + 'px), calc(-50% + ' + cropState.y + 'px))';
+  }
+  function openCrop(dataUrl) {
+    cropImg.onload = function() {
+      const nw = cropImg.naturalWidth || 1, nh = cropImg.naturalHeight || 1;
+      const size = cropFrame.clientWidth || 220;
+      cropState = { naturalW: nw, naturalH: nh, scale: Math.max(size / nw, size / nh), x: 0, y: 0 };
+      layoutCrop();
+      cropStage.classList.add('open');
+    };
+    cropImg.src = dataUrl;
+  }
+  function applyCrop() {
+    if (!cropState) return;
+    const size = 160;
+    const canvas = document.createElement('canvas');
+    canvas.width = size; canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    ctx.beginPath(); ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2); ctx.closePath(); ctx.clip();
+    const dispW = cropState.naturalW * cropState.scale, dispH = cropState.naturalH * cropState.scale;
+    const frameSize = cropFrame.clientWidth || 220, ratio = size / frameSize;
+    ctx.drawImage(cropImg, size / 2 + cropState.x * ratio - (dispW * ratio) / 2, size / 2 + cropState.y * ratio - (dispH * ratio) / 2, dispW * ratio, dispH * ratio);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+    panel.dataset.photo = dataUrl;
+    const p = cocPeople.find(x => x.id === id);
+    if (p) p.photo = dataUrl;
+    const prev = panel.querySelector('.person-photo-preview');
+    const img = document.createElement('img');
+    img.className = 'person-photo-preview'; img.alt = ''; img.src = dataUrl;
+    prev.replaceWith(img);
+    clearBtn.style.display = '';
+    swatchBox?.classList.add('hidden');
+    cropStage.classList.remove('open');
+    cropState = null;
+    fileInput.value = '';
+    // refresh chip photo
+    renderCocBuilder();
+  }
+
+  cropFrame.addEventListener('pointerdown', e => {
+    if (!cropState) return;
+    cropFrame.setPointerCapture(e.pointerId);
+    cropState.drag = { x: e.clientX, y: e.clientY, ox: cropState.x, oy: cropState.y };
+  });
+  cropFrame.addEventListener('pointermove', e => {
+    if (!cropState?.drag) return;
+    cropState.x = cropState.drag.ox + (e.clientX - cropState.drag.x);
+    cropState.y = cropState.drag.oy + (e.clientY - cropState.drag.y);
+    layoutCrop();
+  });
+  const endD = () => { if (cropState) cropState.drag = null; };
+  cropFrame.addEventListener('pointerup', endD);
+  cropFrame.addEventListener('pointercancel', endD);
+  panel.querySelector('.p-photo-apply')?.addEventListener('click', applyCrop);
+  panel.querySelector('.p-photo-cancel')?.addEventListener('click', () => {
+    cropStage.classList.remove('open'); cropState = null; fileInput.value = '';
+  });
+  fileInput?.addEventListener('change', function() {
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+    const r = new FileReader();
+    r.onload = () => openCrop(r.result);
+    r.readAsDataURL(file);
+  });
+  clearBtn?.addEventListener('click', function() {
+    panel.dataset.photo = '';
+    const p = cocPeople.find(x => x.id === id);
+    if (p) p.photo = '';
+    const prev = panel.querySelector('.person-photo-preview');
+    const empty = document.createElement('div');
+    empty.className = 'person-photo-preview empty';
+    empty.textContent = 'Photo';
+    empty.style.background = panel.dataset.color || PASTEL_COLORS[0];
+    prev.replaceWith(empty);
+    this.style.display = 'none';
+    swatchBox?.classList.remove('hidden');
+    renderCocBuilder();
+  });
+}
+
+function cocReorderLevel(fromLevel, toLevel, placeAfter) {
+  if (fromLevel === toLevel) return;
+  cocFlushSettings();
+  const maxLv = Math.max(cocMaxLevel, ...cocPeople.map(p => p.level), 0);
+  // Build ordered list of level indices
+  let order = [];
+  for (let i = 0; i <= maxLv; i++) order.push(i);
+  order = order.filter(lv => lv !== fromLevel);
+  let insertAt = order.indexOf(toLevel);
+  if (insertAt < 0) insertAt = order.length;
+  if (placeAfter) insertAt += 1;
+  order.splice(insertAt, 0, fromLevel);
+  // Remap people levels according to new order
+  const map = {};
+  order.forEach((oldLv, newLv) => { map[oldLv] = newLv; });
+  cocPeople.forEach(p => {
+    if (map[p.level] !== undefined) p.level = map[p.level];
+  });
+  cocMaxLevel = Math.max(0, order.length - 1);
+  normalizeLevels();
+  renderCocBuilder();
+}
+
+function isCocMobile() {
+  return window.matchMedia && window.matchMedia('(max-width: 720px)').matches;
+}
+
+function openCocPersonSheet(id) {
+  cocFlushSettings();
+  const person = cocPeople.find(p => p.id === id);
+  const sheet = document.getElementById('cocPersonSheet');
+  const body = document.getElementById('cocSheetBody');
+  if (!person || !sheet || !body) return;
+  cocSelectedId = id;
+  body.innerHTML = settingsHtml(person);
+  const panel = body.querySelector('.coc-settings');
+  if (panel) {
+    panel.id = 'cocSettingsPanel';
+    panel.style.borderTop = 'none';
+    panel.style.marginTop = '0';
+    panel.style.paddingTop = '0';
+  }
+  document.getElementById('cocSheetTitle').textContent = (person.name || 'New person').trim() || 'Edit person';
+  bindSettingsPanel(document.getElementById('cocSettingsPanel'));
+  sheet.classList.add('open');
+  sheet.setAttribute('aria-hidden', 'false');
+}
+
+function closeCocPersonSheet(save) {
+  const sheet = document.getElementById('cocPersonSheet');
+  if (!sheet) return;
+  if (save !== false) cocFlushSettings();
+  sheet.classList.remove('open');
+  sheet.setAttribute('aria-hidden', 'true');
+  const body = document.getElementById('cocSheetBody');
+  if (body) body.innerHTML = '';
+  sortPeopleInLevels();
+  renderCocBuilder();
+}
+
+function setupCocSheetOnce() {
+  if (window._cocSheetReady) return;
+  window._cocSheetReady = true;
+  document.getElementById('cocSheetDone')?.addEventListener('click', () => closeCocPersonSheet(true));
+  document.getElementById('cocSheetClose')?.addEventListener('click', () => closeCocPersonSheet(true));
+  document.getElementById('cocSheetRemove')?.addEventListener('click', () => {
+    if (!cocSelectedId) return;
+    const id = cocSelectedId;
+    closeCocPersonSheet(false);
+    cocRemovePerson(id);
+  });
+  document.getElementById('cocPersonSheet')?.addEventListener('click', function(e) {
+    if (e.target === this) closeCocPersonSheet(true);
+  });
+}
+
+function cocMoveLevelBy(level, delta) {
+  const maxLv = Math.max(cocMaxLevel, ...cocPeople.map(p => p.level), 0);
+  const to = level + delta;
+  if (to < 0 || to > maxLv) return;
+  // Swap everyone on level with everyone on to
+  cocFlushSettings();
+  cocPeople.forEach(p => {
+    if (p.level === level) p.level = to;
+    else if (p.level === to) p.level = level;
+  });
+  normalizeLevels();
+  renderCocBuilder();
+}
+
+function renderCocBuilder() {
+  const host = document.getElementById('cocBuilder');
+  if (!host) return;
+  // Clean any leftover float from a previous drag
+  document.querySelectorAll('.coc-level-float, .coc-level-ghost').forEach(el => el.remove());
+
+  const maxLv = Math.max(cocMaxLevel, ...cocPeople.map(p => p.level), 0);
+  cocMaxLevel = maxLv;
+  let html = '';
+  for (let lv = 0; lv <= maxLv; lv++) {
+    const peers = cocPeople.filter(p => p.level === lv);
+    html += '<div class="coc-level-row" data-level="' + lv + '">' +
+      '<div class="coc-level-handle-col">' +
+        '<button type="button" class="coc-level-handle" title="Drag to reorder level" aria-label="Drag level">⋮⋮</button>' +
+      '</div>' +
+      '<div class="coc-level-arrows">' +
+        '<button type="button" class="add coc-lv-up" data-level="' + lv + '" title="Move level up" ' + (lv === 0 ? 'disabled' : '') + '>▲</button>' +
+        '<button type="button" class="add coc-lv-down" data-level="' + lv + '" title="Move level down" ' + (lv === maxLv ? 'disabled' : '') + '>▼</button>' +
+      '</div>' +
+      '<div class="coc-builder-level">' +
+        '<div class="coc-builder-level-head">' +
+          '<strong>Level ' + (lv + 1) + (lv === 0 ? ' (top)' : '') + '</strong>' +
+          '<span class="hint">' + peers.length + ' people · sorted by rank</span>' +
+        '</div>' +
+        '<div class="coc-builder-chips">' + peers.map(chipHtml).join('') + '</div>';
+    if (cocSelectedId && peers.some(p => p.id === cocSelectedId)) {
+      const person = cocPeople.find(p => p.id === cocSelectedId);
+      if (person) html += settingsHtml(person);
+    }
+    html += '</div></div>';
+  }
+  host.innerHTML = html;
+
+  // Click / drag people (pointer-based so mobile does not scroll the page while dragging)
+  host.querySelectorAll('.coc-chip').forEach(chip => {
+    let dragMoved = false;
+    let pointerDown = false;
+
+    chip.addEventListener('click', function(e) {
+      if (dragMoved) { e.preventDefault(); e.stopPropagation(); return; }
+      e.stopPropagation();
+      cocSelect(this.dataset.id);
+    });
+
+    chip.addEventListener('pointerdown', function(e) {
+      if (e.button !== 0 && e.pointerType !== 'touch') return;
+      // Allow text selection? no — start potential drag
+      pointerDown = true;
+      dragMoved = false;
+      const id = this.dataset.id;
+      const startX = e.clientX, startY = e.clientY;
+      const rect = this.getBoundingClientRect();
+      let float = null;
+      let active = false;
+      let scrollAcc = 0;
+
+      const EDGE = 0.10; // top/bottom 10% of viewport
+      const SCROLL_SPEED = 6; // px per frame near edge (slow but usable)
+
+      const cleanup = () => {
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        document.removeEventListener('pointercancel', onUp);
+        document.body.classList.remove('coc-dragging-person');
+        host.querySelectorAll('.coc-builder-level.drag-over').forEach(el => el.classList.remove('drag-over'));
+        if (float) float.remove();
+        chip.classList.remove('dragging');
+        pointerDown = false;
+      };
+
+      const onMove = (ev) => {
+        if (!pointerDown) return;
+        const dx = ev.clientX - startX, dy = ev.clientY - startY;
+        if (!active && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+          active = true;
+          dragMoved = true;
+          chip.classList.add('dragging');
+          document.body.classList.add('coc-dragging-person');
+          float = document.createElement('div');
+          float.className = 'coc-person-float';
+          float.style.width = rect.width + 'px';
+          float.appendChild(chip.cloneNode(true));
+          document.body.appendChild(float);
+          try { chip.setPointerCapture(ev.pointerId); } catch (err) {}
+        }
+        if (!active) return;
+
+        // Prevent page scroll while dragging
+        ev.preventDefault();
+
+        float.style.left = (ev.clientX - rect.width / 2) + 'px';
+        float.style.top = (ev.clientY - rect.height / 2) + 'px';
+
+        // Edge auto-scroll (top/bottom 10% only)
+        const vh = window.innerHeight || 1;
+        const y = ev.clientY;
+        let scrollDelta = 0;
+        if (y < vh * EDGE) {
+          const t = 1 - (y / (vh * EDGE)); // 0 at edge boundary → 1 at top
+          scrollDelta = -SCROLL_SPEED * (0.35 + 0.65 * t);
+        } else if (y > vh * (1 - EDGE)) {
+          const t = (y - vh * (1 - EDGE)) / (vh * EDGE);
+          scrollDelta = SCROLL_SPEED * (0.35 + 0.65 * t);
+        }
+        if (scrollDelta) {
+          window.scrollBy(0, scrollDelta);
+        }
+
+        // Highlight level under finger
+        host.querySelectorAll('.coc-builder-level').forEach(el => el.classList.remove('drag-over'));
+        const el = document.elementFromPoint(ev.clientX, ev.clientY);
+        const box = el && el.closest ? el.closest('.coc-builder-level') : null;
+        if (box) box.classList.add('drag-over');
+      };
+
+      const onUp = (ev) => {
+        if (active) {
+          ev.preventDefault();
+          const el = document.elementFromPoint(ev.clientX, ev.clientY);
+          // elementFromPoint may hit the float; hide it briefly
+          if (float) float.style.display = 'none';
+          const el2 = document.elementFromPoint(ev.clientX, ev.clientY);
+          const box = el2 && el2.closest ? el2.closest('.coc-builder-level') : (el && el.closest ? el.closest('.coc-builder-level') : null);
+          const row = box && box.closest('.coc-level-row');
+          if (row) {
+            const lv = parseInt(row.dataset.level, 10);
+            if (!Number.isNaN(lv)) cocMoveToLevel(id, lv);
+          }
+        }
+        cleanup();
+      };
+
+      document.addEventListener('pointermove', onMove, { passive: false });
+      document.addEventListener('pointerup', onUp);
+      document.addEventListener('pointercancel', onUp);
+    });
+  });
+
+  // Level reorder via handle outside the box — pointer-based so the whole box follows the cursor
+  host.querySelectorAll('.coc-level-handle').forEach(handle => {
+    handle.addEventListener('pointerdown', function(e) {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const row = this.closest('.coc-level-row');
+      if (!row) return;
+      const fromLv = parseInt(row.dataset.level, 10);
+      const box = row.querySelector('.coc-builder-level');
+      if (!box || Number.isNaN(fromLv)) return;
+
+      const rect = box.getBoundingClientRect();
+      const offsetX = e.clientX - rect.left;
+      const offsetY = e.clientY - rect.top;
+
+      // Floating clone that follows the pointer
+      const float = document.createElement('div');
+      float.className = 'coc-level-float';
+      float.style.width = rect.width + 'px';
+      float.style.left = rect.left + 'px';
+      float.style.top = rect.top + 'px';
+      float.appendChild(box.cloneNode(true));
+      document.body.appendChild(float);
+
+      // Placeholder ghost matching height
+      const ghost = document.createElement('div');
+      ghost.className = 'coc-level-ghost';
+      ghost.style.height = rect.height + 'px';
+      row.classList.add('level-dragging');
+      row.parentNode.insertBefore(ghost, row);
+
+      let targetLv = fromLv;
+      let placeAfter = false;
+
+      const onMove = (ev) => {
+        float.style.left = (ev.clientX - offsetX) + 'px';
+        float.style.top = (ev.clientY - offsetY) + 'px';
+
+        const rows = [...host.querySelectorAll('.coc-level-row:not(.level-dragging)')];
+        let placed = false;
+        for (const r of rows) {
+          const rr = r.getBoundingClientRect();
+          const mid = rr.top + rr.height / 2;
+          if (ev.clientY < mid) {
+            host.insertBefore(ghost, r);
+            targetLv = parseInt(r.dataset.level, 10);
+            placeAfter = false;
+            placed = true;
+            break;
+          }
+        }
+        if (!placed && rows.length) {
+          const last = rows[rows.length - 1];
+          host.appendChild(ghost);
+          targetLv = parseInt(last.dataset.level, 10);
+          placeAfter = true;
+        }
+      };
+
+      const onUp = (ev) => {
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        document.removeEventListener('pointercancel', onUp);
+        float.remove();
+        ghost.remove();
+        row.classList.remove('level-dragging');
+        if (targetLv !== fromLv || placeAfter) {
+          cocReorderLevel(fromLv, targetLv, placeAfter && targetLv !== fromLv ? placeAfter : (targetLv > fromLv));
+        } else {
+          // no change — still re-render clean
+          renderCocBuilder();
+        }
+      };
+
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
+      document.addEventListener('pointercancel', onUp);
+    });
+  });
+
+  // Drop people onto level boxes
+  host.querySelectorAll('.coc-builder-level').forEach(box => {
+    box.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      this.classList.add('drag-over');
+    });
+    box.addEventListener('dragleave', function(e) {
+      if (!this.contains(e.relatedTarget)) this.classList.remove('drag-over');
+    });
+    box.addEventListener('drop', function(e) {
+      e.preventDefault();
+      this.classList.remove('drag-over');
+      const payload = e.dataTransfer.getData('text/plain') || '';
+      let id = payload;
+      if (payload.startsWith('person:')) id = payload.slice(7);
+      if (payload.startsWith('level:')) return;
+      const row = this.closest('.coc-level-row');
+      const lv = row ? parseInt(row.dataset.level, 10) || 0 : 0;
+      if (id) cocMoveToLevel(id, lv);
+    });
+  });
+
+  host.querySelectorAll('.coc-lv-up').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      cocMoveLevelBy(parseInt(this.dataset.level, 10), -1);
+    });
+  });
+  host.querySelectorAll('.coc-lv-down').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      cocMoveLevelBy(parseInt(this.dataset.level, 10), 1);
+    });
+  });
+
+  setupCocSheetOnce();
+  bindSettingsPanel(document.getElementById('cocSettingsPanel'));
+  updateCocEmptyHint();
+}
+
+function loadSampleChainOfCommand() {
+  if (cocPeople.length && !confirm('Replace the current list with a sample hierarchy?')) return;
+  cocPeople = [
+    { id: 'sample-oc', rank: 'Sqn Ldr', name: 'A. Example', tag: 'OC', color: '#A8D5E5', photo: '', level: 0 },
+    { id: 'sample-adj', rank: 'Flt Lt', name: 'B. Example', tag: 'Adj', color: '#F5C6AA', photo: '', level: 1 },
+    { id: 'sample-trg', rank: 'Fg Off', name: 'C. Example', tag: 'Trg Off', color: '#C7E2B0', photo: '', level: 1 },
+    { id: 'sample-fs', rank: 'FS', name: 'D. Example', tag: 'Staff', color: '#E2C4E8', photo: '', level: 2 },
+    { id: 'sample-cwo', rank: 'CWO', name: 'E. Cadet', tag: 'A Flight', color: '#F5E6A8', photo: '', level: 2 },
+    { id: 'sample-sgt', rank: 'Cdt Sgt', name: 'F. Cadet', tag: 'B Flight', color: '#B8C9E8', photo: '', level: 3 }
+  ];
+  cocSelectedId = null;
+  cocMaxLevel = 3;
+  renderCocBuilder();
+}
+
+function loadCocFromData(people) {
+  cocPeople = (people || []).map(p => ({
+    id: p.id || newPersonId(),
+    rank: p.rank || '',
+    name: p.name || '',
+    photo: p.photo || '',
+    color: p.color || PASTEL_COLORS[0],
+    tag: p.tag || '',
+    level: Math.max(0, parseInt(p.level, 10) || 0)
+  }));
+  // Migrate legacy reportsTo → approximate levels
+  if (people && people.some(p => p.reportsTo && p.level === undefined)) {
+    const byId = {};
+    cocPeople.forEach(p => { byId[p.id] = p; });
+    const depth = (id, seen) => {
+      if (seen.has(id)) return 0;
+      seen.add(id);
+      const raw = (people || []).find(x => x.id === id);
+      if (!raw || !raw.reportsTo || !byId[raw.reportsTo]) return 0;
+      return 1 + depth(raw.reportsTo, seen);
+    };
+    cocPeople.forEach(p => { p.level = depth(p.id, new Set()); });
+  }
+  normalizeLevels();
+  cocSelectedId = null;
+  renderCocBuilder();
+}
+
+function refreshAllReportsTo() {
+  const rows = [...document.querySelectorAll('#cocPeople .person-row')];
+  const options = rows.map(r => {
+    const id = r.dataset.id;
+    const rank = r.querySelector('.p-rank').value;
+    const name = r.querySelector('.p-name').value.trim() || '(unnamed)';
+    return { id, label: (rank ? rank + ' ' : '') + name };
+  });
+  rows.forEach(r => {
+    const sel = r.querySelector('.p-reports');
+    const current = sel.value;
+    const myId = r.dataset.id;
+    sel.innerHTML = '<option value="">— Top of chain —</option>' +
+      options.filter(o => o.id !== myId).map(o =>
+        '<option value="' + o.id + '"' + (current === o.id ? ' selected' : '') + '>' + o.label + '</option>'
+      ).join('');
+  });
+}
+
+function resizeImageToDataUrl(file, maxSize, quality) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('read failed'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('image failed'));
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if (w > maxSize || h > maxSize) {
+          if (w >= h) { h = Math.round(h * maxSize / w); w = maxSize; }
+          else { w = Math.round(w * maxSize / h); h = maxSize; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        try {
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        } catch (e) { reject(e); }
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function buildCocTreeHtml(people) {
+  if (!people || !people.length) {
+    return '<div class="coc-empty">No people added yet. Add ranks and names above, then preview.</div>';
+  }
+  const byLevel = {};
+  people.forEach(p => {
+    const lv = Math.max(0, parseInt(p.level, 10) || 0);
+    if (!byLevel[lv]) byLevel[lv] = [];
+    byLevel[lv].push(p);
+  });
+  const levels = Object.keys(byLevel).map(Number).sort((a, b) => a - b);
+  function nodeHtml(node) {
+    const initials = (node.name || '?').split(/\s+/).map(s => s[0] || '').join('').slice(0, 2).toUpperCase();
+    const photoHtml = node.photo
+      ? '<img class="coc-photo" src="' + node.photo.replace(/"/g, '&quot;') + '" alt="">'
+      : '<div class="coc-photo placeholder" style="background:' + (node.color || '#A8D5E5') + '">' + initials + '</div>';
+    return '<div class="coc-node-wrap"><div class="coc-node">' + photoHtml +
+      '<div class="coc-rank">' + (node.rank || '') + '</div>' +
+      '<div class="coc-name">' + (node.name || '') + '</div>' +
+      (node.tag ? '<div class="coc-tag">' + node.tag + '</div>' : '') +
+      '</div></div>';
+  }
+  let html = '';
+  levels.forEach(lv => {
+    html += '<div class="coc-level">' + byLevel[lv].map(nodeHtml).join('') + '</div>';
+  });
+  return '<div class="coc-viewport"><div class="coc-tree" id="cocPreviewTree">' +
+    '<svg class="coc-svg" id="cocPreviewSvg" aria-hidden="true"></svg>' + html + '</div></div>';
+}
+
+function drawCocPreviewLines() {
+  const tree = document.getElementById('cocPreviewTree');
+  const svg = document.getElementById('cocPreviewSvg');
+  if (!tree || !svg) return;
+  const treeRect = tree.getBoundingClientRect();
+  const levels = [...tree.querySelectorAll('.coc-level')];
+  const paths = [];
+  for (let i = 0; i < levels.length - 1; i++) {
+    const upper = [...levels[i].querySelectorAll('.coc-node')];
+    const lower = [...levels[i + 1].querySelectorAll('.coc-node')];
+    if (!upper.length || !lower.length) continue;
+    const upRects = upper.map(n => n.getBoundingClientRect());
+    const loRects = lower.map(n => n.getBoundingClientRect());
+    const parentBottom = Math.max(...upRects.map(r => r.bottom)) - treeRect.top;
+    const parentMidX = (Math.min(...upRects.map(r => r.left)) + Math.max(...upRects.map(r => r.right))) / 2 - treeRect.left;
+    const childTops = loRects.map(r => r.top - treeRect.top);
+    const childXs = loRects.map(r => r.left + r.width / 2 - treeRect.left);
+    const minChildTop = Math.min(...childTops);
+    let busY = (parentBottom + minChildTop) / 2;
+    if (minChildTop - parentBottom < 12) busY = parentBottom + Math.max(6, (minChildTop - parentBottom) / 2);
+    const minX = Math.min(parentMidX, ...childXs);
+    const maxX = Math.max(parentMidX, ...childXs);
+    paths.push('M ' + parentMidX.toFixed(1) + ' ' + parentBottom.toFixed(1) + ' V ' + busY.toFixed(1));
+    if (Math.abs(maxX - minX) > 0.5) {
+      paths.push('M ' + minX.toFixed(1) + ' ' + busY.toFixed(1) + ' H ' + maxX.toFixed(1));
+    }
+    childXs.forEach((cx, idx) => {
+      paths.push('M ' + cx.toFixed(1) + ' ' + busY.toFixed(1) + ' V ' + childTops[idx].toFixed(1));
+    });
+  }
+  const w = Math.max(1, tree.scrollWidth || tree.offsetWidth);
+  const h = Math.max(1, tree.scrollHeight || tree.offsetHeight);
+  svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+  svg.style.width = w + 'px';
+  svg.style.height = h + 'px';
+  svg.innerHTML = paths.map(d => '<path d="' + d + '"/>').join('');
+}
+
+function previewChainOfCommand() {
+  const people = collectPeople();
+  document.getElementById('cocPreviewBody').innerHTML = buildCocTreeHtml(people);
+  document.getElementById('cocPreviewOverlay').classList.add('open');
+  requestAnimationFrame(() => requestAnimationFrame(drawCocPreviewLines));
+}
+function printCocPreview() {
+  const body = document.getElementById('cocPreviewBody');
+  if (!body) return;
+  const w = window.open('', '_blank');
+  if (!w) { alert('Allow pop-ups to print the chain of command.'); return; }
+  w.document.write('<!DOCTYPE html><html><head><title>Chain of Command</title><style>' +
+    'body{font-family:Inter,Arial,sans-serif;padding:24px;color:#071525;}' +
+    '.coc-level{display:flex;justify-content:center;flex-wrap:wrap;gap:20px;margin:16px 0;}' +
+    '.coc-node{text-align:center;min-width:90px;}' +
+    '.coc-photo{width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid #00205B;display:block;margin:0 auto 6px;}' +
+    '.coc-photo.placeholder{display:flex;align-items:center;justify-content:center;background:#D9EAF3;font-weight:700;}' +
+    '.coc-rank{font-size:11px;font-weight:700;color:#0066A1;text-transform:uppercase;}' +
+    '.coc-name{font-size:13px;font-weight:700;}' +
+    '.coc-tag{font-size:11px;color:#667788;}' +
+    '@media print{body{padding:0;}}' +
+    '</style></head><body><h1 style="text-align:center;font-size:18px;margin:0 0 20px;">Chain of Command</h1>' +
+    body.innerHTML +
+    '<script>window.onload=function(){window.print();}<\/script></body></html>');
+  w.document.close();
+}
+
+function closeCocPreview() {
+  document.getElementById('cocPreviewOverlay').classList.remove('open');
+}
+
+async function applyUnitCrest() {
+  const status = document.getElementById('unitCrestStatus');
+  const fileEl = document.getElementById('unitCrestFile');
+  const file = fileEl && fileEl.files && fileEl.files[0];
+  if (!file) {
+    if (status) { status.textContent = 'Choose an image first.'; status.style.color = 'var(--raf-red)'; }
+    return;
+  }
+  try {
+    if (status) { status.style.color = ''; status.textContent = 'Processing…'; }
+    const dataUrl = await resizeImageToDataUrlPng(file, 512);
+    const res = await fetch('/api/branding/process-crest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ image: dataUrl })
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body.ok) throw new Error(body.error || 'Upload failed');
+    const prev = document.getElementById('unitCrestPreview');
+    if (prev) { prev.src = dataUrl; prev.style.display = ''; }
+    if (status) { status.textContent = 'Crest saved — board header will use it.'; status.style.color = ''; }
+  } catch (e) {
+    if (status) { status.textContent = 'Failed: ' + (e.message || e); status.style.color = 'var(--raf-red)'; }
+  }
+}
+async function clearUnitCrest() {
+  const status = document.getElementById('unitCrestStatus');
+  try {
+    const res = await fetch('/api/branding/clear-crest', { method: 'POST', credentials: 'same-origin' });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body.ok) throw new Error(body.error || 'Clear failed');
+    const prev = document.getElementById('unitCrestPreview');
+    if (prev) { prev.removeAttribute('src'); }
+    if (status) { status.textContent = 'Custom crest cleared — theme logo will be used.'; status.style.color = ''; }
+  } catch (e) {
+    if (status) { status.textContent = 'Failed: ' + (e.message || e); status.style.color = 'var(--raf-red)'; }
+  }
+}
+
+async function applyLoadingLogo() {
+  const status = document.getElementById('loadingLogoStatus');
+  const fileInput = document.getElementById('loadingLogoFile');
+  const file = fileInput.files && fileInput.files[0];
+  status.textContent = '';
+  status.style.color = '';
+  if (!file) {
+    status.textContent = 'Choose an image first.';
+    status.style.color = 'var(--raf-red)';
+    return;
+  }
+  status.textContent = 'Saving logo…';
+  try {
+    let dataUrl;
+    if (file.type === 'image/svg+xml' || /\.svg$/i.test(file.name || '')) {
+      // Keep SVG as a data URL (no rasterise)
+      dataUrl = await new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onerror = () => reject(new Error('read failed'));
+        r.onload = () => resolve(r.result);
+        r.readAsDataURL(file);
+      });
+      if (dataUrl.length > 1_200_000) throw new Error('SVG too large');
+    } else {
+      // Raster → PNG so transparency is kept
+      dataUrl = await resizeImageToDataUrlPng(file, 512);
+    }
+    const approxKb = Math.round((dataUrl.length * 3) / 4 / 1024);
+    if (approxKb > 400) {
+      status.textContent = 'Image is large (~' + approxKb + ' KB). Prefer a smaller transparent PNG so backups stay manageable.';
+      status.style.color = 'var(--raf-red)';
+      // still allow upload
+    } else if (approxKb > 150) {
+      status.textContent = 'Image is ~' + approxKb + ' KB — OK, but smaller is better for backups.';
+    }
+    const res = await fetch('/api/branding/process-logo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ image: dataUrl })
+    });
+    const json = await res.json();
+    if (!res.ok || !json.ok) throw new Error((json && json.error) || ('HTTP ' + res.status));
+    window._loadingLogoDataUrl = json.loadingLogo || dataUrl;
+    const prev = document.getElementById('loadingLogoPreview');
+    if (prev) prev.src = window._loadingLogoDataUrl;
+    status.textContent = 'Logo saved and resized. Previous logo replaced. Shows on next display reload.';
+    status.style.color = '';
+    savedSnapshot = JSON.stringify(collectPayload());
+    updateForceButton();
+  } catch (e) {
+    status.textContent = 'Failed: ' + (e.message || e);
+    status.style.color = 'var(--raf-red)';
+  }
+}
+
+async function clearLoadingLogo() {
+  const status = document.getElementById('loadingLogoStatus');
+  status.textContent = 'Removing…';
+  try {
+    const res = await fetch('/api/branding/clear-logo', { method: 'POST', credentials: 'same-origin' });
+    const json = await res.json();
+    if (!res.ok || !json.ok) throw new Error((json && json.error) || 'clear failed');
+    window._loadingLogoDataUrl = '';
+    const prev = document.getElementById('loadingLogoPreview');
+    if (prev) { prev.removeAttribute('src'); }
+    document.getElementById('loadingLogoFile').value = '';
+    status.textContent = 'Custom logo removed — default Astro Labs logo will be used.';
+    status.style.color = '';
+    savedSnapshot = JSON.stringify(collectPayload());
+    updateForceButton();
+  } catch (e) {
+    status.textContent = 'Failed: ' + (e.message || e);
+    status.style.color = 'var(--raf-red)';
+  }
+}
+
+function resizeImageToDataUrlPng(file, maxSize) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('read failed'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('image failed'));
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if (w > maxSize || h > maxSize) {
+          if (w >= h) { h = Math.round(h * maxSize / w); w = maxSize; }
+          else { w = Math.round(w * maxSize / h); h = maxSize; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        // Do not fill background — preserve transparency
+        ctx.clearRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        try { resolve(canvas.toDataURL('image/png')); }
+        catch (e) { reject(e); }
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 function collectPayload() {
   return {
+    theme: normalizeTheme(document.getElementById('unitTheme') && document.getElementById('unitTheme').value),
     squadronName: document.getElementById('squadronName').value,
     location: {
       name: document.getElementById('locName').value,
@@ -713,7 +2655,8 @@ function collectPayload() {
       news: document.getElementById('w-news').checked,
       events: document.getElementById('w-events').checked,
       instagram: document.getElementById('w-instagram').checked,
-      uniform: document.getElementById('w-uniform').checked
+      uniform: document.getElementById('w-uniform').checked,
+      chainOfCommand: document.getElementById('w-chainOfCommand').checked
     },
     customWidgets: [...document.querySelectorAll('.widget-row')].map(r => ({
       id: r.dataset.id,
@@ -739,6 +2682,12 @@ function collectPayload() {
         title: r.querySelector('.un-title').value,
         uniform: r.querySelector('.un-uniform').value
       }))
+    },
+    chainOfCommand: {
+      people: collectPeople()
+    },
+    branding: {
+      loadingLogo: (window._loadingLogoDataUrl != null) ? window._loadingLogoDataUrl : ((data && data.branding && data.branding.loadingLogo) || '')
     }
   };
 }
@@ -757,6 +2706,62 @@ function updateForceButton() {
     updateForceButton();
     scheduleAutoSave();
   }, 0)));
+
+async function maybeShowPinReminder() {
+  try {
+    if (localStorage.getItem('sqndash_pin_reminder_seen') === '1') return;
+    const st = await (await fetch('/api/status', { cache: 'no-store' })).json();
+    // WARNING = no PIN set
+    if (st && st.editorPin === 'WARNING') {
+      const bar = document.createElement('div');
+      bar.id = 'pinReminder';
+      bar.style.cssText = 'background:#fff8e6;border:1px solid #e6c35c;border-radius:4px;padding:12px 14px;margin:0 0 16px;';
+      bar.innerHTML = '<strong>No editor PIN set</strong><p class="hint" style="margin:6px 0 0;">Anyone on your network can open /edit. On the Pi run <code>sqndash --set-pin</code> (or set a PIN from install). <button type="button" class="add" id="pinReminderDismiss" style="margin:8px 0 0;min-height:32px;">Got it</button></p>';
+      const wrap = document.querySelector('.wrap') || document.body;
+      wrap.insertBefore(bar, wrap.firstChild);
+      document.getElementById('pinReminderDismiss')?.addEventListener('click', () => {
+        localStorage.setItem('sqndash_pin_reminder_seen', '1');
+        bar.remove();
+      });
+    } else {
+      localStorage.setItem('sqndash_pin_reminder_seen', '1');
+    }
+  } catch (e) { /* ignore */ }
+}
+
+function updateThemeDirtyBadge() {
+  const badge = document.getElementById('themeDirtyBadge');
+  if (!badge) return;
+  const el = document.getElementById('unitTheme');
+  const cur = normalizeTheme(el && el.value);
+  badge.style.display = (cur !== themeAtLoad) ? 'inline' : 'none';
+}
+function bindThemeSelector() {
+  const themeEl = document.getElementById('unitTheme');
+  if (!themeEl || themeEl.dataset.bound) return;
+  themeEl.dataset.bound = '1';
+  themeEl.addEventListener('change', async function() {
+    const th = normalizeTheme(this.value);
+    setRankTheme(th);
+    applyEditChrome(th);
+    updateThemeDirtyBadge();
+    renderCocBuilder();
+    try {
+      const r = await fetch('/api/theme', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ theme: th })
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) {
+        console.warn('Theme crest download failed', j.error || r.status);
+      }
+    } catch (e) {
+      console.warn('Theme crest download failed', e);
+    }
+  });
+}
 
 async function load() {
   loadOk = false;
@@ -812,6 +2817,7 @@ async function load() {
   ['leaderboard', 'news', 'events', 'instagram', 'uniform'].forEach(k => {
     document.getElementById('w-' + k).checked = wf[k] !== false;
   });
+  document.getElementById('w-chainOfCommand').checked = !!wf.chainOfCommand;
   const cw = document.getElementById('customWidgets'); cw.innerHTML = '';
   (data.customWidgets || []).forEach(w => cw.appendChild(widgetRow(w)));
   const info = data.importantInfo || {};
@@ -824,12 +2830,27 @@ async function load() {
   ((data.uniform && data.uniform.items) || []).slice()
     .sort((a, b) => String(a.date).localeCompare(String(b.date)))
     .forEach(u => uc.appendChild(uniformRow(u)));
+  loadCocFromData(((data.chainOfCommand && data.chainOfCommand.people) || []));
+  // Branding / loading logo
+  window._loadingLogoDataUrl = (data.branding && data.branding.loadingLogo) || '';
+  const logoPrev = document.getElementById('loadingLogoPreview');
+  if (logoPrev) {
+    if (window._loadingLogoDataUrl) {
+      logoPrev.src = window._loadingLogoDataUrl;
+      logoPrev.style.display = '';
+    } else {
+      logoPrev.removeAttribute('src');
+      logoPrev.style.display = '';
+    }
+  }
   savedSnapshot = JSON.stringify(collectPayload());
   updateForceButton();
   euVisibleLimit = EU_DEFAULT;
   applyEuLimit();
   loadOk = true;
   loadVersionInfo();
+  maybeShowPinReminder();
+  bindThemeSelector();
 }
 
 let autoSaveTimer = null;
@@ -852,13 +2873,28 @@ async function save(opts) {
   const reason = (opts && opts.reason) || 'manual';
   if (saveInFlight) return;
   if (silent && !hasUnsavedChanges()) return;
-  const payload = collectPayload();
-  saveInFlight = true;
   const statusEl = document.getElementById('status');
+  let payload;
+  try {
+    payload = collectPayload();
+  } catch (e) {
+    if (statusEl) {
+      statusEl.textContent = 'Save failed: ' + (e && e.message ? e.message : e);
+      statusEl.style.color = 'var(--raf-red)';
+    }
+    console.error('collectPayload failed', e);
+    return;
+  }
+  saveInFlight = true;
+  if (statusEl && !silent) {
+    statusEl.style.color = '';
+    statusEl.textContent = 'Saving…';
+  }
   try {
     const res = await fetch('/api/data', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
       body: JSON.stringify(payload)
     });
     if (res.ok) {
@@ -866,16 +2902,47 @@ async function save(opts) {
       updateForceButton();
       clearTimeout(autoSaveTimer);
       autoSaveTimer = null;
-      statusEl.textContent = reason === 'autosave' ? 'Autosaved' : 'Saved';
+      const newTheme = normalizeTheme(payload.theme);
+      const themeChanged = newTheme !== themeAtLoad;
+      if (themeChanged) {
+        themeAtLoad = newTheme;
+        updateThemeDirtyBadge();
+        setRankTheme(newTheme);
+        applyEditChrome(newTheme);
+        try { renderCocBuilder(); } catch (e) { console.warn(e); }
+        fetch('/api/theme', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ theme: newTheme })
+        }).catch(() => {});
+      }
+      if (statusEl) {
+        statusEl.style.color = '';
+        statusEl.textContent = themeChanged
+          ? 'Saved — theme applied'
+          : (reason === 'autosave' ? 'Autosaved' : 'Saved');
+      }
     } else {
-      statusEl.textContent = 'Save failed';
+      const body = await res.json().catch(() => ({}));
+      if (statusEl) {
+        statusEl.style.color = 'var(--raf-red)';
+        statusEl.textContent = body.error || ('Save failed (' + res.status + ')');
+      }
     }
     clearTimeout(statusTimer);
-    statusTimer = setTimeout(() => { statusEl.textContent = ''; }, silent ? 2000 : 2500);
+    statusTimer = setTimeout(() => {
+      if (statusEl) { statusEl.textContent = ''; statusEl.style.color = ''; }
+    }, silent ? 2000 : 3500);
   } catch (e) {
-    statusEl.textContent = 'Save failed';
+    if (statusEl) {
+      statusEl.style.color = 'var(--raf-red)';
+      statusEl.textContent = 'Save failed: ' + (e && e.message ? e.message : e);
+    }
     clearTimeout(statusTimer);
-    statusTimer = setTimeout(() => { statusEl.textContent = ''; }, 2500);
+    statusTimer = setTimeout(() => {
+      if (statusEl) { statusEl.textContent = ''; statusEl.style.color = ''; }
+    }, 3500);
   } finally {
     saveInFlight = false;
   }
@@ -1133,6 +3200,17 @@ async function backupNow() {
   }
 }
 
+function exportSettings() {
+  const el = document.getElementById('backupStatus');
+  if (el) { el.style.color = ''; el.textContent = 'Preparing download…'; }
+  // Full export via authenticated GET (session cookie)
+  window.location.href = '/api/config/export?_=' + Date.now();
+  if (el) {
+    setTimeout(() => { el.textContent = 'Export started — check your downloads.'; }, 400);
+    setTimeout(() => { if (el.textContent.indexOf('Export started') === 0) el.textContent = ''; }, 4000);
+  }
+}
+
 async function importConfig(input) {
   const status = document.getElementById('backupStatus');
   const file = input.files && input.files[0];
@@ -1165,6 +3243,10 @@ function showUpdateStatus(text, isError) {
   const el = document.getElementById('updateStatus');
   el.textContent = text;
   el.className = isError ? 'error' : '';
+  const rb = document.getElementById('restartAfterUpdateBtn');
+  if (rb && !isError && text && /next launch|updated|done|applied/i.test(text)) {
+    rb.style.display = '';
+  }
 }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -1187,6 +3269,19 @@ async function loadVersionInfo() {
   }
 }
 
+async function restartDashboard() {
+  if (!confirm('Restart the dashboard now? The room screen will reload in a few seconds.')) return;
+  const el = document.getElementById('updateStatus');
+  if (el) el.textContent = 'Restarting…';
+  try {
+    const r = await fetch('/api/restart', { method: 'POST', credentials: 'same-origin' });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.ok) {
+      if (el) { el.textContent = (j && j.error) || 'Restart failed'; el.className = 'error'; }
+      return;
+    }
+  } catch (e) { /* connection may drop */ }
+}
 async function forceUpdate() {
   if (hasUnsavedChanges() || updateInProgress) return;
   showUpdateStatus('Checking…');
@@ -1194,9 +3289,9 @@ async function forceUpdate() {
   let detail = '';
   if (v && v.local && v.remote) {
     detail = '\n\nLocal: ' + v.local.short + '\nGitHub: ' + v.remote.short;
-    if (v.upToDate) detail += '\n\nAlready up to date — will re-apply.';
+    if (v.upToDate) detail += '\n\nAlready up to date — will re-apply on disk.';
   }
-  if (!confirm('Update from GitHub? Settings are kept. Dashboard restarts briefly.' + detail)) {
+  if (!confirm('Download update from GitHub? Settings are kept.\n\nCode is installed on disk only — the screen will NOT restart by itself. Use Restart now (or reboot) when you want the new version.' + detail)) {
     showUpdateStatus('');
     return;
   }
@@ -1210,39 +3305,34 @@ async function forceUpdate() {
       showUpdateStatus(body.error || 'Update failed', true);
       return;
     }
-    const requestedAt = body.requestedAt || Date.now();
-    const inProcess = body.mode === 'in-process';
     const started = Date.now();
-    let sawOffline = false;
     while (Date.now() - started < 5 * 60 * 1000) {
-      await sleep(inProcess ? 1500 : 2000);
+      await sleep(1500);
       let st = null;
       try {
         st = await (await fetch('/api/update/status', { cache: 'no-store' })).json();
       } catch (e) {
-        sawOffline = true;
-        showUpdateStatus('Restarting…');
+        showUpdateStatus('Waiting for update status…');
         continue;
       }
-      if (sawOffline && st) {
-        showUpdateStatus((st.message || 'Done') + ' — reloading…');
-        await sleep(1500);
-        location.reload();
+      if (!st) continue;
+      const msg = st.message || st.state || '';
+      if (st.state === 'done' || /next launch|updated|up to date|nothing to update|re-applied/i.test(msg)) {
+        showUpdateStatus(msg || 'Update finished');
+        const rb = document.getElementById('restartAfterUpdateBtn');
+        if (rb) rb.style.display = '';
+        await loadVersionInfo();
         return;
       }
-      if (st.state === 'requested') {
-        showUpdateStatus(Date.now() - started > 30000 ? 'Waiting for host…' : 'Starting…');
-      } else if ((st.state === 'done' || st.state === 'error') && (!st.time || st.time * 1000 >= requestedAt - 15000)) {
-        if (st.state === 'error') { showUpdateStatus(st.message || 'Failed', true); return; }
-        showUpdateStatus((st.message || 'Updated') + ' — reloading…');
-        await sleep(2000);
-        location.reload();
+      if (st.state === 'error') {
+        showUpdateStatus(msg || 'Update failed', true);
         return;
-      } else if (st.state === 'running') {
-        showUpdateStatus(st.message || 'Updating…');
       }
+      showUpdateStatus(msg || 'Updating…');
     }
-    showUpdateStatus('Timed out — try: sqndash --force-update', true);
+    showUpdateStatus('Update is taking longer than expected — check /status', true);
+  } catch (e) {
+    showUpdateStatus(String(e && e.message ? e.message : e), true);
   } finally {
     updateInProgress = false;
     updateForceButton();

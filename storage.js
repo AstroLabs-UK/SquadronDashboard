@@ -65,7 +65,21 @@ function createStore({ dir, defaults, legacyDir, snapDir }) {
       widgets: { ...defaults.widgets, ...(d.widgets && typeof d.widgets === 'object' ? d.widgets : {}) },
       uniform: { ...defaults.uniform, ...(d.uniform && typeof d.uniform === 'object' ? d.uniform : {}) },
       customWidgets: Array.isArray(d.customWidgets) ? d.customWidgets : defaults.customWidgets,
-      events: Array.isArray(d.events) ? d.events : defaults.events
+      events: Array.isArray(d.events) ? d.events : defaults.events,
+      chainOfCommand: {
+        ...(defaults.chainOfCommand || { people: [] }),
+        ...(d.chainOfCommand && typeof d.chainOfCommand === 'object' ? d.chainOfCommand : {}),
+        people: Array.isArray(d.chainOfCommand && d.chainOfCommand.people)
+          ? d.chainOfCommand.people
+          : (defaults.chainOfCommand && defaults.chainOfCommand.people) || []
+      },
+      theme: ['rafac','acf','scc','ccf','vcc','army','sea'].includes(d.theme) ? (d.theme === 'army' ? 'acf' : d.theme === 'sea' ? 'scc' : d.theme) : 'rafac',
+      branding: {
+        loadingLogo: '',
+        unitCrest: '',
+        ...(defaults.branding || {}),
+        ...(d.branding && typeof d.branding === 'object' ? d.branding : {})
+      }
     };
   }
 
@@ -157,6 +171,14 @@ function createStore({ dir, defaults, legacyDir, snapDir }) {
     const isStr = v => typeof v === 'string';
 
     if (isStr(incoming.squadronName) && incoming.squadronName.trim()) out.squadronName = incoming.squadronName;
+    if (typeof incoming.theme === 'string') {
+      const t = incoming.theme.toLowerCase();
+      if (t === 'army' || t === 'acf') out.theme = 'acf';
+      else if (t === 'sea' || t === 'scc') out.theme = 'scc';
+      else if (t === 'ccf') out.theme = 'ccf';
+      else if (t === 'vcc') out.theme = 'vcc';
+      else if (t === 'rafac') out.theme = 'rafac';
+    }
     // URLs: blank (to switch a feature off) or a real http(s) address. Anything else -
     // javascript:, file://, a bare word - is ignored and the saved value is kept. This also
     // stops the server being pointed at file:// or other odd schemes when it fetches the sheet.
@@ -241,7 +263,7 @@ function createStore({ dir, defaults, legacyDir, snapDir }) {
     const flags = incoming.widgets;
     if (flags && typeof flags === 'object') {
       const next = { ...current.widgets };
-      for (const k of ['leaderboard', 'news', 'events', 'instagram', 'uniform']) {
+      for (const k of ['leaderboard', 'news', 'events', 'instagram', 'uniform', 'chainOfCommand']) {
         if (typeof flags[k] === 'boolean') next[k] = flags[k];
       }
       out.widgets = next;
@@ -288,6 +310,63 @@ function createStore({ dir, defaults, legacyDir, snapDir }) {
           .filter(i => i && typeof i === 'object' && isStr(i.date) && DATE_KEY.test(i.date.trim()) && String(i.uniform ?? '').trim())
           .slice(0, 40)
           .map(i => ({ date: i.date.trim(), title: String(i.title ?? '').slice(0, 80), uniform: String(i.uniform).trim().slice(0, 80) }))
+      };
+    }
+
+    // Chain of Command: people by level (0 = top). Everyone on a level reports to the level above.
+    if (incoming.chainOfCommand && typeof incoming.chainOfCommand === 'object' && Array.isArray(incoming.chainOfCommand.people)) {
+      const RANK_RE = /^[A-Za-z0-9 /()_-]{1,40}$/;
+      const seenIds = new Set();
+      const raw = incoming.chainOfCommand.people
+        .filter(p => p && typeof p === 'object')
+        .slice(0, 40)
+        .map(p => {
+          let id = isStr(p.id) && /^[A-Za-z0-9_-]{1,40}$/.test(p.id) ? p.id : null;
+          if (!id || seenIds.has(id)) id = 'p' + crypto.randomBytes(4).toString('hex');
+          seenIds.add(id);
+          let photo = '';
+          if (isStr(p.photo) && p.photo.startsWith('data:image/') && p.photo.length <= 120000) {
+            photo = p.photo;
+          }
+          let color = '';
+          if (isStr(p.color) && /^#[0-9A-Fa-f]{6}$/.test(p.color.trim())) color = p.color.trim().toUpperCase();
+          let tag = '';
+          if (isStr(p.tag)) tag = String(p.tag).trim().slice(0, 40);
+          let level = 0;
+          if (typeof p.level === 'number' && Number.isFinite(p.level)) level = Math.max(0, Math.min(20, Math.floor(p.level)));
+          else if (isStr(p.level) && /^\d+$/.test(p.level.trim())) level = Math.max(0, Math.min(20, parseInt(p.level.trim(), 10)));
+          return {
+            id,
+            rank: isStr(p.rank) && RANK_RE.test(p.rank.trim()) ? p.rank.trim() : '',
+            name: String(p.name ?? '').slice(0, 80).trim(),
+            photo,
+            color,
+            tag,
+            level
+          };
+        })
+        .filter(p => p.name);
+      out.chainOfCommand = { people: raw };
+    }
+    // Branding: custom loading logo (data URL; transparent PNG recommended)
+    if (incoming.branding && typeof incoming.branding === 'object') {
+      const next = { ...(current.branding || { loadingLogo: '' }) };
+      if (typeof incoming.branding.loadingLogo === 'string') {
+        const logo = incoming.branding.loadingLogo;
+        if (!logo) next.loadingLogo = '';
+        else if (logo.startsWith('data:image/') && logo.length <= 1_500_000) next.loadingLogo = logo;
+      }
+      if (typeof incoming.branding.unitCrest === 'string') {
+        const crest = incoming.branding.unitCrest;
+        if (!crest) next.unitCrest = '';
+        else if (crest.startsWith('data:image/') && crest.length <= 1_500_000) next.unitCrest = crest;
+      }
+      // Preserve fields not sent in this request
+      if (incoming.branding.loadingLogo === undefined && current.branding) next.loadingLogo = current.branding.loadingLogo || next.loadingLogo;
+      if (incoming.branding.unitCrest === undefined && current.branding) next.unitCrest = current.branding.unitCrest || next.unitCrest;
+      out.branding = {
+        loadingLogo: next.loadingLogo || '',
+        unitCrest: next.unitCrest || ''
       };
     }
     return out;

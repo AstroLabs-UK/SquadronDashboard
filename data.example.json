@@ -1,4 +1,5 @@
 {
+  "theme": "rafac",
   "squadronName": "Your Squadron Name",
   "location": {
     "name": "Your Town",
@@ -24,7 +25,9 @@
     "leaderboard": true,
     "news": true,
     "events": true,
-    "instagram": true
+    "instagram": true,
+    "uniform": true,
+    "chainOfCommand": false
   },
   "customWidgets": [],
   "layout": "auto",
@@ -44,5 +47,11 @@
   "timetreePassword": "",
   "timetreeCalendarId": "",
   "timetreeCalendarName": "",
-  "timetreeCalendarCode": ""
+  "timetreeCalendarCode": "",
+  "chainOfCommand": {
+    "people": []
+  },
+  "branding": {
+    "loadingLogo": ""
+  }
 }

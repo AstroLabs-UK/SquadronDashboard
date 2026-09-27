@@ -1,37 +1,32 @@
 #!/usr/bin/env bash
-# The `sqndash` command. Installed to /usr/local/bin by the installer and by update.sh.
-#
-#   sqndash                   start the dashboard service
-#   sqndash --start           same as above
-#   sqndash --check / --version   compare local code to the update target (newest release)
-#   sqndash --update              update if there's a newer release, then restart
-#   sqndash --force-update        re-download even if up to date, then restart
-#   sqndash --restart             restart the dashboard
-#   sqndash --set-pin [PIN]       set the PIN that protects /edit (asks if you don't give one)
-#   sqndash --clear-pin           remove the PIN (leaves /edit open to anyone on the network)
-#   sqndash --channel [stable|update]   show or change which versions this device follows
-#   sqndash --help
-DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+# Squadron Dashboard CLI — installed as /usr/local/bin/sqndash so it works from any folder.
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DIR="$SCRIPT_DIR"
+# If invoked via /usr/local/bin/sqndash wrapper, BASH_SOURCE may still be this file
+# when exec'd; DIR is the app root (same folder as this script after install).
 
 usage() {
   cat <<'EOF2'
-Squadron Dashboard
+Squadron Dashboard — command line
 
-  sqndash                  start the dashboard service
-  sqndash --start          same as above
-  sqndash --stop           stop all running dashboard instances
-  sqndash --check          compare local version to the update target (also: --version)
-  sqndash --update         update if there's a newer release, then restart
-  sqndash --force-update   re-download even if already up to date, then restart
-  sqndash --restart        restart the dashboard
-  sqndash --set-pin [PIN]  set the PIN that protects the /edit page (4+ characters)
-  sqndash --clear-pin      remove the PIN (anyone on the network can then edit)
-  sqndash --channel [name] show, or set, the update channel:
-                             stable = newest tagged release (default, safest)
-                             update = tip of the Update branch (for a test device)
-  sqndash --help           show this help
+  sqndash                 show this help
+  sqndash --help          show this help
+  sqndash --start         start the dashboard service
+  sqndash --stop          stop the dashboard service
+  sqndash --restart       restart the dashboard
+  sqndash --check         show local / remote version info
+  sqndash --update        check for updates and apply if available
+  sqndash --force-update  download latest allowed release onto disk
+  sqndash --set-pin [PIN] set the PIN that protects /edit (4+ characters)
+  sqndash --clear-pin     remove the PIN (anyone on the LAN can then edit)
+  sqndash --channel [name]
+                          show or set update channel:
+                            stable = newest tagged release (default)
+                            update = tip of the Update branch (testing)
 
-Your settings (from /edit) are never changed by an update.
+Settings from /edit are never wiped by an update.
 EOF2
 }
 
@@ -52,7 +47,8 @@ set_pin() {
 }
 
 case "${1:-}" in
-  ""|--start)   exec bash "$DIR/update.sh" --start ;;
+  ""|--help|-h) usage ;;
+  --start)      exec bash "$DIR/update.sh" --start ;;
   --stop)       exec bash "$DIR/update.sh" --stop ;;
   --check|--version|-v) exec bash "$DIR/update.sh" --check ;;
   --update|-u)  exec bash "$DIR/update.sh" ;;
@@ -69,13 +65,11 @@ case "${1:-}" in
       case "$2" in
         stable|update|release|main)
           mkdir -p "$DIR/data"
-          # Normalize legacy names
           case "$2" in release) ch=stable ;; main) ch=update ;; *) ch="$2" ;; esac
           printf '%s\n' "$ch" > "$DIR/data/update-channel"
           echo "Update channel set to: $ch" ;;
         *) echo "Channel must be 'stable' or 'update'."; exit 1 ;;
       esac
     fi ;;
-  --help|-h) usage ;;
   *) echo "Unknown option: $1"; echo; usage; exit 1 ;;
 esac

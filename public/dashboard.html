@@ -17,6 +17,49 @@
     --muted: #667788;
     --border: #D5DDE5;
   }
+  /* Army Cadets UK brand: core dark green Pantone 3305 + supporting greens */
+  body[data-theme="acf"] {
+    --raf-navy: #003D2C;
+    --deep-navy: #00261C;
+    --raf-blue: #1B6B4A;
+    --light-blue: #E4F0E8;
+    --off-white: #F3F7F4;
+    --raf-red: #C4A35A;
+    --border: #C5D4C9;
+  }
+  body[data-theme="scc"] {
+    --raf-navy: #0A1628;
+    --deep-navy: #061018;
+    --raf-blue: #00A3E0;
+    --light-blue: #E6F6FC;
+    --off-white: #F2F5F8;
+    --raf-red: #F5C400;
+    --border: #C5D0DA;
+  }
+  body[data-theme="ccf"] {
+    --raf-navy: #1A3A6E;
+    --deep-navy: #0F2448;
+    --raf-blue: #2E5A8F;
+    --light-blue: #E8EEF6;
+    --off-white: #F4F6FA;
+    --raf-red: #C9A227;
+    --border: #C8D0DC;
+  }
+  body[data-theme="vcc"] {
+    --raf-navy: #0D2137;
+    --deep-navy: #081624;
+    --raf-blue: #1A3D5C;
+    --light-blue: #E8EEF3;
+    --off-white: #F2F5F8;
+    --raf-red: #2E5A3C;
+    --border: #C5CED6;
+  }
+  body[data-theme="acf"] .roundel,
+  body[data-theme="scc"] .roundel,
+  body[data-theme="ccf"] .roundel,
+  body[data-theme="vcc"] .roundel {
+    border-radius: 0;
+  }
   * { box-sizing: border-box; }
   /* Hide Elfsight's own branding/toolbar wherever their widget markup allows it */
   .eapps-widget-toolbar, .global-styles, a[href*="elfsight.com"] { display: none !important; }
@@ -40,9 +83,40 @@
     color: var(--white);
     border-bottom: 3px solid var(--raf-blue);
   }
-  .brand { display: flex; align-items: center; gap: 14px; }
-  .roundel { width: 48px; height: 48px; flex-shrink: 0; }
-  .brand-text h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: 0.01em; }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+  }
+  /* Height matches ATC roundel; width follows aspect ratio so wide wordmarks stay readable */
+  .roundel,
+  #unitLogo {
+    height: 48px;
+    width: auto;
+    max-width: min(42vw, 280px);
+    flex-shrink: 0;
+    object-fit: contain;
+    object-position: left center;
+    display: block;
+  }
+  .brand-text {
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+  }
+  .brand-text h1 {
+    margin: 0;
+    font-size: clamp(14px, 2.2vw, 24px);
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  header .clock-block { flex-shrink: 0; }
   .clockbox { text-align: right; }
   #clock { font-size: 32px; font-weight: 700; letter-spacing: 0.02em; }
   #date { font-size: 13px; color: var(--light-blue); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; }
@@ -91,14 +165,26 @@
   .rotate-pane.active { display: flex; }
   .rotate-pane ul { list-style: none; padding: 0; margin: 0; overflow: hidden; flex: 1; min-height: 0; }
 
-  /* News cards – scraped BBC headlines */
-  #newsPane { padding: 4px 0 0 0; gap: 0; }
+  /* News cards – scraped BBC headlines (centred in the rotating panel) */
+  #newsPane {
+    padding: 4px 0 0 0;
+    gap: 0;
+    align-items: center;
+  }
+  #newsPane .panel-header {
+    align-self: stretch;
+    width: 100%;
+  }
   #newsList {
     flex: 1; min-height: 0; overflow: hidden;
     display: grid;
     grid-template-columns: 1fr;
     grid-auto-rows: minmax(0, 1fr);
     gap: 12px;
+    width: 100%;
+    max-width: 920px;
+    margin: 0 auto;
+    align-content: center;
   }
   /* Horizontal cards: small thumbnail on the left, headline + description always visible on the right */
   .news-card {
@@ -163,6 +249,28 @@
   .lb-col td.rank { color: var(--raf-blue); font-weight: 700; }
   .lb-col th:last-child, .lb-col td.points { width: 90px; }
   .lb-col td.points { text-align: right; font-weight: 700; color: var(--raf-navy); }
+  /* Podium: solid 1st gold / 2nd silver / 3rd bronze (no per-row gradient restart) */
+  .lb-col tbody tr:nth-child(1) td {
+    background: rgba(212, 175, 55, 0.22);
+    border-bottom-color: rgba(184, 134, 11, 0.3);
+  }
+  .lb-col tbody tr:nth-child(1) td.rank { color: #B8860B; }
+  .lb-col tbody tr:nth-child(1) td.points { color: #8B6914; }
+  .lb-col tbody tr:nth-child(2) td {
+    background: rgba(160, 160, 170, 0.22);
+    border-bottom-color: rgba(120, 120, 130, 0.3);
+  }
+  .lb-col tbody tr:nth-child(2) td.rank { color: #6E6E78; }
+  .lb-col tbody tr:nth-child(2) td.points { color: #5A5A64; }
+  .lb-col tbody tr:nth-child(3) td {
+    background: rgba(184, 115, 51, 0.22);
+    border-bottom-color: rgba(140, 90, 40, 0.3);
+  }
+  .lb-col tbody tr:nth-child(3) td.rank { color: #A0522D; }
+  .lb-col tbody tr:nth-child(3) td.points { color: #8B4513; }
+  .lb-col tbody tr:nth-child(1) td,
+  .lb-col tbody tr:nth-child(2) td,
+  .lb-col tbody tr:nth-child(3) td { font-weight: 700; }
   .lb-unavailable { color: var(--muted); font-size: 14px; padding: 12px 0; }
   @media (max-width: 700px) {
     #lbPane { flex-direction: column; }
@@ -181,9 +289,141 @@
   .embed-pane .insta-wrap { position: absolute; top: 0; left: 0; right: 0; bottom: 0; overflow: hidden; }
   .embed-pane .insta-wrap iframe { display: block; width: 100%; height: 100%; border: none; }
 
-  #noWidgetsPane { align-items: center; justify-content: center; text-align: center; color: var(--muted); font-size: 16px; }
+  /* Chain of Command org tree */
+  #cocPane {
+    overflow: hidden;
+    position: relative;
+    flex: 1;
+    min-height: 0;
+  }
+  #cocPane .coc-viewport {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  #cocPane .coc-scale {
+    transform-origin: center center;
+    will-change: transform;
+  }
+  #cocPane .coc-tree {
+    position: relative;
+    display: inline-block;
+    padding: 12px 16px;
+  }
+  #cocPane .coc-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    overflow: visible;
+  }
+  #cocPane .coc-svg path {
+    fill: none;
+    stroke: var(--raf-navy);
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.7;
+    vector-effect: non-scaling-stroke;
+  }
+  #cocPane .coc-level {
+    display: flex;
+    justify-content: center;
+    flex-wrap: nowrap;
+    gap: 28px;
+    position: relative;
+    z-index: 1;
+  }
+  #cocPane .coc-node-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  #cocPane .coc-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    min-width: 96px;
+    max-width: 140px;
+    position: relative;
+    z-index: 1;
+  }
+  #cocPane .coc-photo {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: var(--light-blue);
+    border: 3px solid var(--raf-navy);
+    margin-bottom: 6px;
+  }
+  #cocPane .coc-photo.placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--raf-navy);
+    font-weight: 700;
+    font-size: 20px;
+  }
+  #cocPane .coc-rank {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--raf-blue);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    line-height: 1.2;
+  }
+  #cocPane .coc-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--deep-navy);
+    line-height: 1.25;
+    margin-top: 2px;
+  }
+  #cocPane .coc-tag {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    margin-top: 2px;
+    letter-spacing: 0.02em;
+  }
+  body.compact #cocPane .coc-tag { font-size: 10px; }
+  #cocPane .coc-children {
+    display: flex;
+    justify-content: center;
+    flex-wrap: nowrap;
+    gap: 28px;
+    margin-top: 36px;
+    position: relative;
+    z-index: 1;
+  }
+  #cocPane .coc-empty {
+    color: var(--muted);
+    text-align: center;
+    padding: 24px;
+    font-size: 16px;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+  }
+  body.compact #cocPane .coc-photo { width: 52px; height: 52px; border-width: 2px; }
+  body.compact #cocPane .coc-photo.placeholder { font-size: 14px; }
+  body.compact #cocPane .coc-rank { font-size: 10px; }
+  body.compact #cocPane .coc-name { font-size: 12px; }
+  body.compact #cocPane .coc-children { margin-top: 28px; gap: 18px; }
+  body.compact #cocPane .coc-level { gap: 18px; }
+  body.compact #cocPane .coc-node { min-width: 72px; max-width: 110px; }
 
-  /* Error fallback with QR */
+  #noWidgetsPane { align-items: center; justify-content: center; text-align: center; color: var(--muted); font-size: 16px; }
+body.loading-active
+/* Error fallback with QR */
   .error-box { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; text-align: center; }
   .error-box p { color: var(--muted); font-size: 15px; max-width: 320px; margin: 0; }
   .qr-holder { padding: 8px; background: var(--white); border: 1px solid var(--border); border-radius: 4px; display: inline-flex; }
@@ -216,7 +456,6 @@
   }
   #infoBanner .message { font-size: 30px; font-weight: 600; color: #000000; line-height: 1.3; flex-shrink: 0; }
   @keyframes bannerScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-
 
   /* Panel header: title on the left, small "last updated" stamp on the right */
   #rotatingTitle { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
@@ -260,8 +499,18 @@
   body.compact header { padding: calc(4 * var(--u)) calc(10 * var(--u)); border-bottom-width: 2px; gap: calc(8 * var(--u)); }
   body.compact .brand { gap: calc(8 * var(--u)); min-width: 0; }
   body.compact .brand-text { min-width: 0; }
-  body.compact .roundel { width: calc(24 * var(--u)); height: calc(24 * var(--u)); }
-  body.compact .brand-text h1 { font-size: var(--fl); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  body.compact .roundel,
+  body.compact #unitLogo {
+    height: calc(24 * var(--u));
+    width: auto;
+    max-width: min(40vw, calc(90 * var(--u)));
+  }
+  body.compact .brand-text h1 {
+    font-size: var(--fl);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   body.compact #clock { font-size: var(--fl); white-space: nowrap; }
   body.compact #date { display: none; }
 
@@ -295,7 +544,6 @@
   body.compact .lb-col th:last-child, body.compact .lb-col td.points { width: max(38px, calc(46 * var(--u))); }
   body.compact .lb-unavailable { font-size: var(--fs); padding: calc(4 * var(--u)) 0; }
 
-
   body.compact #eventsPane li { font-size: var(--fm); margin-bottom: calc(5 * var(--u)); padding-bottom: calc(4 * var(--u)); }
   body.compact #eventsPane li .meta { font-size: var(--fs); margin-top: 1px; }
   body.compact #eventsLayout { gap: calc(8 * var(--u)); }
@@ -305,7 +553,6 @@
   body.compact .error-box { gap: calc(6 * var(--u)); }
   body.compact .error-box p { font-size: var(--fs); max-width: none; }
   body.compact #noWidgetsPane { font-size: var(--fm); }
-
 
   body.compact .stamp { font-size: var(--fxs); }
   body.compact #weatherStamp { display: none; }
@@ -348,13 +595,112 @@
   .next-highlight .title { font-size: 18px; font-weight: 700; color: var(--raf-navy, #00205B); }
   .next-highlight .meta { font-size: 14px; color: var(--muted, #667788); margin-top: 2px; }
 
+  /* ---- Astro Labs loading screen (plays once per page load) ---- */
+  #astroLoad {
+    position: fixed; inset: 0; z-index: 99999;
+    background: #f3eee3;
+    display: flex; align-items: center; justify-content: center;
+  }
+  /* Instant hide — never fade the loader out under a fading blackout */
+  #astroLoad.gone {
+    display: none !important;
+    pointer-events: none;
+  }
+  #astroLoad .stage { height: 100%; width: 100%; display: flex; align-items: center; justify-content: center; }
+  #astroLoad .logo { position: relative; width: min(56vw, 320px); aspect-ratio: 1; opacity: 0; }
+  #astroLoad .logo img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #astroLoad .gray { filter: grayscale(1) contrast(.92) brightness(1.04); }
+  #astroLoad .color { clip-path: inset(0 0 0 0); }
+  #astroLoad .drift { animation: astroDrift 1.3s cubic-bezier(.2,.8,.2,1) forwards; }
+  @keyframes astroDrift { from { opacity: 0; transform: translateY(46px); } to { opacity: 1; transform: translateY(0); } }
+  #astroLoad .pulse { opacity: 1; animation: astroPulse .8s ease-in-out; }
+  @keyframes astroPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.07); } }
+  #astroBlackout {
+    position: fixed; inset: 0; z-index: 100000;
+    background: #000; opacity: 0; pointer-events: none;
+    transition: opacity 1.4s ease;
+  }
+  #astroBlackout.on { opacity: 1; }
+  #astroBlackout.fadeout { opacity: 0; transition: opacity 1.2s ease; }
+  /*
+   * While loading: hide the real board (still in DOM so it can prefetch/paint).
+   * After loading: board is fully visible UNDER the blackout; only the blackout fades.
+   */
+  body.loading-active {
+    background: #000;
+  }
+  body.loading-active > header,
+  body.loading-active > main,
+  body.loading-active > #infoBanner,
+  body.loading-active > #notice {
+    opacity: 0;
+    visibility: hidden;
+  }
+  body.dashboard-ready > header,
+  body.dashboard-ready > main,
+  body.dashboard-ready > #infoBanner,
+  body.dashboard-ready > #notice {
+    opacity: 1;
+    visibility: visible;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #astroLoad .drift { animation-duration: .01s; }
+    #astroLoad .pulse { animation: none; }
+    #astroBlackout { transition-duration: .01s; }
+  }
+
+  /* Small offline note — bottom-right, does not block the board */
+  #offlineChip {
+    position: fixed;
+    right: 10px;
+    bottom: 8px;
+    z-index: 9000;
+    max-width: min(240px, 42vw);
+    padding: 5px 10px;
+    border-radius: 4px;
+    background: rgba(7, 21, 37, 0.82);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    line-height: 1.3;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.25s ease;
+  }
+  #offlineChip.show {
+    opacity: 1;
+    visibility: visible;
+  }
+  body.compact #offlineChip {
+    font-size: 10px;
+    padding: 4px 8px;
+    bottom: 6px;
+    right: 8px;
+  }
+  body.loading-active #offlineChip { display: none; }
+
 </style>
 </head>
-<body>
+<body class="loading-active">
+
+<div id="astroLoad" aria-hidden="true">
+  <div class="stage">
+    <div class="logo" id="astroLogo">
+      <img class="gray" alt="" src="/astrolabs-logo.png">
+      <img class="color" id="astroColor" alt="" src="/astrolabs-logo.png">
+    </div>
+  </div>
+</div>
+<div id="astroBlackout"></div>
+
 <div id="sourceBanner" role="status"></div>
+<div id="offlineChip" role="status" aria-live="polite">No internet connection</div>
   <header>
     <div class="brand">
-      <img class="roundel" src="/roundel.png" alt="RAF Air Cadets roundel">
+      <img class="roundel" id="unitLogo" src="/theme-logo" alt="Unit crest">
       <div class="brand-text"><h1 id="squadronName">Your Squadron</h1></div>
     </div>
     <div class="clockbox">
@@ -436,6 +782,10 @@
         <div class="insta-wrap" id="instaWrap"></div>
       </div>
 
+      <div class="rotate-pane" id="cocPane">
+        <div id="cocTree"></div>
+      </div>
+
       <div class="rotate-pane" id="noWidgetsPane">
         <div>No widgets are switched on.<br>Tick some on the /edit page.</div>
       </div>
@@ -449,6 +799,158 @@
 <div id="notice"><div class="notice-card"><div class="notice-title">Notice</div><div id="noticeText"></div></div></div>
 
 <script>
+
+// ---- Astro Labs loading screen + prefetch ----
+(function() {
+  const logo = document.getElementById('astroLogo');
+  const color = document.getElementById('astroColor');
+  const blackout = document.getElementById('astroBlackout');
+  const loadEl = document.getElementById('astroLoad');
+  if (!logo || !color || !blackout || !loadEl) return;
+
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const ease = t => t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+
+  // Artwork spans roughly 8%..91% of the image height
+  const TOP = 0.08, BOT = 0.91;
+  const setP = p => {
+    color.style.clipPath = 'inset(' + ((BOT - (BOT - TOP) * p) * 100).toFixed(2) + '% 0 0 0)';
+  };
+
+  function schedule(total) {
+    // Build a path that moves between random fill points and pauses at them
+    const stops = [0];
+    const nStops = Math.floor(rand(3, 7)); // 3–6 intermediate holds
+    for (let i = 0; i < nStops; i++) stops.push(rand(0.08, 0.92));
+    stops.push(1);
+    stops.sort((a, b) => a - b);
+    // Deduplicate very close points
+    const points = [0];
+    for (let i = 1; i < stops.length; i++) {
+      if (stops[i] - points[points.length - 1] >= 0.04) points.push(stops[i]);
+      else if (i === stops.length - 1) points[points.length - 1] = 1;
+    }
+    if (points[points.length - 1] < 1) points.push(1);
+
+    const segs = [];
+    for (let i = 0; i < points.length - 1; i++) {
+      const from = points[i], to = points[i + 1];
+      // Move: duration weight varies so some advances are snappy, some slow
+      segs.push({ move: true, w: rand(0.5, 2.2), from, to });
+      // Pause at this point (always, except we may skip a short hold near the end)
+      if (to < 0.98) {
+        // Mix of short ticks and longer "stuck" pauses
+        const longHold = Math.random() < 0.35;
+        segs.push({
+          move: false,
+          w: longHold ? rand(1.2, 3.5) : rand(0.25, 1.1),
+          from: to,
+          to: to
+        });
+      }
+    }
+    // Rare extra stutter near the end
+    if (Math.random() < 0.45) {
+      const lastMove = segs.filter(s => s.move).pop();
+      if (lastMove && lastMove.to > 0.7) {
+        const mid = lastMove.from + (lastMove.to - lastMove.from) * rand(0.4, 0.75);
+        const idx = segs.indexOf(lastMove);
+        segs.splice(idx, 1,
+          { move: true, w: rand(0.4, 1.2), from: lastMove.from, to: mid },
+          { move: false, w: rand(0.8, 2.5), from: mid, to: mid },
+          { move: true, w: rand(0.4, 1.2), from: mid, to: lastMove.to }
+        );
+      }
+    }
+
+    const sum = segs.reduce((a, s) => a + s.w, 0) || 1;
+    segs.forEach(s => { s.ms = Math.max(40, s.w / sum * total); });
+    return segs;
+  }
+
+  function run(segs) {
+    return new Promise(res => {
+      let i = 0, start = performance.now();
+      (function tick(now) {
+        const s = segs[i], t = Math.min(1, (now - start) / s.ms);
+        setP(s.move ? s.from + (s.to - s.from) * ease(t) : s.from);
+        if (t >= 1) {
+          i++; start = now;
+          if (i >= segs.length) { setP(1); return res(); }
+        }
+        requestAnimationFrame(tick);
+      })(performance.now());
+    });
+  }
+
+  // Prefetch dashboard APIs while the logo animation runs
+  window.__prefetchPromise = (async function prefetch() {
+    const results = {};
+    const get = async (key, url) => {
+      try {
+        const r = await fetch(url, { cache: 'no-store' });
+        if (r.ok) results[key] = await r.json();
+      } catch (e) { /* ignore; live load will retry */ }
+    };
+    await Promise.all([
+      get('data', '/api/data'),
+      get('weather', '/api/weather'),
+      get('leaderboard', '/api/leaderboard'),
+      get('news', '/api/news'),
+      get('events', '/api/events'),
+      get('uniform', '/api/uniform')
+    ]);
+    return results;
+  })();
+
+  window.__astroLoadingDone = (async function play() {
+    // Prefer a custom loading logo from settings (transparent PNG recommended)
+    try {
+      const r = await fetch('/api/data', { cache: 'no-store' });
+      if (r.ok) {
+        const d = await r.json();
+        const logo = d && d.branding && d.branding.loadingLogo;
+        if (logo && typeof logo === 'string' && logo.startsWith('data:image/')) {
+          const gray = logo.querySelector('img.gray');
+          if (gray) gray.src = logo;
+          color.src = logo;
+        }
+      }
+    } catch (e) { /* keep default Astro Labs logo */ }
+
+    // start in full colour
+    color.style.transition = 'none';
+    color.style.opacity = 1;
+    color.style.clipPath = 'inset(0 0 0 0)';
+    await sleep(1000);                                   // 1s delay on page open
+
+    logo.classList.add('drift'); await sleep(1400);      // drift up + fade in
+    logo.classList.remove('drift'); logo.style.opacity = 1;
+
+    logo.classList.add('pulse');                         // 1st pulse, colour fades out
+    color.style.transition = 'opacity .85s ease';
+    color.style.opacity = 0;
+    await sleep(900);
+    logo.classList.remove('pulse');
+
+    await sleep(1000);                                   // 1s delay before loading begins
+
+    color.style.transition = 'none';                     // refill from the bottom
+    color.style.clipPath = 'inset(100% 0 0 0)';
+    color.style.opacity = 1;
+    void color.offsetWidth;
+    await run(schedule(rand(6, 18) * 1000));             // random 6-18s; pauses at random fill points
+
+    logo.classList.add('pulse'); await sleep(850);       // 2nd pulse
+    logo.classList.remove('pulse');
+
+    await sleep(1000);                                   // 1s delay before black
+    blackout.classList.add('on');                        // fade to black
+    await sleep(1500);                                   // wait for blackout transition
+  })();
+})();
+
 let errorReportUrl = '';
 let lastInstagramEmbedCode = '';
 let lastWeatherEmbedCode = '';
@@ -459,13 +961,14 @@ let eventsPages = [];
 let eventsPageIndex = 0;
 let isCompact = false;               // small-screen layout active?
 let layoutSetting = 'auto';          // auto | full | compact (from /edit)
-let widgetFlags = { leaderboard: true, news: true, events: true, instagram: true, uniform: true };
+let widgetFlags = { leaderboard: true, news: true, events: true, instagram: true, uniform: true, chainOfCommand: false };
 let latestUniform = { thisWeek: [], nextWeek: [] };
 let eventsLoaded = false;
 let customWidgets = [];              // extra embed widgets from /edit
 const customMounted = {};            // widget id -> embed code currently mounted
 let weatherEmbedCodeSetting = '';
 let currentBannerMessage = null;
+let latestChainOfCommand = { people: [] };
 
 // Snapshot each rotating pane's original markup so it can be restored after an
 // error state (showError fully replaces a pane's contents with an error box).
@@ -484,7 +987,6 @@ function ensurePaneSkeleton(paneId) {
   }
   return pane;
 }
-
 
 // Events pane shows up to 3 events per page and cycles through them. The "see all
 // events" QR code sits permanently on the right-hand side of the pane.
@@ -747,7 +1249,8 @@ function applyWidgetSettings(data) {
     news: f.news !== false,
     events: f.events !== false,
     instagram: f.instagram !== false,
-    uniform: f.uniform !== false
+    uniform: f.uniform !== false,
+    chainOfCommand: !!f.chainOfCommand
   };
   if (widgetFlags.leaderboard && !prev.leaderboard) loadLeaderboard();
 
@@ -765,6 +1268,11 @@ function applyWidgetSettings(data) {
     lastInstagramEmbedCode = '';
     document.getElementById('instaWrap').innerHTML = '';
   }
+
+  // Chain of Command people from settings
+  const coc = data.chainOfCommand && Array.isArray(data.chainOfCommand.people) ? data.chainOfCommand.people : [];
+  latestChainOfCommand = { people: coc };
+  if (widgetFlags.chainOfCommand) renderChainOfCommand();
 
   syncCustomPanes(data.customWidgets);
 }
@@ -809,6 +1317,7 @@ async function loadSettings() {
     const data = await res.json();
     if (!data || typeof data !== 'object') throw new Error('settings response invalid');
     errorReportUrl = data.errorReportUrl || '';
+    applyUnitTheme(data.theme);
     if (data.squadronName) document.getElementById('squadronName').textContent = data.squadronName;
     if (data.location && data.location.name) {
       document.getElementById('weatherLocationName').textContent = data.location.name;
@@ -883,8 +1392,12 @@ function renderLeaderboardFromCache() {
   if (key === lastLbKey) return;
   lastLbKey = key;
 
-  indivBody.innerHTML = rows.map((r, i) =>
-    `<tr><td class="rank">${i+1}</td><td>${esc(r.name)}</td><td class="points">${esc(r.points)}</td></tr>`).join('');
+  if (!rows.length) {
+    indivBody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--muted);font-weight:600;padding:16px 12px;">No leaderboard data — check the CSV URL on /edit</td></tr>';
+  } else {
+    indivBody.innerHTML = rows.map((r, i) =>
+      `<tr><td class="rank">${i+1}</td><td>${esc(r.name)}</td><td class="points">${esc(r.points)}</td></tr>`).join('');
+  }
 
   if (hasFlight) {
     flightTable.style.display = '';
@@ -931,9 +1444,8 @@ async function loadNews() {
     if (list && list.querySelector('.news-card')) {
       if (stamp) { stamp.textContent = 'Offline – last headlines kept'; stamp.classList.add('stale'); }
     } else {
-      list.innerHTML = '';
-      if (stamp) { stamp.textContent = ''; stamp.classList.remove('stale'); }
-      showError(list.parentElement || list, 'news', e.message || String(e));
+      list.innerHTML = '<div class="news-offline" style="text-align:center;color:var(--muted);padding:24px 16px;font-weight:600;line-height:1.4;">News unavailable<br><span style="font-weight:500;font-size:0.9em;">No internet or BBC feed unreachable</span></div>';
+      if (stamp) { stamp.textContent = 'Offline'; stamp.classList.add('stale'); }
     }
   }
 }
@@ -943,10 +1455,10 @@ async function loadLeaderboard() {
   const pane = ensurePaneSkeleton('lbPane');
   try {
     const lb = await apiJson('/api/leaderboard');
-    if (!lb.rows || !lb.rows.length) throw new Error(lb.note || 'No leaderboard rows returned');
-    cachedLb = lb;
+    // Empty is valid — show friendly empty state rather than a hard error
+    cachedLb = lb || { rows: [], flightRows: [] };
     lastLbKey = '';
-    setStamp('lbPane', lb.updatedAt, lb.stale);
+    setStamp('lbPane', lb && lb.updatedAt, !!(lb && lb.stale));
     renderLeaderboardFromCache();
   } catch (e) {
     // Keep last good table; only show error if we never had data.
@@ -1051,17 +1563,362 @@ function renderUniform() {
 }
 const hasUniform = () => latestUniform.thisWeek.length + latestUniform.nextWeek.length > 0;
 
+let cocResizeObs = null;
+let cocScaleRaf = 0;
+
+
+let currentUnitTheme = '';
+function normalizeTheme(theme) {
+  const t = String(theme || 'rafac').toLowerCase();
+  if (t === 'army') return 'acf';
+  if (t === 'sea' || t === 'seacadets') return 'scc';
+  if (['rafac','acf','scc','ccf','vcc'].includes(t)) return t;
+  return 'rafac';
+}
+function applyUnitTheme(theme) {
+  const t = normalizeTheme(theme);
+  if (t === currentUnitTheme && document.body.getAttribute('data-theme') === t) {
+    return;
+  }
+  currentUnitTheme = t;
+  document.body.setAttribute('data-theme', t);
+  const logo = document.getElementById('unitLogo');
+  if (logo) {
+    logo.src = '/theme-logo?t=' + encodeURIComponent(t) + '&_=' + Date.now();
+    const alts = { rafac: 'RAF Air Cadets', acf: 'Army Cadets', scc: 'Sea Cadets', ccf: 'Combined Cadet Force', vcc: 'Volunteer Cadet Corps' };
+    logo.alt = alts[t] || 'Unit crest';
+  }
+}
+
+function layoutCocTree() {
+  const pane = document.getElementById('cocPane');
+  const scaleEl = document.getElementById('cocScale');
+  const tree = document.getElementById('cocTreeInner');
+  const svg = document.getElementById('cocSvg');
+  if (!pane || !scaleEl || !tree || !svg) return;
+
+  scaleEl.style.transform = 'scale(1)';
+  const paneW = pane.clientWidth;
+  const paneH = pane.clientHeight;
+  if (paneW < 40 || paneH < 40) return;
+
+  const treeRect = tree.getBoundingClientRect();
+  const rows = [...tree.querySelectorAll('.coc-level-row')];
+  const paths = [];
+
+  // Parent level → child level: trunk down, horizontal bus, drop into each child
+  for (let i = 0; i < rows.length - 1; i++) {
+    const upperNodes = [...rows[i].querySelectorAll(':scope > .coc-level > .coc-node-wrap > .coc-node')];
+    const lowerNodes = [...rows[i + 1].querySelectorAll(':scope > .coc-level > .coc-node-wrap > .coc-node')];
+    if (!upperNodes.length || !lowerNodes.length) continue;
+
+    const upRects = upperNodes.map(n => n.getBoundingClientRect());
+    const loRects = lowerNodes.map(n => n.getBoundingClientRect());
+
+    const parentBottom = Math.max(...upRects.map(r => r.bottom)) - treeRect.top;
+    const parentMidX = (Math.min(...upRects.map(r => r.left)) + Math.max(...upRects.map(r => r.right))) / 2 - treeRect.left;
+
+    const childTops = loRects.map(r => r.top - treeRect.top);
+    const childXs = loRects.map(r => r.left + r.width / 2 - treeRect.left);
+    const minChildTop = Math.min(...childTops);
+    // Bus sits between levels; keep at least 10px so the vertical is visible
+    let busY = (parentBottom + minChildTop) / 2;
+    if (minChildTop - parentBottom < 12) busY = parentBottom + Math.max(6, (minChildTop - parentBottom) / 2);
+
+    const minX = Math.min(parentMidX, ...childXs);
+    const maxX = Math.max(parentMidX, ...childXs);
+
+    // Trunk from parent group down to bus
+    paths.push('M ' + parentMidX.toFixed(1) + ' ' + parentBottom.toFixed(1) + ' V ' + busY.toFixed(1));
+    // Horizontal bus across children (and parent mid if outside)
+    if (Math.abs(maxX - minX) > 0.5) {
+      paths.push('M ' + minX.toFixed(1) + ' ' + busY.toFixed(1) + ' H ' + maxX.toFixed(1));
+    }
+    // Drop from bus into each child
+    childXs.forEach((cx, idx) => {
+      paths.push('M ' + cx.toFixed(1) + ' ' + busY.toFixed(1) + ' V ' + childTops[idx].toFixed(1));
+    });
+  }
+
+  const w = Math.max(1, tree.scrollWidth || tree.offsetWidth);
+  const h = Math.max(1, tree.scrollHeight || tree.offsetHeight);
+  svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+  svg.style.width = w + 'px';
+  svg.style.height = h + 'px';
+  svg.innerHTML = paths.map(d => '<path d="' + d + '"/>').join('');
+
+  const naturalW = tree.offsetWidth;
+  const naturalH = tree.offsetHeight;
+  if (naturalW < 1 || naturalH < 1) return;
+  const pad = 16;
+  const scale = Math.min(1, (paneW - pad) / naturalW, (paneH - pad) / naturalH);
+  scaleEl.style.transform = 'scale(' + scale.toFixed(4) + ')';
+}
+
+
+// Offline disclaimer (bottom-right)
+function updateOfflineChip(offline) {
+  const el = document.getElementById('offlineChip');
+  if (!el) return;
+  if (offline) el.classList.add('show');
+  else el.classList.remove('show');
+}
+function initConnectivityWatch() {
+  window.addEventListener('online', () => { updateOfflineChip(false); probeConnectivity(); });
+  window.addEventListener('offline', () => updateOfflineChip(true));
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) updateOfflineChip(true);
+  async function probeConnectivity() {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      updateOfflineChip(true);
+      return;
+    }
+    try {
+      const r = await fetch('/healthz?_=' + Date.now(), { cache: 'no-store', signal: AbortSignal.timeout(4000) });
+      if (!r.ok) { updateOfflineChip(true); return; }
+    } catch (e) {
+      updateOfflineChip(true);
+      return;
+    }
+    try {
+      await fetch('https://api.open-meteo.com/v1/forecast?latitude=0&longitude=0&current=temperature_2m', {
+        cache: 'no-store', mode: 'cors', signal: AbortSignal.timeout(5000)
+      });
+      updateOfflineChip(false);
+    } catch (e) {
+      updateOfflineChip(true);
+    }
+  }
+  setInterval(probeConnectivity, 60000);
+  setTimeout(probeConnectivity, 3000);
+}
+initConnectivityWatch();
+
+function scheduleCocLayout() {
+  cancelAnimationFrame(cocScaleRaf);
+  cocScaleRaf = requestAnimationFrame(() => requestAnimationFrame(layoutCocTree));
+}
+
+function renderChainOfCommand() {
+  const host = document.getElementById('cocTree');
+  if (!host) return;
+  const people = (latestChainOfCommand && latestChainOfCommand.people) || [];
+  if (!people.length) {
+    if (cocResizeObs) { try { cocResizeObs.disconnect(); } catch (e) {} cocResizeObs = null; }
+    host.innerHTML = '<div class="coc-empty">Chain of Command is on, but no people are set up yet.<br>Open <strong>/edit</strong> → Chain of Command to add ranks and names<br>(or use <strong>Load sample hierarchy</strong> to try it).</div>';
+    return;
+  }
+
+  // Group by level (0 = top). Peers on the same level; each level reports to the one above.
+  // Sort within level by RAFAC rank seniority (highest first), then name.
+  const theme = normalizeTheme(document.body.getAttribute('data-theme') || 'rafac');
+  const RANK_ORDERS = {
+    rafac: ['Air Cdre','Gp Capt','Wg Cdr','Sqn Ldr','Flt Lt','Fg Off','Plt Off','APO','WO','FS','Sgt','A/Sgt','Civilian','CWO','Cdt FS','Cdt Sgt','Cdt Cpl','Cdt'],
+    acf: ['Brig','Col','Lt Col','Maj','Capt','Lt','2Lt','AUO','WO1','WO2','SSgt Instr','Sgt Instr','PI','Civilian','CUO','Cdt RSM','Cdt CSM','Cdt SSgt','Cdt Sgt','Cdt Cpl','Cdt LCpl','Cdt','Cdt Recruit'],
+    scc: ['Capt','Cdr','Lt Cdr','Lt','SLt','Mid','WO','CPO','PO','CI','POC','LC','AC','OC','Cdt','NE'],
+    ccf: ['Lt Cdr','Lt RN','SLt','Mid','CPO','PO','Lt Col','Maj','Capt','Lt','2Lt','WO','SSI','Sgt','Sqn Ldr','Flt Lt','Fg Off','Plt Off','FS','CUO','CWO','Cdt FS','Cdt Sgt','Cdt Cpl','Cdt LCpl','Cdt','CI'],
+    vcc: ['Maj','Capt','Lt','2Lt','SLt','WO1','WO2','CSgt','Sgt','CI','Cdt WO1','Cdt WO2','Cdt Sgt','Cdt Cpl','Cdt LCpl','Cdt','Recruit']
+  };
+  const RANK_ORDER = RANK_ORDERS[theme] || RANK_ORDERS.rafac;
+  const rankIdx = r => { const i = RANK_ORDER.indexOf(r || ''); return i < 0 ? 999 : i; };
+  const byLevel = {};
+  people.forEach(p => {
+    const lv = Math.max(0, Math.min(20, parseInt(p.level, 10) || 0));
+    if (!byLevel[lv]) byLevel[lv] = [];
+    byLevel[lv].push(p);
+  });
+  Object.keys(byLevel).forEach(lv => {
+    byLevel[lv].sort((a, b) => {
+      const d = rankIdx(a.rank) - rankIdx(b.rank);
+      if (d) return d;
+      return String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' });
+    });
+  });
+  const levels = Object.keys(byLevel).map(Number).sort((a, b) => a - b);
+
+  function nodeHtml(node) {
+    const initials = (node.name || '?').split(/\s+/).map(s => s[0] || '').join('').slice(0, 2).toUpperCase();
+    const bg = (node.color && /^#[0-9A-Fa-f]{6}$/.test(node.color)) ? node.color : '';
+    const photoHtml = node.photo
+      ? '<img class="coc-photo" src="' + String(node.photo).replace(/"/g, '&quot;') + '" alt="">'
+      : '<div class="coc-photo placeholder"' + (bg ? ' style="background:' + bg + '"' : '') + '>' + esc(initials) + '</div>';
+    return '<div class="coc-node-wrap" data-id="' + esc(node.id) + '"><div class="coc-node">' +
+      photoHtml +
+      '<div class="coc-rank">' + esc(node.rank || '') + '</div>' +
+      '<div class="coc-name">' + esc(node.name || '') + '</div>' +
+      (node.tag ? '<div class="coc-tag">' + esc(node.tag) + '</div>' : '') +
+      '</div></div>';
+  }
+
+  let levelsHtml = '';
+  levels.forEach((lv, idx) => {
+    levelsHtml += '<div class="coc-level-row" data-level="' + lv + '">' +
+      '<div class="coc-level">' + byLevel[lv].map(nodeHtml).join('') + '</div>' +
+      (idx < levels.length - 1 ? '<div class="coc-level-connector" aria-hidden="true"></div>' : '') +
+      '</div>';
+  });
+
+  host.innerHTML =
+    '<div class="coc-viewport"><div class="coc-scale" id="cocScale">' +
+    '<div class="coc-tree" id="cocTreeInner">' +
+    '<svg class="coc-svg" id="cocSvg" aria-hidden="true"></svg>' +
+    levelsHtml +
+    '</div></div></div>';
+
+  scheduleCocLayout();
+
+  const pane = document.getElementById('cocPane');
+  if (pane && typeof ResizeObserver !== 'undefined') {
+    if (cocResizeObs) { try { cocResizeObs.disconnect(); } catch (e) {} }
+    cocResizeObs = new ResizeObserver(() => scheduleCocLayout());
+    cocResizeObs.observe(pane);
+  }
+  window.addEventListener('resize', scheduleCocLayout);
+}
+
 async function refreshAll() {
   await loadSettings();
   await loadWeather();
   await loadLeaderboard();
   await loadNews();
 }
-refreshAll();
-setInterval(loadWeather, 10 * 60 * 1000);
-setInterval(loadLeaderboard, 5 * 60 * 1000);
-setInterval(loadNews, 10 * 60 * 1000);
-setInterval(loadSettings, 15 * 1000); // checks for edits made on /edit every 15 seconds
+async function bootAfterLoading() {
+  // Wait for logo animation (blackout on) and for prefetch to settle
+  let prefetched = {};
+  try {
+    const [, pref] = await Promise.all([
+      window.__astroLoadingDone || Promise.resolve(),
+      window.__prefetchPromise || Promise.resolve({})
+    ]);
+    prefetched = pref || {};
+  } catch (e) { /* continue without prefetch */ }
+
+  // Apply prefetched payloads so panes paint immediately, then run normal loaders
+  try {
+    if (prefetched.data) {
+      const data = prefetched.data;
+      errorReportUrl = data.errorReportUrl || '';
+      eventsSeeMoreUrl = data.eventsSeeMoreUrl || '';
+      weatherEmbedCodeSetting = data.weatherEmbedCode || '';
+      applyWidgetSettings(data);
+      applyWeatherMode();
+      if (data.squadronName) {
+        const h = document.getElementById('squadronName');
+        if (h) h.textContent = data.squadronName;
+      }
+      if (data.location && data.location.name) {
+        const el = document.getElementById('weatherLocationName');
+        if (el) el.textContent = data.location.name;
+      }
+      const info = data.importantInfo || {};
+      const banner = document.getElementById('infoBanner');
+      if (banner) {
+        if (info.enabled && info.message && String(info.message).trim()) {
+          banner.classList.add('visible');
+          currentBannerMessage = String(info.message).trim();
+          updateBannerTicker(currentBannerMessage, (info.title && info.title.trim()) || 'IMPORTANT INFORMATION');
+        } else {
+          banner.classList.remove('visible');
+          currentBannerMessage = null;
+        }
+      }
+      if (!eventsLoaded) latestEvents = data.events || [];
+      rebuildEventsPages();
+      updatePanes();
+    }
+    // Seed widget panes from prefetched API responses when present
+    if (prefetched.weather && prefetched.weather.current && !weatherEmbedActive) {
+      try {
+        const c = prefetched.weather.current;
+        const box = document.getElementById('weatherContent');
+        if (box) {
+          box.innerHTML =
+            '<div class="temp">' + Math.round(c.temperature_2m) + '&deg;</div>' +
+            '<div class="feels">Feels like ' + Math.round(c.apparent_temperature ?? c.temperature_2m) + '&deg;</div>' +
+            '<div class="condition">' + (WEATHER_CODES[c.weather_code] || 'Unknown') + '</div>';
+        }
+      } catch (e) {}
+    }
+    if (prefetched.leaderboard && prefetched.leaderboard.rows) {
+      try {
+        cachedLb = prefetched.leaderboard;
+        lastLbKey = '';
+        setStamp('lbPane', prefetched.leaderboard.updatedAt, prefetched.leaderboard.stale);
+        renderLeaderboardFromCache();
+      } catch (e) {}
+    }
+    if (prefetched.news) {
+      try {
+        // loadNews will re-fetch; stash is enough that first paint after reveal is fast
+      } catch (e) {}
+    }
+    if (prefetched.events) {
+      try {
+        const r = prefetched.events;
+        latestEvents = r.events || r.items || latestEvents;
+        eventsLoaded = true;
+        rebuildEventsPages();
+        if (r.calendar) updateSourceBanner(r.calendar);
+      } catch (e) {}
+    }
+    if (prefetched.uniform) {
+      try {
+        latestUniform = {
+          thisWeek: prefetched.uniform.thisWeek || [],
+          nextWeek: prefetched.uniform.nextWeek || []
+        };
+        renderUniform();
+      } catch (e) {}
+    }
+    updatePanes();
+  } catch (e) { console.warn('prefetch apply failed', e); }
+
+  // Kick normal refresh pipeline (fresh network data; UI already seeded)
+  await refreshAll();
+
+  // Reveal: (1) stay fully black, (2) kill loader + show board under black, (3) then fade black out
+  const loadEl = document.getElementById('astroLoad');
+  const blackout = document.getElementById('astroBlackout');
+
+  // Ensure blackout is fully opaque before we swap what sits underneath it
+  if (blackout) {
+    blackout.classList.add('on');
+    blackout.classList.remove('fadeout');
+    blackout.style.transition = 'none';
+    blackout.style.opacity = '1';
+    void blackout.offsetWidth; // force paint
+  }
+
+  // Instantly remove the beige loading screen (still under black — user never sees this)
+  if (loadEl) {
+    loadEl.classList.add('gone');
+    loadEl.remove();
+  }
+
+  // Make the real dashboard fully visible under the blackout (no concurrent fade)
+  document.body.classList.remove('loading-active');
+  document.body.classList.add('dashboard-ready');
+
+  // Give the browser a frame to paint the board under the black, then fade blackout only
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      if (blackout) {
+        blackout.style.transition = 'opacity 1.2s ease';
+        blackout.classList.add('fadeout');
+        blackout.classList.remove('on');
+        blackout.style.opacity = '0';
+        setTimeout(() => {
+          if (blackout.parentNode) blackout.remove();
+        }, 1300);
+      }
+    });
+  });
+
+  setInterval(loadWeather, 10 * 60 * 1000);
+  setInterval(loadLeaderboard, 5 * 60 * 1000);
+  setInterval(loadNews, 10 * 60 * 1000);
+  setInterval(loadSettings, 15 * 1000); // checks for edits made on /edit every 15 seconds
+}
+bootAfterLoading();
 
 // ---- Reload when the server restarts (e.g. after an auto-update) ----
 let bootId = null;
@@ -1105,6 +1962,7 @@ function computePanes() {
   if (widgetFlags.events) list.push({ id: 'eventsPane', title: 'Latest Events' });
   if (widgetFlags.uniform && hasUniform()) list.push({ id: 'uniformPane', title: 'Uniform' });
   if (widgetFlags.instagram && lastInstagramEmbedCode) list.push({ id: 'socialsPane', title: 'Follow Us' });
+  if (widgetFlags.chainOfCommand) list.push({ id: 'cocPane', title: 'Chain of Command' });
   customWidgets.forEach(w => {
     if (w.enabled && (w.embedCode || '').trim()) {
       list.push({ id: 'cw-' + w.id, title: (w.title || '').trim() || (w.name || '').trim() || 'Widget' });
@@ -1128,6 +1986,7 @@ function showPane(i) {
   renderStamp(p.id);
   if (p.id === 'eventsPane') startEventsRotation();
   else clearInterval(eventsTimer);
+  if (p.id === 'cocPane') scheduleCocLayout();
 }
 
 // Every pane gets 10s, except events which gets 10s per page of events
