@@ -71,9 +71,16 @@
     height: 100vh;
     overflow: hidden;
     display: grid;
-    grid-template-rows: auto 1fr auto;
+    /* Four explicit rows: stale-feed banner, header, main, info banner. Each direct child is
+       pinned to its own row below so a banner appearing/disappearing (offline mode) can never
+       shift the header into the stretchy 1fr row. Empty auto rows collapse to 0 height. */
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
     grid-template-columns: minmax(0, 1fr);
   }
+  body > #sourceBanner { grid-row: 1; }
+  body > header { grid-row: 2; }
+  body > main { grid-row: 3; }
+  body > #infoBanner { grid-row: 4; }
   header {
     display: flex;
     justify-content: space-between;
