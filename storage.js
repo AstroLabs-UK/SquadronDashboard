@@ -188,6 +188,9 @@ function createStore({ dir, defaults, legacyDir, snapDir }) {
         if (v === '' || isHttpUrl(v)) out[k] = v;
       }
     }
+    if (typeof incoming.showFlightLeaderboard === 'boolean') {
+      out.showFlightLeaderboard = incoming.showFlightLeaderboard;
+    }
     // Calendar feed (Google Calendar "secret address in iCal format" etc.). webcal:// is https:// under another name.
     if (isStr(incoming.icsUrl)) {
       const v = incoming.icsUrl.trim().replace(/^webcal:\/\//i, 'https://');

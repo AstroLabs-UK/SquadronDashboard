@@ -969,6 +969,7 @@ let eventsPageIndex = 0;
 let isCompact = false;               // small-screen layout active?
 let layoutSetting = 'auto';          // auto | full | compact (from /edit)
 let widgetFlags = { leaderboard: true, news: true, events: true, instagram: true, uniform: true, chainOfCommand: false };
+let showFlightLeaderboard = true;
 let latestUniform = { thisWeek: [], nextWeek: [] };
 let eventsLoaded = false;
 let customWidgets = [];              // extra embed widgets from /edit
@@ -1259,7 +1260,9 @@ function applyWidgetSettings(data) {
     uniform: f.uniform !== false,
     chainOfCommand: !!f.chainOfCommand
   };
+  showFlightLeaderboard = data.showFlightLeaderboard !== false;
   if (widgetFlags.leaderboard && !prev.leaderboard) loadLeaderboard();
+  else if (widgetFlags.leaderboard) renderLeaderboardFromCache();
 
   // News is the built-in BBC scrape – just ensure we (re)load when the widget is enabled
   if (widgetFlags.news && !prev.news) loadNews();
@@ -1390,12 +1393,12 @@ function renderLeaderboardFromCache() {
 
   // Fixed counts on all screen sizes: top 5 individual, top 3 flights
   const rows = (cachedLb.rows || []).slice(0, 5);
-  const flightSrc = (cachedLb.flightRows || []).filter(r => {
+  const flightSrc = showFlightLeaderboard ? (cachedLb.flightRows || []).filter(r => {
     const k = String(r.flight || '').trim().toLowerCase();
     return k && k !== 'n/a' && k !== 'na' && k !== '-' && k !== 'none';
-  }).slice(0, 3);
-  const hasFlight = flightSrc.length > 0;
-  const key = JSON.stringify([rows, flightSrc]);
+  }).slice(0, 3) : [];
+  const hasFlight = showFlightLeaderboard && flightSrc.length > 0;
+  const key = JSON.stringify([rows, flightSrc, showFlightLeaderboard]);
   if (key === lastLbKey) return;
   lastLbKey = key;
 
@@ -1406,12 +1409,19 @@ function renderLeaderboardFromCache() {
       `<tr><td class="rank">${i+1}</td><td>${esc(r.name)}</td><td class="points">${esc(r.points)}</td></tr>`).join('');
   }
 
-  if (hasFlight) {
+  const flightCol = flightTable && flightTable.closest('.lb-col');
+  if (!showFlightLeaderboard) {
+    if (flightCol) flightCol.style.display = 'none';
+    if (flightTable) flightTable.style.display = 'none';
+    if (flightUnavailable) flightUnavailable.style.display = 'none';
+  } else if (hasFlight) {
+    if (flightCol) flightCol.style.display = '';
     flightTable.style.display = '';
     flightUnavailable.style.display = 'none';
     flightBody.innerHTML = flightSrc.map((r, i) =>
       `<tr><td class="rank">${i+1}</td><td>${esc(r.flight)}</td><td class="points">${esc(r.points)}</td></tr>`).join('');
   } else {
+    if (flightCol) flightCol.style.display = '';
     flightTable.style.display = 'none';
     flightUnavailable.style.display = 'block';
   }
