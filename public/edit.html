@@ -886,7 +886,8 @@
     touch-action: manipulation;
   }
   .primary { background: var(--raf-navy); color: var(--white); }
-  .primary:hover { background: var(--raf-blue); }
+  .primary:hover:not(:disabled) { background: var(--raf-blue); }
+  .primary:disabled { background: #C9D1D9; color: #8A96A3; cursor: not-allowed; }
   .danger {
     background: var(--white);
     color: var(--raf-red);
@@ -1291,7 +1292,7 @@
 <p class="hint">Force update downloads new code to disk only — the display keeps running until you restart (or reboot). Use <strong>Restart now</strong> after an update if you want it applied immediately.</p>
 <div id="updateStatus"></div>
 <div class="actions" style="margin-top:8px;">
-  <button type="button" class="primary" id="restartAfterUpdateBtn" style="display:none;" onclick="restartDashboard()">Restart now</button>
+  <button type="button" class="primary" id="restartAfterUpdateBtn" onclick="restartDashboard()">Restart now</button>
 </div>
 </div>
 
@@ -1312,7 +1313,7 @@
   <div class="save-bar-inner">
     <button class="primary" type="button" onclick="save()">Save</button>
     <button class="force" type="button" id="forceBtn" onclick="forceUpdate()" disabled>Force update</button>
-    <button type="button" class="primary" id="restartAfterUpdateBtnBottom" style="display:none;" onclick="restartDashboard()">Restart now</button>
+    <button type="button" class="primary" id="restartAfterUpdateBtnBottom" onclick="restartDashboard()">Restart now</button>
     <div id="status"></div>
   </div>
 </div>
@@ -2739,8 +2740,18 @@ function hasUnsavedChanges() {
 function updateForceButton() {
   const btn = document.getElementById('forceBtn');
   const dirty = hasUnsavedChanges();
-  btn.disabled = dirty || updateInProgress;
-  btn.title = dirty ? 'Save first' : '';
+  const blocked = dirty || updateInProgress;
+  if (btn) {
+    btn.disabled = blocked;
+    btn.title = dirty ? 'Save first' : (updateInProgress ? 'Update in progress' : '');
+  }
+  // Restart now is always visible; greyed out / disabled while unsaved or updating
+  for (const id of ['restartAfterUpdateBtn', 'restartAfterUpdateBtnBottom']) {
+    const rb = document.getElementById(id);
+    if (!rb) continue;
+    rb.disabled = blocked;
+    rb.title = dirty ? 'Save first' : (updateInProgress ? 'Update in progress' : '');
+  }
 }
 ['input', 'change', 'click'].forEach(ev =>
   document.addEventListener(ev, () => setTimeout(() => {
@@ -3365,20 +3376,11 @@ async function importConfig(input) {
   }
 }
 
-function setRestartButtonsVisible(show) {
-  const display = show ? '' : 'none';
-  const rb = document.getElementById('restartAfterUpdateBtn');
-  const rbBottom = document.getElementById('restartAfterUpdateBtnBottom');
-  if (rb) rb.style.display = display;
-  if (rbBottom) rbBottom.style.display = display;
-}
 function showUpdateStatus(text, isError) {
   const el = document.getElementById('updateStatus');
   el.textContent = text;
   el.className = isError ? 'error' : '';
-  if (!isError && text && /next launch|updated|done|applied/i.test(text)) {
-    setRestartButtonsVisible(true);
-  }
+  updateForceButton();
 }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -3402,6 +3404,11 @@ async function loadVersionInfo() {
 }
 
 async function restartDashboard() {
+  if (hasUnsavedChanges()) {
+    alert('Save your changes first before restarting.');
+    return;
+  }
+  if (updateInProgress) return;
   if (!confirm('Restart the dashboard now? The room screen will reload in a few seconds.')) return;
   const el = document.getElementById('updateStatus');
   if (el) el.textContent = 'Restarting…';
@@ -3451,7 +3458,7 @@ async function forceUpdate() {
       const msg = st.message || st.state || '';
       if (st.state === 'done' || /next launch|updated|up to date|nothing to update|re-applied/i.test(msg)) {
         showUpdateStatus(msg || 'Update finished');
-        setRestartButtonsVisible(true);
+        updateForceButton();
         await loadVersionInfo();
         return;
       }
@@ -3487,8 +3494,16 @@ load();
       fetch('/api/auth/logout', { method: 'POST', keepalive: true, credentials: 'same-origin' });
     } catch (e) {}
   }
+  function onBeforeUnload(e) {
+    signOutOnLeave();
+    if (typeof hasUnsavedChanges === 'function' && hasUnsavedChanges()) {
+      e.preventDefault();
+      e.returnValue = '';
+      return '';
+    }
+  }
   window.addEventListener('pagehide', signOutOnLeave);
-  window.addEventListener('beforeunload', signOutOnLeave);
+  window.addEventListener('beforeunload', onBeforeUnload);
 
   let idleTimer = null;
   let countdownTimer = null;
@@ -3544,7 +3559,7 @@ load();
   async function expireNow() {
     hidePrompt();
     window.removeEventListener('pagehide', signOutOnLeave);
-    window.removeEventListener('beforeunload', signOutOnLeave);
+    window.removeEventListener('beforeunload', onBeforeUnload);
     try {
       await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
     } catch (e) {}
