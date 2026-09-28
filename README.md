@@ -4,6 +4,7 @@ Self-hosted room screen for UK cadet units. Themes for **RAF Air Cadets (RAFAC /
 
 Clock, weather, BBC news, individual and flight leaderboard, events, uniform of the week, Instagram or custom embeds, and a **Chain of Command** panel. Configure from a phone-friendly `/edit` page. Health checks on `/status`.
 
+**Version:** 1.9.0  
 **Repo:** [github.com/AstroLabs-UK/SquadronDashboard](https://github.com/AstroLabs-UK/SquadronDashboard)
 
 ---
@@ -34,7 +35,7 @@ On **first run only**, the installer asks (interactive terminal):
 - Install **Chromium** for kiosk?
 - Install a **desktop** (for Raspberry Pi OS Lite)?
 - Which **unit theme**?
-- Set an **editor PIN** now, or generate a random one?
+- Choose an **editor PIN** (enter and confirm — this is saved for `/edit`)
 
 Re-running `install.sh` later skips that menu. Non-interactive: `INSTALL_NONINTERACTIVE=1` or `./install.sh --yes`.
 
@@ -44,7 +45,7 @@ Re-running `install.sh` later skips that menu. Non-interactive: `INSTALL_NONINTE
 - Install npm dependencies and run the app as a **systemd** service (starts on boot, restarts on crash)
 - Set up optional auto-update and auto-shutdown
 - Put `sqndash` on your PATH
-- Print a random **6-digit editor PIN** — save it
+- Save the **editor PIN** you chose (or a random one only in non-interactive install)
 
 After install: display at `http://localhost:3000`, settings at `http://localhost:3000/edit`.
 
