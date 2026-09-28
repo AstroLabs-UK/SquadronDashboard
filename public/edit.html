@@ -1095,6 +1095,7 @@
 </div>
 <label for="leaderboardCsvUrl">Leaderboard CSV</label>
 <input id="leaderboardCsvUrl" placeholder="Google Sheets → Publish to web → CSV" inputmode="url">
+<label class="check"><input type="checkbox" id="showFlightLeaderboard" checked> Show flight leaderboard</label>
 <label for="eventsSeeMoreUrl">Events QR link</label>
 <input id="eventsSeeMoreUrl" placeholder="Portal events page" inputmode="url">
 <label for="errorReportUrl">Error report link</label>
@@ -1311,6 +1312,7 @@
   <div class="save-bar-inner">
     <button class="primary" type="button" onclick="save()">Save</button>
     <button class="force" type="button" id="forceBtn" onclick="forceUpdate()" disabled>Force update</button>
+    <button type="button" class="primary" id="restartAfterUpdateBtnBottom" style="display:none;" onclick="restartDashboard()">Restart now</button>
     <div id="status"></div>
   </div>
 </div>
@@ -2670,6 +2672,7 @@ function collectPayload() {
       lon: parseFloat(document.getElementById('lon').value)
     },
     leaderboardCsvUrl: document.getElementById('leaderboardCsvUrl').value,
+    showFlightLeaderboard: document.getElementById('showFlightLeaderboard').checked,
     eventsSeeMoreUrl: document.getElementById('eventsSeeMoreUrl').value,
     errorReportUrl: document.getElementById('errorReportUrl').value,
     icsUrl: document.getElementById('icsUrl').value,
@@ -2809,6 +2812,7 @@ async function load() {
   document.getElementById('lat').value = data.location.lat;
   document.getElementById('lon').value = data.location.lon;
   document.getElementById('leaderboardCsvUrl').value = data.leaderboardCsvUrl || '';
+  document.getElementById('showFlightLeaderboard').checked = data.showFlightLeaderboard !== false;
   document.getElementById('eventsSeeMoreUrl').value = data.eventsSeeMoreUrl || '';
   document.getElementById('errorReportUrl').value = data.errorReportUrl || '';
   document.getElementById('icsUrl').value = data.icsUrl || '';
@@ -3361,13 +3365,19 @@ async function importConfig(input) {
   }
 }
 
+function setRestartButtonsVisible(show) {
+  const display = show ? '' : 'none';
+  const rb = document.getElementById('restartAfterUpdateBtn');
+  const rbBottom = document.getElementById('restartAfterUpdateBtnBottom');
+  if (rb) rb.style.display = display;
+  if (rbBottom) rbBottom.style.display = display;
+}
 function showUpdateStatus(text, isError) {
   const el = document.getElementById('updateStatus');
   el.textContent = text;
   el.className = isError ? 'error' : '';
-  const rb = document.getElementById('restartAfterUpdateBtn');
-  if (rb && !isError && text && /next launch|updated|done|applied/i.test(text)) {
-    rb.style.display = '';
+  if (!isError && text && /next launch|updated|done|applied/i.test(text)) {
+    setRestartButtonsVisible(true);
   }
 }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -3441,8 +3451,7 @@ async function forceUpdate() {
       const msg = st.message || st.state || '';
       if (st.state === 'done' || /next launch|updated|up to date|nothing to update|re-applied/i.test(msg)) {
         showUpdateStatus(msg || 'Update finished');
-        const rb = document.getElementById('restartAfterUpdateBtn');
-        if (rb) rb.style.display = '';
+        setRestartButtonsVisible(true);
         await loadVersionInfo();
         return;
       }

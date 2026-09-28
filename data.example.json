@@ -7,6 +7,7 @@
     "lon": -0.1278
   },
   "leaderboardCsvUrl": "",
+  "showFlightLeaderboard": true,
   "eventsSeeMoreUrl": "https://cadets.bader.mod.uk/events",
   "errorReportUrl": "",
   "autoShutdownMinutes": 165,

@@ -45,6 +45,7 @@ const DEFAULT_DATA = {
   squadronName: "Your Squadron Name",
   location: { name: "Your Town", lat: 51.5074, lon: -0.1278 },
   leaderboardCsvUrl: "",
+  showFlightLeaderboard: true,
   eventsSeeMoreUrl: "https://cadets.bader.mod.uk/events",
   // Calendar: ICS URL (Google/Outlook/iCloud) OR built-in TimeTree login
   icsUrl: "",
