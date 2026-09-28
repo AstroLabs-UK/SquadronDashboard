@@ -123,27 +123,31 @@ if is_first_setup && [ "$NONINTERACTIVE" = "0" ]; then
   echo "-> Theme: $CHOICE_THEME"
 
   echo
-  if ask_yn "Set an editor PIN now? (n = generate a random 6-digit PIN)" "n"; then
-    while true; do
-      read -r -s -p "Enter PIN (4+ characters): " CHOICE_PIN; echo
-      read -r -s -p "Type it again: " pin2; echo
-      if [ "${#CHOICE_PIN}" -lt 4 ]; then
-        echo "  PIN must be at least 4 characters."
-        continue
-      fi
-      if [ "$CHOICE_PIN" != "$pin2" ]; then
-        echo "  Entries did not match — try again."
-        continue
-      fi
-      break
-    done
-  else
-    CHOICE_PIN=""
-  fi
+  echo "Editor PIN (protects /edit — you will need this later)"
+  while true; do
+    read -r -s -p "Enter PIN (4+ characters): " CHOICE_PIN; echo
+    read -r -s -p "Type it again: " pin2; echo
+    if [ "${#CHOICE_PIN}" -lt 4 ]; then
+      echo "  PIN must be at least 4 characters."
+      continue
+    fi
+    if [ "$CHOICE_PIN" != "$pin2" ]; then
+      echo "  Entries did not match — try again."
+      continue
+    fi
+    break
+  done
+  echo "-> PIN will be saved for /edit"
   echo
 elif is_first_setup && [ "$NONINTERACTIVE" = "1" ]; then
-  echo "-> Non-interactive first setup (defaults: no Chromium, no desktop, RAFAC theme, random PIN)"
-  echo "   Tip: run install from a terminal without --yes for the full menu."
+  echo "-> Non-interactive first setup (defaults: no Chromium, no desktop, RAFAC theme)"
+  if [ -n "${EDIT_PIN:-}" ]; then
+    CHOICE_PIN="$EDIT_PIN"
+    echo "-> Using EDIT_PIN from environment"
+  else
+    echo "-> No EDIT_PIN set — a random 6-digit PIN will be generated"
+  fi
+  echo "   Tip: run install from a terminal without --yes to choose Chromium, theme, and PIN."
 else
   echo "-> Existing install detected (skipping first-time questions)"
 fi
@@ -378,18 +382,24 @@ fi
 
 # ---------- Editor PIN ----------
 mkdir -p "$DIR/data"
-if [ ! -s "$DIR/data/edit-pin" ] && [ -z "${EDIT_PIN:-}" ]; then
+if [ ! -s "$DIR/data/edit-pin" ]; then
   if [ -n "$CHOICE_PIN" ]; then
     NEW_PIN="$CHOICE_PIN"
+  elif [ -n "${EDIT_PIN:-}" ]; then
+    NEW_PIN="$EDIT_PIN"
   else
     NEW_PIN="$(tr -dc '0-9' < /dev/urandom | head -c 6)"
   fi
   ( umask 077; printf '%s\n' "$NEW_PIN" > "$DIR/data/edit-pin" )
   echo
   echo "=============================================================="
-  echo "  Your /edit PIN is:  $NEW_PIN"
+  if [ -n "$CHOICE_PIN" ] || [ -n "${EDIT_PIN:-}" ]; then
+    echo "  Editor PIN saved (the one you set during setup)."
+  else
+    echo "  Your generated /edit PIN is:  $NEW_PIN"
+    echo "  Write it down — change later with: sqndash --set-pin"
+  fi
   echo "  Open http://<this-device>:3000/edit and enter the PIN."
-  echo "  Change it later with:  sqndash --set-pin"
   echo "=============================================================="
 else
   echo "-> Editor PIN already set (change it with: sqndash --set-pin)"
