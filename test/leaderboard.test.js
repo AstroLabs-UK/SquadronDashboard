@@ -18,13 +18,13 @@ const sheet = [
   'Something else,,,'
 ].join('\n');
 
-test('reads under the header, stops at the first blank name, top 5 only', () => {
+test('reads under the header, stops at the first blank name, capped list', () => {
   const r = buildLeaderboard(parseCsv(sheet));
-  assert.equal(r.rows.length, 5);
-  assert.deepEqual(r.rows.map(x => x.name), ['Alice', 'Bob, Jr', 'Cara', 'Dan', 'Eve']);
+  assert.equal(r.rows.length, 6);
+  assert.deepEqual(r.rows.map(x => x.name), ['Alice', 'Bob, Jr', 'Cara', 'Dan', 'Eve', 'Fay']);
 });
 
-test('flights are summed, blank/N/A ignored, top 3', () => {
+test('flights are summed, blank/N/A ignored, ranked', () => {
   const r = buildLeaderboard(parseCsv(sheet));
   assert.deepEqual(r.flightRows, [
     { flight: 'Red', points: 80 },
