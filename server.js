@@ -6,6 +6,7 @@ const { createStore } = require('./storage');
 const { securityHeaders, rateLimit } = require('./lib/security');
 const { createEditorAuth } = require('./lib/auth');
 const autoUpdate = require('./autoUpdate');
+const hdmiWake = require('./lib/hdmiWake');
 const updater = require('./updater');
 const themeAssets = require('./lib/themeAssets');
 const guard = require('./lib/settingsGuard');
@@ -499,6 +500,16 @@ app.listen(PORT, HOST, () => {
     autoUpdate.startAutoUpdate({ cwd: __dirname, dataDir: DATA_DIR, intervalMs: 5 * 60 * 1000 });
     themeAssets.ensureThemeLogo({ dataDir: DATA_DIR, cwd: __dirname, theme: (store.load().theme || 'rafac') })
       .catch(e => console.warn('[theme] initial crest', e && e.message ? e.message : e));
+    // TV power-on: DRM connector disconnected → connected bumps wake for the room screen
+    try {
+      hdmiWake.startHdmiWake({
+        onConnect: () => {
+          if (control && typeof control.wakeDisplay === 'function') control.wakeDisplay();
+        }
+      });
+    } catch (e) {
+      console.warn('[hdmi] watcher failed to start', e && e.message ? e.message : e);
+    }
   });
 }
 

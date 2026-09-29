@@ -468,37 +468,16 @@
   #noWidgetsPane { align-items: center; justify-content: center; text-align: center; color: var(--muted); font-size: 16px; }
 
   /* Sleep mode: full black cover until woken via /edit PIN */
+  /* Full black cover for sleep mode — TV has no touch; wake is HDMI-on or /edit PIN */
   #displaySleep {
     display: none;
     position: fixed;
     inset: 0;
     z-index: 200000;
     background: #000;
+    pointer-events: none;
   }
   #displaySleep.on { display: block; }
-  #displaySleep .sleep-pin {
-    position: absolute;
-    left: 50%; top: 50%;
-    transform: translate(-50%, -50%);
-    width: min(320px, 90vw);
-    padding: 24px 20px;
-    background: #111;
-    border: 1px solid #333;
-    border-radius: 6px;
-    text-align: center;
-    color: #eee;
-  }
-  #displaySleep .sleep-pin-title { margin: 0 0 12px; font-size: 16px; font-weight: 700; }
-  #displaySleep .sleep-pin-hint { margin: 12px 0 0; font-size: 12px; color: #888; }
-  #displaySleep .sleep-pin-err { margin: 8px 0 0; font-size: 13px; color: #C8102E; min-height: 1.2em; }
-  #displaySleep .sleep-pin input {
-    width: 100%; padding: 12px; font-size: 20px; text-align: center;
-    border: 1px solid #444; border-radius: 4px; background: #000; color: #fff;
-  }
-  #displaySleep .sleep-pin button {
-    margin-top: 12px; width: 100%; padding: 12px; font-size: 16px; font-weight: 700;
-    border: 0; border-radius: 4px; background: #0066A1; color: #fff; cursor: pointer;
-  }
 
 body.loading-active
 /* Error fallback with QR */
@@ -774,15 +753,7 @@ body.loading-active
   </div>
 </div>
 <div id="astroBlackout"></div>
-<div id="displaySleep" aria-hidden="true">
-  <div id="sleepPinWrap" class="sleep-pin" hidden>
-    <p class="sleep-pin-title">Enter PIN to wake</p>
-    <input id="sleepPinInput" type="password" inputmode="numeric" maxlength="12" autocomplete="off" placeholder="PIN">
-    <button type="button" id="sleepPinBtn">Wake</button>
-    <p id="sleepPinErr" class="sleep-pin-err"></p>
-    <p class="sleep-pin-hint">Or unlock /edit on a phone</p>
-  </div>
-</div>
+<div id="displaySleep" aria-hidden="true"></div>
 
 <div id="sourceBanner" role="status"></div>
 <div id="offlineChip" role="status" aria-live="polite">No internet connection</div>
@@ -2071,37 +2042,19 @@ async function bootAfterLoading() {
 bootAfterLoading();
 
 // ---- Sleep mode (black screen) instead of powering the Pi off ----
-function hideSleepPin() {
-  const wrap = document.getElementById('sleepPinWrap');
-  if (wrap) wrap.hidden = true;
-  const inp = document.getElementById('sleepPinInput');
-  if (inp) inp.value = '';
-  const err = document.getElementById('sleepPinErr');
-  if (err) err.textContent = '';
-}
-function showSleepPin() {
-  const wrap = document.getElementById('sleepPinWrap');
-  if (!wrap) return;
-  wrap.hidden = false;
-  const inp = document.getElementById('sleepPinInput');
-  if (inp) { inp.value = ''; setTimeout(() => inp.focus(), 50); }
-}
+// The room TV is not a touch screen. Wake only when:
+//   - the server bumps wake (HDMI output goes connected, or PIN on /edit /events)
+//   - checked via /api/boot below
 function enterDisplaySleep() {
   if (autoShutdownMode !== 'sleep') return;
   sleepActive = true;
   const el = document.getElementById('displaySleep');
   if (el) el.classList.add('on');
-  hideSleepPin();
 }
 function exitDisplaySleep() {
-  if (!sleepActive && !(document.getElementById('displaySleep') || {}).classList?.contains('on')) {
-    scheduleDisplaySleep();
-    return;
-  }
   sleepActive = false;
   const el = document.getElementById('displaySleep');
   if (el) el.classList.remove('on');
-  hideSleepPin();
   scheduleDisplaySleep();
 }
 function scheduleDisplaySleep() {
@@ -2110,70 +2063,11 @@ function scheduleDisplaySleep() {
     sleepActive = false;
     const el = document.getElementById('displaySleep');
     if (el) el.classList.remove('on');
-    hideSleepPin();
     return;
   }
   if (sleepActive) return;
   sleepTimer = setTimeout(enterDisplaySleep, Math.max(1, autoShutdownMinutes) * 60 * 1000);
 }
-
-async function submitSleepPin() {
-  const inp = document.getElementById('sleepPinInput');
-  const err = document.getElementById('sleepPinErr');
-  const pin = (inp && inp.value || '').trim();
-  if (err) err.textContent = '';
-  try {
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
-      body: JSON.stringify({ pin })
-    });
-    const body = await res.json().catch(() => ({}));
-    if (res.ok && body.ok) {
-      exitDisplaySleep();
-      return;
-    }
-    if (err) err.textContent = body.error || 'Incorrect PIN';
-  } catch (e) {
-    if (err) err.textContent = e.message || 'Could not reach the server';
-  }
-}
-
-// Long-press the black screen to show the PIN pad; HDMI/display coming back also wakes
-(function setupSleepWake() {
-  const el = document.getElementById('displaySleep');
-  if (!el) return;
-  let pressTimer = null;
-  const clearPress = () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } };
-  el.addEventListener('pointerdown', (e) => {
-    if (!sleepActive) return;
-    if (e.target && e.target.closest && e.target.closest('.sleep-pin')) return;
-    clearPress();
-    pressTimer = setTimeout(showSleepPin, 1200);
-  });
-  el.addEventListener('pointerup', clearPress);
-  el.addEventListener('pointerleave', clearPress);
-  el.addEventListener('pointercancel', clearPress);
-  const btn = document.getElementById('sleepPinBtn');
-  if (btn) btn.addEventListener('click', submitSleepPin);
-  const inp = document.getElementById('sleepPinInput');
-  if (inp) inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitSleepPin(); });
-
-  // Display / HDMI activity — when the output wakes or the page is shown again, clear sleep
-  const onDisplayActivity = () => {
-    if (sleepActive && document.visibilityState === 'visible') exitDisplaySleep();
-  };
-  document.addEventListener('visibilitychange', onDisplayActivity);
-  window.addEventListener('focus', onDisplayActivity);
-  window.addEventListener('pageshow', onDisplayActivity);
-  let resizeT = null;
-  window.addEventListener('resize', () => {
-    if (!sleepActive) return;
-    clearTimeout(resizeT);
-    resizeT = setTimeout(onDisplayActivity, 400);
-  });
-})();
 
 // ---- Reload when the server restarts (e.g. after an auto-update) ----
 let bootId = null;
@@ -2208,7 +2102,7 @@ async function checkForRestart() {
   } catch (e) { /* server is restarting - try again next time */ }
 }
 checkForRestart();
-setInterval(checkForRestart, 15 * 1000);
+setInterval(checkForRestart, 3 * 1000);
 
 // Leave the room screen for the holding page if an update starts while we're up
 async function watchForUpdate() {
