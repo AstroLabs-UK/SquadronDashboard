@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Events &amp; Uniform – Squadron Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<style>
+  :root {
+    --raf-navy: #00205B;
+    --deep-navy: #071525;
+    --raf-blue: #0066A1;
+    --light-blue: #D9EAF3;
+    --white: #FFFFFF;
+    --off-white: #F4F6F8;
+    --raf-red: #C8102E;
+    --muted: #667788;
+    --border: #D5DDE5;
+  }
+  body[data-theme="acf"] {
+    --raf-navy: #003D2C; --deep-navy: #00261C; --raf-blue: #1B6B4A;
+    --light-blue: #E4F0E8; --off-white: #F3F7F4; --raf-red: #C4A35A; --border: #C5D4C9;
+  }
+  body[data-theme="scc"] {
+    --raf-navy: #0A1628; --deep-navy: #061018; --raf-blue: #00A3E0;
+    --light-blue: #E6F6FC; --off-white: #F2F5F8; --raf-red: #F5C400; --border: #C5D0DA;
+  }
+  body[data-theme="ccf"] {
+    --raf-navy: #1A3A6E; --deep-navy: #0F2448; --raf-blue: #2E5A8F;
+    --light-blue: #E8EEF6; --off-white: #F4F6FA; --raf-red: #C9A227; --border: #C8D0DC;
+  }
+  body[data-theme="vcc"] {
+    --raf-navy: #0D2137; --deep-navy: #081624; --raf-blue: #1A3D5C;
+    --light-blue: #E8EEF3; --off-white: #F2F5F8; --raf-red: #2E5A3C; --border: #C5CED6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Inter", Arial, Helvetica, sans-serif;
+    margin: 0;
+    padding: 0 0 96px 0;
+    background: var(--off-white);
+    color: var(--deep-navy);
+    min-height: 100vh;
+  }
+  header {
+    background: var(--raf-navy);
+    color: var(--white);
+    padding: 16px 20px;
+    border-bottom: 3px solid var(--raf-blue);
+  }
+  header .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--light-blue);
+  }
+  header h1 { margin: 4px 0 0 0; font-size: 20px; font-weight: 700; }
+  header a { color: var(--light-blue); font-size: 13px; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 16px 16px 0; }
+  h2 {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--raf-navy);
+    margin: 24px 0 8px;
+  }
+  .hint { font-size: 13px; color: var(--muted); margin: 0 0 12px; line-height: 1.4; }
+  .hint a { color: var(--raf-blue); }
+  .event-row {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+  label {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    margin: 10px 0 4px;
+  }
+  .event-row label:first-child { margin-top: 0; }
+  input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    font-size: 16px;
+    color: var(--deep-navy);
+    background: var(--white);
+  }
+  input:focus { outline: 2px solid var(--raf-blue); outline-offset: 1px; }
+  button {
+    appearance: none;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    padding: 10px 16px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    min-height: 44px;
+  }
+  .primary { background: var(--raf-navy); color: var(--white); }
+  .primary:hover { background: var(--raf-blue); }
+  .add {
+    background: var(--white);
+    color: var(--raf-navy);
+    border-color: var(--raf-navy);
+    margin-top: 4px;
+  }
+  .add:hover { background: var(--raf-navy); color: var(--white); }
+  .danger {
+    background: var(--white);
+    color: var(--raf-red);
+    border-color: var(--raf-red);
+    margin-top: 12px;
+    width: 100%;
+  }
+  .danger:hover { background: var(--raf-red); color: var(--white); }
+  .save-bar {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    background: var(--white);
+    border-top: 1px solid var(--border);
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -4px 16px rgba(7, 21, 37, 0.08);
+    z-index: 20;
+  }
+  .save-bar-inner {
+    max-width: 720px;
+    margin: 0 auto;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .save-bar button { margin: 0; }
+  #status { flex: 1; min-height: 1.2em; font-size: 14px; font-weight: 600; }
+  .cols {
+    display: grid;
+    gap: 8px;
+  }
+  @media (min-width: 560px) {
+    .cols { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="eyebrow">Squadron Dashboard</div>
+  <h1 id="pageTitle">Events &amp; Uniform</h1>
+  <p style="margin:8px 0 0;font-size:13px;opacity:.9"><a href="/edit">Full editor</a> · <a href="/">Room screen</a></p>
+</header>
+
+<div class="wrap">
+  <h2>Events</h2>
+  <p class="hint">These show on the room screen. Add a link if you want a QR code next to that event (sign-up form, orders, map, etc.).</p>
+  <div id="eventsContainer"></div>
+  <button class="add" type="button" onclick="addEvent()">+ Add event</button>
+
+  <h2>Uniform</h2>
+  <p class="hint">Manual uniform days for the display. Calendar “Uniform:” tags still apply as well.</p>
+  <div id="uniformContainer"></div>
+  <button class="add" type="button" onclick="addUniform()">+ Add day</button>
+</div>
+
+<div class="save-bar">
+  <div class="save-bar-inner">
+    <button class="primary" type="button" onclick="save()">Save</button>
+    <div id="status"></div>
+  </div>
+</div>
+
+<script>
+let data = null;
+let savedSnapshot = null;
+let loadOk = false;
+
+function todayLocal() { return new Date().toLocaleDateString('en-CA'); }
+
+function eventRow(e = {}) {
+  const div = document.createElement('div');
+  div.className = 'event-row';
+  div.innerHTML =
+    '<label>Title</label><input class="ev-title">' +
+    '<label>When</label><input class="ev-date" placeholder="Date or e.g. Every Thursday">' +
+    '<label>Detail</label><input class="ev-detail">' +
+    '<label>Link (QR on display)</label><input class="ev-url" placeholder="https://…" inputmode="url">' +
+    '<label>Hide after</label><input type="date" class="ev-hide">' +
+    '<div class="hint ev-note"></div>' +
+    '<button type="button" class="danger" onclick="this.parentElement.remove()">Remove</button>';
+  div.querySelector('.ev-title').value = e.title || '';
+  div.querySelector('.ev-date').value = e.date || '';
+  div.querySelector('.ev-detail').value = e.detail || '';
+  div.querySelector('.ev-url').value = e.url || '';
+  const hide = div.querySelector('.ev-hide');
+  hide.value = e.hideAfter || '';
+  const note = div.querySelector('.ev-note');
+  const refreshNote = () => {
+    const expired = hide.value && hide.value < todayLocal();
+    note.textContent = expired ? 'Expired — hidden on display.' : (hide.value ? 'Hidden the day after this date.' : '');
+    note.style.color = expired ? 'var(--raf-red)' : '';
+  };
+  hide.addEventListener('input', refreshNote);
+  refreshNote();
+  return div;
+}
+
+function uniformRow(u = {}) {
+  const div = document.createElement('div');
+  div.className = 'event-row';
+  div.innerHTML =
+    '<div class="cols">' +
+      '<div><label>Date</label><input type="date" class="un-date"></div>' +
+      '<div><label>Title</label><input class="un-title" placeholder="Optional"></div>' +
+    '</div>' +
+    '<label>Uniform</label><input class="un-uniform" placeholder="e.g. Working blues">' +
+    '<button type="button" class="danger" onclick="this.parentElement.remove()">Remove</button>';
+  div.querySelector('.un-date').value = u.date || '';
+  div.querySelector('.un-title').value = u.title || '';
+  div.querySelector('.un-uniform').value = u.uniform || '';
+  return div;
+}
+
+function addEvent() {
+  document.getElementById('eventsContainer').appendChild(eventRow());
+  markDirty();
+}
+function addUniform() {
+  document.getElementById('uniformContainer').appendChild(uniformRow());
+  markDirty();
+}
+
+function collectPayload() {
+  return {
+    events: [...document.querySelectorAll('#eventsContainer .event-row')].map(r => ({
+      title: r.querySelector('.ev-title').value,
+      date: r.querySelector('.ev-date').value,
+      detail: r.querySelector('.ev-detail').value,
+      url: r.querySelector('.ev-url').value,
+      hideAfter: r.querySelector('.ev-hide').value
+    })),
+    uniform: {
+      items: [...document.querySelectorAll('#uniformContainer .event-row')].map(r => ({
+        date: r.querySelector('.un-date').value,
+        title: r.querySelector('.un-title').value,
+        uniform: r.querySelector('.un-uniform').value
+      }))
+    }
+  };
+}
+
+function hasUnsavedChanges() {
+  return savedSnapshot === null || JSON.stringify(collectPayload()) !== savedSnapshot;
+}
+function markDirty() {
+  const st = document.getElementById('status');
+  if (loadOk && hasUnsavedChanges()) {
+    st.style.color = '';
+    st.textContent = 'Unsaved changes';
+  }
+}
+
+async function load() {
+  loadOk = false;
+  data = await (await fetch('/api/data', { cache: 'no-store' })).json();
+  const theme = data.theme || 'rafac';
+  document.body.setAttribute('data-theme', theme === 'army' ? 'acf' : theme === 'sea' ? 'scc' : theme);
+  if (data.squadronName) {
+    document.getElementById('pageTitle').textContent = data.squadronName + ' — Events & Uniform';
+  }
+  const ec = document.getElementById('eventsContainer');
+  ec.innerHTML = '';
+  (data.events || []).forEach(e => ec.appendChild(eventRow(e)));
+  const uc = document.getElementById('uniformContainer');
+  uc.innerHTML = '';
+  ((data.uniform && data.uniform.items) || []).slice()
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)))
+    .forEach(u => uc.appendChild(uniformRow(u)));
+  savedSnapshot = JSON.stringify(collectPayload());
+  document.getElementById('status').textContent = '';
+  loadOk = true;
+}
+
+async function save() {
+  const st = document.getElementById('status');
+  st.style.color = '';
+  st.textContent = 'Saving…';
+  try {
+    const payload = collectPayload();
+    const res = await fetch('/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(payload)
+    });
+    const body = await res.json().catch(() => ({}));
+    if (res.status === 401) {
+      window.location.replace('/pin?next=' + encodeURIComponent('/events'));
+      return;
+    }
+    if (!res.ok) {
+      st.style.color = 'var(--raf-red)';
+      st.textContent = body.error || 'Save failed';
+      return;
+    }
+    savedSnapshot = JSON.stringify(payload);
+    st.style.color = 'var(--raf-navy)';
+    st.textContent = 'Saved';
+  } catch (e) {
+    st.style.color = 'var(--raf-red)';
+    st.textContent = e.message || String(e);
+  }
+}
+
+['input', 'change'].forEach(ev =>
+  document.addEventListener(ev, () => setTimeout(markDirty, 0)));
+
+window.addEventListener('beforeunload', e => {
+  if (hasUnsavedChanges()) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+
+load().catch(e => {
+  document.getElementById('status').style.color = 'var(--raf-red)';
+  document.getElementById('status').textContent = 'Could not load settings';
+  console.error(e);
+});
+</script>
+</body>
+</html>

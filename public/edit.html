@@ -1233,6 +1233,7 @@
 <div class="split-eu">
   <section>
     <h2>Events</h2>
+    <p class="hint">Optional link on an event shows as a QR code next to it on the room screen. Manage events only at <a href="/events">/events</a>.</p>
     <div id="eventsContainer"></div>
     <button class="add" type="button" onclick="addEvent()">+ Add event</button>
   </section>
@@ -1336,12 +1337,14 @@ function eventRow(e = {}) {
     '<label>Title</label><input class="ev-title">' +
     '<label>When</label><input class="ev-date" placeholder="Date or e.g. Every Thursday">' +
     '<label>Detail</label><input class="ev-detail">' +
+    '<label>Link (QR on display)</label><input class="ev-url" placeholder="https://…" inputmode="url">' +
     '<label>Hide after</label><input type="date" class="ev-hide">' +
     '<div class="hint ev-note"></div>' +
     '<button type="button" class="danger" onclick="this.parentElement.remove(); applyEuLimit();">Remove</button>';
   div.querySelector('.ev-title').value = e.title || '';
   div.querySelector('.ev-date').value = e.date || '';
   div.querySelector('.ev-detail').value = e.detail || '';
+  div.querySelector('.ev-url').value = e.url || '';
   const hide = div.querySelector('.ev-hide');
   hide.value = e.hideAfter || '';
   const note = div.querySelector('.ev-note');
@@ -2716,6 +2719,7 @@ function collectPayload() {
       title: r.querySelector('.ev-title').value,
       date: r.querySelector('.ev-date').value,
       detail: r.querySelector('.ev-detail').value,
+      url: r.querySelector('.ev-url').value,
       hideAfter: r.querySelector('.ev-hide').value
     })),
     uniform: {

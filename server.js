@@ -191,6 +191,7 @@ app.get('/theme-logo', async (req, res) => {
 app.get('/', sendPage('dashboard.html'));
 app.get('/pin', sendPage('pin.html'));
 app.get('/edit', requireEditor, sendPage('edit.html'));
+app.get('/events', requireEditor, sendPage('events.html'));
 app.get('/status', sendPage('status.html'));
 
 // ---------- API: editor PIN (stylised screen posts here; no PIN is stored in the browser) ----------

@@ -293,9 +293,18 @@
     #lbPane { flex-direction: column; }
   }
 
-  #eventsPane li { margin-bottom: 14px; font-size: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+  #eventsPane li {
+    margin-bottom: 14px; font-size: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 14px;
+  }
+  #eventsPane li .ev-text { flex: 1; min-width: 0; }
   #eventsPane li .title { font-weight: 700; color: var(--raf-navy); }
   #eventsPane li .meta { color: var(--muted); font-size: 14px; margin-top: 2px; }
+  #eventsPane li .ev-qr {
+    flex: 0 0 auto; padding: 4px; background: var(--white);
+    border: 1px solid var(--border); border-radius: 3px; line-height: 0;
+  }
+  #eventsPane li .ev-qr img, #eventsPane li .ev-qr canvas { display: block; }
   #eventsLayout { flex: 1; display: flex; gap: 24px; min-height: 0; }
   #eventsList { flex: 1; min-width: 0; }
   #eventsSeeMore { flex: 0 0 34%; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 16px; text-align: center; border-left: 1px solid var(--border); padding-left: 24px; }
@@ -1019,7 +1028,7 @@ let eventsTimer = null;
 function rebuildEventsPages() {
   // loadSettings() runs every 15 seconds - only rebuild when events or the QR link
   // actually changed, otherwise the page index gets reset every time.
-  const signature = JSON.stringify([latestEvents, eventsSeeMoreUrl]);
+  const signature = JSON.stringify([latestEvents, eventsSeeMoreUrl]); // urls included in latestEvents
   if (signature === eventsSignature) return;
   eventsSignature = signature;
 
@@ -1037,9 +1046,24 @@ function renderEventsPage() {
   const ul = document.getElementById('eventsList');
   const seeMore = document.getElementById('eventsSeeMore');
   const events = eventsPages[eventsPageIndex] || [];
-  ul.innerHTML = events.map(e =>
-    `<li><div class="title">${esc(e.title)}</div><div class="meta">${[e.date, e.detail].filter(x => x && String(x).trim()).map(esc).join(' &middot; ')}</div></li>`).join('')
-    || '<li><div class="meta">No events added yet - add some on /edit</div></li>';
+  if (!events.length) {
+    ul.innerHTML = '<li><div class="ev-text"><div class="meta">No events added yet - add some on /edit or /events</div></div></li>';
+  } else {
+    ul.innerHTML = events.map((e, i) => {
+      const meta = [e.date, e.detail].filter(x => x && String(x).trim()).map(esc).join(' &middot; ');
+      const url = (e.url || '').trim();
+      const qr = url
+        ? `<div class="ev-qr" id="evQr-${eventsPageIndex}-${i}"></div>`
+        : '';
+      return `<li><div class="ev-text"><div class="title">${esc(e.title)}</div><div class="meta">${meta}</div></div>${qr}</li>`;
+    }).join('');
+    // Per-event QRs (small — sits beside the text)
+    const qrPx = isCompact ? Math.max(40, Math.round(52 * unitPx())) : 72;
+    events.forEach((e, i) => {
+      const url = (e.url || '').trim();
+      if (url) makeQr('evQr-' + eventsPageIndex + '-' + i, url, qrPx);
+    });
+  }
 
   if (eventsSeeMoreUrl) {
     seeMore.style.display = 'flex';
