@@ -2745,7 +2745,7 @@ function updateForceButton() {
     btn.disabled = blocked;
     btn.title = dirty ? 'Save first' : (updateInProgress ? 'Update in progress' : '');
   }
-  // Restart now is always visible; greyed out / disabled while unsaved or updating
+  // Same rule as Force update: usable only when everything is saved
   for (const id of ['restartAfterUpdateBtn', 'restartAfterUpdateBtnBottom']) {
     const rb = document.getElementById(id);
     if (!rb) continue;

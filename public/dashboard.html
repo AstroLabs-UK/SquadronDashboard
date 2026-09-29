@@ -249,9 +249,9 @@
   .lb-scroll {
     flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto;
     position: relative;
-    scrollbar-width: none; /* Firefox */
+    scrollbar-width: none;
   }
-  .lb-scroll::-webkit-scrollbar { display: none; } /* Chromium / kiosk */
+  .lb-scroll::-webkit-scrollbar { display: none; }
   /* Text fills the row height: more font, less empty padding (row size stays similar) */
   .lb-col table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: clamp(15px, 3vh, 22px); }
   .lb-col thead th {
@@ -1405,7 +1405,7 @@ function renderLeaderboardFromCache() {
   const flightUnavailable = document.getElementById('lbFlightUnavailable');
   if (!indivBody) return;
 
-  // Show enough rows that the list can scroll within the pane dwell time
+  // Longer list than fits on screen — auto-scroll handles the rest during the 10s pane
   const rows = (cachedLb.rows || []).slice(0, 20);
   const flightSrc = showFlightLeaderboard ? (cachedLb.flightRows || []).filter(r => {
     const k = String(r.flight || '').trim().toLowerCase();
@@ -1440,10 +1440,8 @@ function renderLeaderboardFromCache() {
     flightUnavailable.style.display = 'block';
   }
 
-  // If the leaderboard pane is currently showing, restart timed scroll after data change
-  if (panes[paneIndex] && panes[paneIndex].id === 'lbPane') {
-    startLeaderboardScroll();
-  }
+  // Data refreshed while we're on this pane — kick the scroll again from the top
+  if (panes[paneIndex] && panes[paneIndex].id === 'lbPane') startLeaderboardScroll();
 }
 
 async function loadNews() {
@@ -2007,6 +2005,8 @@ function computePanes() {
   return list;
 }
 
+// Leaderboard auto-scroll: hold at the top for a second, then ease down so we
+// reach the bottom just before the carousel moves on (10s pane → ~8.5s of motion).
 let lbScrollRaf = null;
 let lbScrollTimer = null;
 
@@ -2016,8 +2016,6 @@ function stopLeaderboardScroll() {
   document.querySelectorAll('#lbPane .lb-scroll').forEach(el => { el.scrollTop = 0; });
 }
 
-// Pause 1s at the top, then scroll down so the motion finishes before the next panel.
-// Pane is 10s → 1s hold + ~8.5s scroll + ~0.5s buffer at the bottom.
 function startLeaderboardScroll() {
   stopLeaderboardScroll();
   const scrolls = [...document.querySelectorAll('#lbPane .lb-scroll')].filter(el => {
@@ -2025,33 +2023,27 @@ function startLeaderboardScroll() {
     return col && col.style.display !== 'none';
   });
   if (!scrolls.length) return;
-
-  // Reset to top
   scrolls.forEach(el => { el.scrollTop = 0; });
 
-  const paneMs = (typeof paneDuration === 'function') ? paneDuration(paneIndex) : 10000;
-  const PAUSE_MS = 1000;
-  const END_HOLD_MS = 500;
-  const scrollMs = Math.max(500, paneMs - PAUSE_MS - END_HOLD_MS);
+  const pauseMs = 1000;
+  const endHoldMs = 500;
+  const scrollMs = Math.max(500, paneDuration(paneIndex) - pauseMs - endHoldMs);
 
   lbScrollTimer = setTimeout(() => {
     lbScrollTimer = null;
-    // Measure after layout has settled with the pane active
     const maxScroll = Math.max(0, ...scrolls.map(el => el.scrollHeight - el.clientHeight));
-    if (maxScroll < 2) return; // nothing to scroll
+    if (maxScroll < 2) return;
 
     const t0 = performance.now();
     function tick(now) {
       const t = Math.min(1, (now - t0) / scrollMs);
-      // ease-in-out
       const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-      const y = maxScroll * e;
-      scrolls.forEach(el => { el.scrollTop = y; });
+      scrolls.forEach(el => { el.scrollTop = maxScroll * e; });
       if (t < 1) lbScrollRaf = requestAnimationFrame(tick);
       else lbScrollRaf = null;
     }
     lbScrollRaf = requestAnimationFrame(tick);
-  }, PAUSE_MS);
+  }, pauseMs);
 }
 
 function showPane(i) {
