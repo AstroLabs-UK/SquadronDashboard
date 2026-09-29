@@ -11,6 +11,7 @@
   "eventsSeeMoreUrl": "https://cadets.bader.mod.uk/events",
   "errorReportUrl": "",
   "autoShutdownMinutes": 165,
+  "autoShutdownMode": "sleep",
   "instagramEmbedCode": "",
   "weatherEmbedCode": "",
   "icsUrl": "",

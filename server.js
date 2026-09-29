@@ -65,7 +65,7 @@ const DEFAULT_DATA = {
   uniform: { items: [] },
   errorReportUrl: "",
   autoShutdownMinutes: 165,
-  autoShutdownMode: "poweroff",
+  autoShutdownMode: "sleep",
   instagramEmbedCode: "",
   weatherEmbedCode: "",
   // News panel is always the scraped BBC News feed (no embed code).

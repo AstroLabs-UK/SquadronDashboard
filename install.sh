@@ -247,15 +247,15 @@ import json, os
 p = '$DIR/data/data.json'
 if not os.path.exists(p):
     p = '$DIR/data.json'
-mins, mode = 165, 'poweroff'
+mins, mode = 165, 'sleep'
 try:
     d = json.load(open(p))
     mins = int(d.get('autoShutdownMinutes', 165))
-    mode = d.get('autoShutdownMode') or 'poweroff'
+    mode = d.get('autoShutdownMode') or 'sleep'
 except Exception:
     pass
 if mode not in ('sleep', 'poweroff'):
-    mode = 'poweroff'
+    mode = 'sleep'
 print('MINUTES=%d' % max(1, mins))
 print('MODE=%s' % mode)
 ")"
