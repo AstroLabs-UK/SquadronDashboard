@@ -246,9 +246,19 @@
     margin: 0 0 10px 0; font-size: 12px; font-weight: 700; text-transform: uppercase;
     letter-spacing: 0.06em; color: var(--raf-blue); flex-shrink: 0;
   }
+  .lb-scroll {
+    flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto;
+    position: relative;
+    scrollbar-width: none; /* Firefox */
+  }
+  .lb-scroll::-webkit-scrollbar { display: none; } /* Chromium / kiosk */
   /* Text fills the row height: more font, less empty padding (row size stays similar) */
-  .lb-col table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: clamp(15px, 3vh, 22px); flex: 1; }
-  .lb-col thead th { background: var(--raf-navy); color: var(--white); text-align: left; padding: clamp(5px, 0.9vh, 10px) 12px; font-size: 0.72em; text-transform: uppercase; letter-spacing: 0.06em; }
+  .lb-col table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: clamp(15px, 3vh, 22px); }
+  .lb-col thead th {
+    background: var(--raf-navy); color: var(--white); text-align: left;
+    padding: clamp(5px, 0.9vh, 10px) 12px; font-size: 0.72em; text-transform: uppercase;
+    letter-spacing: 0.06em; position: sticky; top: 0; z-index: 1;
+  }
   .lb-col thead th.num { text-align: right; }
   .lb-col td { padding: clamp(5px, 0.9vh, 10px) 12px; line-height: 1.2; border-bottom: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .lb-col tr:nth-child(even) td { background: var(--off-white); }
@@ -755,12 +765,16 @@ body.loading-active
       <div class="rotate-pane" id="lbPane">
         <div class="lb-col">
           <h3>Individual</h3>
-          <table><thead><tr><th>#</th><th>Cadet</th><th class="num">Points</th></tr></thead><tbody id="lbIndividualBody"></tbody></table>
+          <div class="lb-scroll" id="lbIndividualScroll">
+            <table><thead><tr><th>#</th><th>Cadet</th><th class="num">Points</th></tr></thead><tbody id="lbIndividualBody"></tbody></table>
+          </div>
         </div>
         <div class="lb-col">
           <h3>Flight</h3>
-          <table id="lbFlightTable"><thead><tr><th>#</th><th>Flight</th><th class="num">Points</th></tr></thead><tbody id="lbFlightBody"></tbody></table>
-          <div class="lb-unavailable" id="lbFlightUnavailable" style="display:none;">FLIGHT DATA UNAVAILABLE</div>
+          <div class="lb-scroll" id="lbFlightScroll">
+            <table id="lbFlightTable"><thead><tr><th>#</th><th>Flight</th><th class="num">Points</th></tr></thead><tbody id="lbFlightBody"></tbody></table>
+            <div class="lb-unavailable" id="lbFlightUnavailable" style="display:none;">FLIGHT DATA UNAVAILABLE</div>
+          </div>
         </div>
       </div>
 
@@ -1391,12 +1405,12 @@ function renderLeaderboardFromCache() {
   const flightUnavailable = document.getElementById('lbFlightUnavailable');
   if (!indivBody) return;
 
-  // Fixed counts on all screen sizes: top 5 individual, top 3 flights
-  const rows = (cachedLb.rows || []).slice(0, 5);
+  // Show enough rows that the list can scroll within the pane dwell time
+  const rows = (cachedLb.rows || []).slice(0, 20);
   const flightSrc = showFlightLeaderboard ? (cachedLb.flightRows || []).filter(r => {
     const k = String(r.flight || '').trim().toLowerCase();
     return k && k !== 'n/a' && k !== 'na' && k !== '-' && k !== 'none';
-  }).slice(0, 3) : [];
+  }).slice(0, 8) : [];
   const hasFlight = showFlightLeaderboard && flightSrc.length > 0;
   const key = JSON.stringify([rows, flightSrc, showFlightLeaderboard]);
   if (key === lastLbKey) return;
@@ -1424,6 +1438,11 @@ function renderLeaderboardFromCache() {
     if (flightCol) flightCol.style.display = '';
     flightTable.style.display = 'none';
     flightUnavailable.style.display = 'block';
+  }
+
+  // If the leaderboard pane is currently showing, restart timed scroll after data change
+  if (panes[paneIndex] && panes[paneIndex].id === 'lbPane') {
+    startLeaderboardScroll();
   }
 }
 
@@ -1988,6 +2007,53 @@ function computePanes() {
   return list;
 }
 
+let lbScrollRaf = null;
+let lbScrollTimer = null;
+
+function stopLeaderboardScroll() {
+  if (lbScrollRaf) { cancelAnimationFrame(lbScrollRaf); lbScrollRaf = null; }
+  if (lbScrollTimer) { clearTimeout(lbScrollTimer); lbScrollTimer = null; }
+  document.querySelectorAll('#lbPane .lb-scroll').forEach(el => { el.scrollTop = 0; });
+}
+
+// Pause 1s at the top, then scroll down so the motion finishes before the next panel.
+// Pane is 10s → 1s hold + ~8.5s scroll + ~0.5s buffer at the bottom.
+function startLeaderboardScroll() {
+  stopLeaderboardScroll();
+  const scrolls = [...document.querySelectorAll('#lbPane .lb-scroll')].filter(el => {
+    const col = el.closest('.lb-col');
+    return col && col.style.display !== 'none';
+  });
+  if (!scrolls.length) return;
+
+  // Reset to top
+  scrolls.forEach(el => { el.scrollTop = 0; });
+
+  const paneMs = (typeof paneDuration === 'function') ? paneDuration(paneIndex) : 10000;
+  const PAUSE_MS = 1000;
+  const END_HOLD_MS = 500;
+  const scrollMs = Math.max(500, paneMs - PAUSE_MS - END_HOLD_MS);
+
+  lbScrollTimer = setTimeout(() => {
+    lbScrollTimer = null;
+    // Measure after layout has settled with the pane active
+    const maxScroll = Math.max(0, ...scrolls.map(el => el.scrollHeight - el.clientHeight));
+    if (maxScroll < 2) return; // nothing to scroll
+
+    const t0 = performance.now();
+    function tick(now) {
+      const t = Math.min(1, (now - t0) / scrollMs);
+      // ease-in-out
+      const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      const y = maxScroll * e;
+      scrolls.forEach(el => { el.scrollTop = y; });
+      if (t < 1) lbScrollRaf = requestAnimationFrame(tick);
+      else lbScrollRaf = null;
+    }
+    lbScrollRaf = requestAnimationFrame(tick);
+  }, PAUSE_MS);
+}
+
 function showPane(i) {
   document.querySelectorAll('#rotatingPanel .rotate-pane').forEach(el => el.classList.remove('active'));
   const p = panes[i];
@@ -1996,6 +2062,7 @@ function showPane(i) {
     setTitle('Widgets');
     renderStamp('none');
     clearInterval(eventsTimer);
+    stopLeaderboardScroll();
     return;
   }
   document.getElementById(p.id).classList.add('active');
@@ -2004,6 +2071,8 @@ function showPane(i) {
   if (p.id === 'eventsPane') startEventsRotation();
   else clearInterval(eventsTimer);
   if (p.id === 'cocPane') scheduleCocLayout();
+  if (p.id === 'lbPane') startLeaderboardScroll();
+  else stopLeaderboardScroll();
 }
 
 // Every pane gets 10s, except events which gets 10s per page of events
