@@ -322,9 +322,13 @@
     border: 1px solid var(--border); border-radius: 3px; line-height: 0;
   }
   #eventsPane li .ev-qr img, #eventsPane li .ev-qr canvas { display: block; }
-  .qr-fallback { font-size: 12px; color: var(--raf-blue); word-break: break-all; }
   #eventsLayout { flex: 1; display: flex; gap: 24px; min-height: 0; }
-  #eventsList { flex: 1; min-width: 0; }
+  #eventsList {
+    flex: 1; min-width: 0; min-height: 0;
+    overflow-x: hidden; overflow-y: hidden;
+    scrollbar-width: none;
+  }
+  #eventsList::-webkit-scrollbar { display: none; }
   #eventsSeeMore { flex: 0 0 34%; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 16px; text-align: center; border-left: 1px solid var(--border); padding-left: 24px; }
   #eventsSeeMore .label { font-size: 15px; color: var(--muted); }
 
@@ -1120,17 +1124,77 @@ function renderEventsPage() {
   }
 }
 
-// Restarted each time the events pane comes into view, so page 1 always shows first
+// Events pane: 3s hold at top → slow scroll if needed → 3s hold at bottom → next page of events.
+// Outer carousel waits until every events page has been shown once.
+let eventsScrollRaf = null;
+
+function stopEventsScroll() {
+  if (eventsScrollRaf) { cancelAnimationFrame(eventsScrollRaf); eventsScrollRaf = null; }
+  if (eventsTimer) { clearTimeout(eventsTimer); eventsTimer = null; }
+  const ul = document.getElementById('eventsList');
+  if (ul) ul.scrollTop = 0;
+}
+
 function startEventsRotation() {
-  clearInterval(eventsTimer);
+  stopEventsScroll();
   eventsPageIndex = 0;
-  renderEventsPage();
-  if (eventsPages.length > 1) {
-    eventsTimer = setInterval(() => {
-      eventsPageIndex = (eventsPageIndex + 1) % eventsPages.length;
-      renderEventsPage();
-    }, 10000);
+  runEventsPageCycle();
+}
+
+function advanceEventsPage() {
+  eventsPageIndex++;
+  if (eventsPageIndex >= Math.max(1, eventsPages.length)) {
+    // Finished a full pass of every page — hand control back to the carousel
+    eventsPageIndex = 0;
+    if (panes.length > 1) {
+      paneIndex = (paneIndex + 1) % panes.length;
+      showPane(paneIndex);
+      if (!(panes[paneIndex] && panes[paneIndex].id === 'eventsPane')) scheduleNext();
+    } else {
+      runEventsPageCycle();
+    }
+    return;
   }
+  runEventsPageCycle();
+}
+
+function runEventsPageCycle() {
+  stopEventsScroll();
+  renderEventsPage();
+  const ul = document.getElementById('eventsList');
+  if (ul) ul.scrollTop = 0;
+
+  const PAUSE_TOP_MS = 3000;
+  const PAUSE_BOTTOM_MS = 3000;
+
+  eventsTimer = setTimeout(() => {
+    eventsTimer = null;
+    if (!ul) {
+      eventsTimer = setTimeout(advanceEventsPage, PAUSE_BOTTOM_MS);
+      return;
+    }
+    const maxScroll = Math.max(0, ul.scrollHeight - ul.clientHeight);
+    if (maxScroll < 2) {
+      // Everything fits — still wait the bottom hold before flipping page
+      eventsTimer = setTimeout(advanceEventsPage, PAUSE_BOTTOM_MS);
+      return;
+    }
+    // Slow scroll: about 28px/s, at least 4s so it never races
+    const scrollMs = Math.max(4000, Math.round(maxScroll * (1000 / 28)));
+    const t0 = performance.now();
+    function tick(now) {
+      const t = Math.min(1, (now - t0) / scrollMs);
+      const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      ul.scrollTop = maxScroll * e;
+      if (t < 1) {
+        eventsScrollRaf = requestAnimationFrame(tick);
+      } else {
+        eventsScrollRaf = null;
+        eventsTimer = setTimeout(advanceEventsPage, PAUSE_BOTTOM_MS);
+      }
+    }
+    eventsScrollRaf = requestAnimationFrame(tick);
+  }, PAUSE_TOP_MS);
 }
 
 // Renders a pasted widget embed snippet (script + div, e.g. Elfsight or a
@@ -1193,18 +1257,56 @@ function tick() {
 tick();
 setInterval(tick, 1000);
 
+// QR images kept in memory for this browser session only (cleared on reload/restart).
+const qrRamCache = new Map();
+
 function makeQr(containerId, url, size) {
   const el = document.getElementById(containerId);
   if (!el) return;
   el.innerHTML = '';
-  // Built on each paint from the event link — nothing is stored. Library is local (/vendor) so offline still works.
-  if (typeof QRCode === 'undefined') {
-    el.innerHTML = '<a class="qr-fallback" href="' + esc(url) + '" target="_blank" rel="noopener">Open link</a>';
+  const px = size || 120;
+  const text = String(url || '').trim();
+  if (!text) return;
+  if (typeof QRCode === 'undefined') return;
+
+  const key = text + '|' + px;
+  const cached = qrRamCache.get(key);
+  if (cached) {
+    const img = document.createElement('img');
+    img.src = cached;
+    img.width = px;
+    img.height = px;
+    img.alt = '';
+    el.appendChild(img);
     return;
   }
-  try { new QRCode(el, { text: url, width: size || 120, height: size || 120 }); } catch (e) {
+
+  try {
+    const tmp = document.createElement('div');
+    tmp.style.position = 'absolute';
+    tmp.style.left = '-9999px';
+    document.body.appendChild(tmp);
+    new QRCode(tmp, { text: text, width: px, height: px });
+    const canvas = tmp.querySelector('canvas');
+    const imgNode = tmp.querySelector('img');
+    let dataUrl = '';
+    if (canvas && canvas.toDataURL) {
+      dataUrl = canvas.toDataURL('image/png');
+    } else if (imgNode && imgNode.src) {
+      dataUrl = imgNode.src;
+    }
+    tmp.remove();
+    if (dataUrl) {
+      qrRamCache.set(key, dataUrl);
+      const img = document.createElement('img');
+      img.src = dataUrl;
+      img.width = px;
+      img.height = px;
+      img.alt = '';
+      el.appendChild(img);
+    }
+  } catch (e) {
     console.error('QR failed', e);
-    el.innerHTML = '<a class="qr-fallback" href="' + esc(url) + '" target="_blank" rel="noopener">Open link</a>';
   }
 }
 
@@ -2187,27 +2289,34 @@ function showPane(i) {
     document.getElementById('noWidgetsPane').classList.add('active');
     setTitle('Widgets');
     renderStamp('none');
-    clearInterval(eventsTimer);
+    stopEventsScroll();
     stopLeaderboardScroll();
     return;
   }
   document.getElementById(p.id).classList.add('active');
   setTitle(p.title);
   renderStamp(p.id);
-  if (p.id === 'eventsPane') startEventsRotation();
-  else clearInterval(eventsTimer);
+  if (p.id === 'eventsPane') {
+    clearTimeout(paneTimer);
+    paneTimer = null;
+    startEventsRotation();
+  } else {
+    stopEventsScroll();
+  }
   if (p.id === 'cocPane') scheduleCocLayout();
   if (p.id === 'lbPane') startLeaderboardScroll();
   else stopLeaderboardScroll();
 }
 
-// Every pane gets 10s, except events which gets 10s per page of events
+// Non-events panes get 10s. Events timing is driven by startEventsRotation (scroll + holds).
 function paneDuration(i) {
-  return panes[i] && panes[i].id === 'eventsPane' ? Math.max(1, eventsPages.length) * 10000 : 10000;
+  return 10000;
 }
 function scheduleNext() {
   clearTimeout(paneTimer);
-  if (panes.length > 1) paneTimer = setTimeout(nextPane, paneDuration(paneIndex));
+  if (panes.length > 1 && !(panes[paneIndex] && panes[paneIndex].id === 'eventsPane')) {
+    paneTimer = setTimeout(nextPane, paneDuration(paneIndex));
+  }
 }
 function nextPane() {
   paneIndex = (paneIndex + 1) % panes.length;
