@@ -4,6 +4,22 @@
 <meta charset="UTF-8">
 <title>Squadron Dashboard</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+// If an update is applying, hold on /updating before the Astro Labs boot sequence.
+(function () {
+  try {
+    var x = new XMLHttpRequest();
+    x.open('GET', '/api/update/status', false); // sync on purpose — block paint until we know
+    x.send(null);
+    if (x.status === 200) {
+      var s = JSON.parse(x.responseText || '{}');
+      if (s && (s.state === 'running' || s.state === 'requested')) {
+        location.replace('/updating');
+      }
+    }
+  } catch (e) { /* offline / first boot — continue normally */ }
+})();
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
   :root {
@@ -2004,6 +2020,17 @@ async function checkForRestart() {
 }
 checkForRestart();
 setInterval(checkForRestart, 15 * 1000);
+
+// Leave the room screen for the holding page if an update starts while we're up
+async function watchForUpdate() {
+  try {
+    const st = await (await fetch('/api/update/status', { cache: 'no-store' })).json();
+    if (st && (st.state === 'running' || st.state === 'requested')) {
+      location.replace('/updating');
+    }
+  } catch (e) { /* ignore */ }
+}
+setInterval(watchForUpdate, 5 * 1000);
 
 // ---- Carousel: rotates through the widgets that are ticked on /edit, every 10s ----
 // Order: Leaderboard, News, Events, Uniform, Instagram, then the extra embed widgets in the order
