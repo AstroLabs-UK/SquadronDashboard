@@ -8,6 +8,7 @@
 const fs = require('fs');
 const path = require('path');
 const { writeFileDurable } = require('./storage');
+const autoUpdate = require('./autoUpdate');
 
 const REQUEST_STALE_MS = 5 * 60 * 1000;   // a request nobody picked up for 5 min is stale
 const RUNNING_STALE_SECONDS = 10 * 60;    // an update "running" for 10 min is presumed dead
@@ -46,9 +47,22 @@ function requestUpdate(dir, now = Date.now()) {
 function getStatus(dir, now = Date.now()) {
   try {
     const st = fs.statSync(paths(dir).req);
-    return { state: 'requested', ageSeconds: Math.round((now - st.mtimeMs) / 1000) };
+    return {
+      state: 'requested',
+      message: 'Update requested…',
+      ageSeconds: Math.round((now - st.mtimeMs) / 1000)
+    };
   } catch (e) { /* no pending request */ }
-  return readStatus(dir) || { state: 'idle' };
+  const s = readStatus(dir) || { state: 'idle' };
+  try {
+    const pending = autoUpdate.readRestartPending(dir);
+    if (pending) {
+      s.restartPending = true;
+      if (pending.label) s.pendingLabel = pending.label;
+      if (pending.short) s.pendingShort = pending.short;
+    }
+  } catch (e) { /* ignore */ }
+  return s;
 }
 
 module.exports = { requestUpdate, getStatus };

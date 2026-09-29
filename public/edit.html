@@ -1103,7 +1103,7 @@
 <input id="errorReportUrl" placeholder="Optional form URL" inputmode="url">
 <div class="grid cols-2">
   <div>
-    <label for="autoShutdownMinutes">Shutdown (minutes)</label>
+    <label for="autoShutdownMinutes">Screen off after (minutes)</label>
     <input id="autoShutdownMinutes" type="number" min="1" placeholder="165" inputmode="numeric">
   </div>
   <div>
@@ -1115,6 +1115,11 @@
     </select>
   </div>
 </div>
+<label class="check" style="margin-top:12px;">
+  <input type="checkbox" id="autoShutdownPoweroff">
+  Also shut down the computer
+</label>
+<p class="hint">By default the room screen goes black after the timer — open /edit and enter the PIN to wake it. Tick the box if the Pi should power off instead (timer set at boot).</p>
 <label for="weatherEmbedCode">Weather embed</label>
 <textarea id="weatherEmbedCode" rows="2" placeholder="Optional — blank uses built-in weather"></textarea>
 
@@ -2692,6 +2697,7 @@ function collectPayload() {
     timetreeUniformLabelIds: [...document.querySelectorAll('#timetreeUniformLabels input[type=checkbox]:checked')].map(c => Number(c.value)),
     timetreeLabels: Array.isArray(window._savedTimetreeLabels) ? window._savedTimetreeLabels : [],
     autoShutdownMinutes: parseInt(document.getElementById('autoShutdownMinutes').value, 10) || 165,
+    autoShutdownMode: document.getElementById('autoShutdownPoweroff').checked ? 'poweroff' : 'sleep',
     instagramEmbedCode: document.getElementById('instagramEmbedCode').value,
     weatherEmbedCode: document.getElementById('weatherEmbedCode').value,
     layout: document.getElementById('layout').value,
@@ -2867,6 +2873,7 @@ async function load() {
   document.getElementById('calendarTimezone').value = data.calendarTimezone || 'Europe/London';
   document.getElementById('calendarDays').value = data.calendarDays || 60;
   document.getElementById('autoShutdownMinutes').value = data.autoShutdownMinutes || 165;
+  document.getElementById('autoShutdownPoweroff').checked = data.autoShutdownMode === 'poweroff';
   document.getElementById('instagramEmbedCode').value = data.instagramEmbedCode || '';
   document.getElementById('weatherEmbedCode').value = data.weatherEmbedCode || '';
   document.getElementById('layout').value = data.layout || 'auto';

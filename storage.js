@@ -243,6 +243,9 @@ function createStore({ dir, defaults, legacyDir, snapDir }) {
     // newsEmbedCode is no longer used (news is always the scraped BBC feed)
     const mins = Number(incoming.autoShutdownMinutes);
     if (Number.isFinite(mins) && mins >= 1) out.autoShutdownMinutes = Math.round(mins);
+    if (incoming.autoShutdownMode === 'sleep' || incoming.autoShutdownMode === 'poweroff') {
+      out.autoShutdownMode = incoming.autoShutdownMode;
+    }
 
     const loc = incoming.location;
     if (loc && typeof loc === 'object') {
