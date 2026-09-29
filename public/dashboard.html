@@ -20,7 +20,7 @@
   } catch (e) { /* offline / first boot — continue normally */ }
 })();
 </script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="/vendor/qrcode.min.js"></script>
 <style>
   :root {
     --raf-navy: #00205B;
@@ -323,7 +323,12 @@
   }
   #eventsPane li .ev-qr img, #eventsPane li .ev-qr canvas { display: block; }
   #eventsLayout { flex: 1; display: flex; gap: 24px; min-height: 0; }
-  #eventsList { flex: 1; min-width: 0; }
+  #eventsList {
+    flex: 1; min-width: 0; min-height: 0;
+    overflow-x: hidden; overflow-y: hidden;
+    scrollbar-width: none;
+  }
+  #eventsList::-webkit-scrollbar { display: none; }
   #eventsSeeMore { flex: 0 0 34%; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 16px; text-align: center; border-left: 1px solid var(--border); padding-left: 24px; }
   #eventsSeeMore .label { font-size: 15px; color: var(--muted); }
 
@@ -467,12 +472,14 @@
   #noWidgetsPane { align-items: center; justify-content: center; text-align: center; color: var(--muted); font-size: 16px; }
 
   /* Sleep mode: full black cover until woken via /edit PIN */
+  /* Full black cover for sleep mode — TV has no touch; wake is HDMI-on or /edit PIN */
   #displaySleep {
     display: none;
     position: fixed;
     inset: 0;
     z-index: 200000;
     background: #000;
+    pointer-events: none;
   }
   #displaySleep.on { display: block; }
 
@@ -1022,7 +1029,7 @@ let eventsPageIndex = 0;
 let isCompact = false;               // small-screen layout active?
 let layoutSetting = 'auto';          // auto | full | compact (from /edit)
 let widgetFlags = { leaderboard: true, news: true, events: true, instagram: true, uniform: true, chainOfCommand: false };
-let autoShutdownMinutes = 165;
+let autoShutdownMinutes = 150;
 let autoShutdownMode = 'sleep';
 let sleepTimer = null;
 let sleepActive = false;
@@ -1117,17 +1124,77 @@ function renderEventsPage() {
   }
 }
 
-// Restarted each time the events pane comes into view, so page 1 always shows first
+// Events pane: 3s hold at top → slow scroll if needed → 3s hold at bottom → next page of events.
+// Outer carousel waits until every events page has been shown once.
+let eventsScrollRaf = null;
+
+function stopEventsScroll() {
+  if (eventsScrollRaf) { cancelAnimationFrame(eventsScrollRaf); eventsScrollRaf = null; }
+  if (eventsTimer) { clearTimeout(eventsTimer); eventsTimer = null; }
+  const ul = document.getElementById('eventsList');
+  if (ul) ul.scrollTop = 0;
+}
+
 function startEventsRotation() {
-  clearInterval(eventsTimer);
+  stopEventsScroll();
   eventsPageIndex = 0;
-  renderEventsPage();
-  if (eventsPages.length > 1) {
-    eventsTimer = setInterval(() => {
-      eventsPageIndex = (eventsPageIndex + 1) % eventsPages.length;
-      renderEventsPage();
-    }, 10000);
+  runEventsPageCycle();
+}
+
+function advanceEventsPage() {
+  eventsPageIndex++;
+  if (eventsPageIndex >= Math.max(1, eventsPages.length)) {
+    // Finished a full pass of every page — hand control back to the carousel
+    eventsPageIndex = 0;
+    if (panes.length > 1) {
+      paneIndex = (paneIndex + 1) % panes.length;
+      showPane(paneIndex);
+      if (!(panes[paneIndex] && panes[paneIndex].id === 'eventsPane')) scheduleNext();
+    } else {
+      runEventsPageCycle();
+    }
+    return;
   }
+  runEventsPageCycle();
+}
+
+function runEventsPageCycle() {
+  stopEventsScroll();
+  renderEventsPage();
+  const ul = document.getElementById('eventsList');
+  if (ul) ul.scrollTop = 0;
+
+  const PAUSE_TOP_MS = 3000;
+  const PAUSE_BOTTOM_MS = 3000;
+
+  eventsTimer = setTimeout(() => {
+    eventsTimer = null;
+    if (!ul) {
+      eventsTimer = setTimeout(advanceEventsPage, PAUSE_BOTTOM_MS);
+      return;
+    }
+    const maxScroll = Math.max(0, ul.scrollHeight - ul.clientHeight);
+    if (maxScroll < 2) {
+      // Everything fits — still wait the bottom hold before flipping page
+      eventsTimer = setTimeout(advanceEventsPage, PAUSE_BOTTOM_MS);
+      return;
+    }
+    // Slow scroll: about 28px/s, at least 4s so it never races
+    const scrollMs = Math.max(4000, Math.round(maxScroll * (1000 / 28)));
+    const t0 = performance.now();
+    function tick(now) {
+      const t = Math.min(1, (now - t0) / scrollMs);
+      const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      ul.scrollTop = maxScroll * e;
+      if (t < 1) {
+        eventsScrollRaf = requestAnimationFrame(tick);
+      } else {
+        eventsScrollRaf = null;
+        eventsTimer = setTimeout(advanceEventsPage, PAUSE_BOTTOM_MS);
+      }
+    }
+    eventsScrollRaf = requestAnimationFrame(tick);
+  }, PAUSE_TOP_MS);
 }
 
 // Renders a pasted widget embed snippet (script + div, e.g. Elfsight or a
@@ -1190,14 +1257,100 @@ function tick() {
 tick();
 setInterval(tick, 1000);
 
+// QRs: try disk temp on the Pi first (data/cache/qr), else generate once in the browser,
+// show it, and offload the PNG to temp. Under memory pressure the server deletes the folder;
+// the next need regenerates. Small in-RAM map only holds object URLs for the current paint set.
+const qrRamCache = new Map(); // key -> object URL or data URL (session only)
+
+function qrCacheKey(text, px) {
+  // Same idea as the server hash, but lightweight in the browser
+  let h = 2166136261;
+  const s = String(text) + '|' + px;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(16).padStart(8, '0') + '_' + px;
+}
+
+function generateQrDataUrl(text, px) {
+  if (typeof QRCode === 'undefined') return '';
+  try {
+    const tmp = document.createElement('div');
+    tmp.style.position = 'absolute';
+    tmp.style.left = '-9999px';
+    document.body.appendChild(tmp);
+    new QRCode(tmp, { text: text, width: px, height: px });
+    const canvas = tmp.querySelector('canvas');
+    const imgNode = tmp.querySelector('img');
+    let dataUrl = '';
+    if (canvas && canvas.toDataURL) dataUrl = canvas.toDataURL('image/png');
+    else if (imgNode && imgNode.src) dataUrl = imgNode.src;
+    tmp.remove();
+    return dataUrl || '';
+  } catch (e) {
+    console.error('QR failed', e);
+    return '';
+  }
+}
+
+function dataUrlToPngBlob(dataUrl) {
+  try {
+    const m = /^data:image\/png;base64,(.+)$/i.exec(dataUrl);
+    if (!m) return null;
+    const bin = atob(m[1]);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return new Blob([arr], { type: 'image/png' });
+  } catch (e) {
+    return null;
+  }
+}
+
+function offloadQrToTemp(key, dataUrl) {
+  const blob = dataUrlToPngBlob(dataUrl);
+  if (!blob) return;
+  fetch('/api/qr/' + encodeURIComponent(key) + '.png', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'image/png' },
+    body: blob
+  }).catch(() => { /* offline / full disk — keep using local image */ });
+}
+
 function makeQr(containerId, url, size) {
   const el = document.getElementById(containerId);
   if (!el) return;
   el.innerHTML = '';
-  // The QR library comes from a CDN - if the Pi is offline it won't have loaded, and that
-  // must never stop the rest of the dashboard working.
-  if (typeof QRCode === 'undefined') return;
-  try { new QRCode(el, { text: url, width: size || 120, height: size || 120 }); } catch (e) { console.error('QR failed', e); }
+  const px = size || 120;
+  const text = String(url || '').trim();
+  if (!text) return;
+
+  const key = qrCacheKey(text, px);
+  const apiSrc = '/api/qr/' + encodeURIComponent(key) + '.png';
+  const img = document.createElement('img');
+  img.width = px;
+  img.height = px;
+  img.alt = '';
+
+  const local = qrRamCache.get(key);
+  if (local) {
+    img.src = local;
+    el.appendChild(img);
+    return;
+  }
+
+  // Prefer temp on disk so JS heap stays small across pane rotations
+  img.onload = function () { img.onload = null; img.onerror = null; };
+  img.onerror = function () {
+    img.onerror = null;
+    const dataUrl = generateQrDataUrl(text, px);
+    if (!dataUrl) { img.remove(); return; }
+    qrRamCache.set(key, dataUrl);
+    img.src = dataUrl;
+    offloadQrToTemp(key, dataUrl);
+  };
+  el.appendChild(img);
+  img.src = apiSrc;
 }
 
 function qrSizeFor(referenceEl) {
@@ -1326,7 +1479,7 @@ function applyWidgetSettings(data) {
   applyLayout();
 
   const mins = Number(data.autoShutdownMinutes);
-  autoShutdownMinutes = (Number.isFinite(mins) && mins >= 1) ? Math.round(mins) : 165;
+  autoShutdownMinutes = (Number.isFinite(mins) && mins >= 1) ? Math.round(mins) : 150;
   autoShutdownMode = data.autoShutdownMode === 'poweroff' ? 'poweroff' : 'sleep';
   scheduleDisplaySleep();
 
@@ -1553,21 +1706,34 @@ async function loadNews() {
 async function loadLeaderboard() {
   if (!widgetFlags.leaderboard) return;
   const pane = ensurePaneSkeleton('lbPane');
+  // Restore last good table after a kiosk reload while the sheet is down
+  if (!cachedLb) {
+    try {
+      const raw = sessionStorage.getItem('sqndash-lb-cache');
+      if (raw) cachedLb = JSON.parse(raw);
+    } catch (e) { /* ignore */ }
+  }
   try {
     const lb = await apiJson('/api/leaderboard');
-    // Empty is valid — show friendly empty state rather than a hard error
-    cachedLb = lb || { rows: [], flightRows: [] };
+    // Prefer a non-empty new payload; if the sheet fails open with empty rows but we have
+    // a previous table, keep the previous one and mark it stale.
+    const incoming = lb || { rows: [], flightRows: [] };
+    const hasRows = (incoming.rows && incoming.rows.length) || (incoming.flightRows && incoming.flightRows.length);
+    if (hasRows || !cachedLb || !((cachedLb.rows || []).length || (cachedLb.flightRows || []).length)) {
+      cachedLb = incoming;
+      try { sessionStorage.setItem('sqndash-lb-cache', JSON.stringify(cachedLb)); } catch (e) { /* ignore */ }
+    } else {
+      cachedLb = { ...cachedLb, stale: true, updatedAt: cachedLb.updatedAt || incoming.updatedAt };
+    }
     lastLbKey = '';
-    setStamp('lbPane', lb && lb.updatedAt, !!(lb && lb.stale));
+    setStamp('lbPane', cachedLb && cachedLb.updatedAt, !!(cachedLb && (cachedLb.stale || lb && lb.stale)));
     renderLeaderboardFromCache();
   } catch (e) {
     // Keep last good table; only show error if we never had data.
-    if (cachedLb && cachedLb.rows && cachedLb.rows.length) {
+    if (cachedLb && ((cachedLb.rows && cachedLb.rows.length) || (cachedLb.flightRows && cachedLb.flightRows.length))) {
       setStamp('lbPane', cachedLb.updatedAt, true);
       renderLeaderboardFromCache();
     } else {
-      cachedLb = null;
-      lastLbKey = '';
       showError(pane, 'leaderboard', e.message || String(e));
     }
   }
@@ -1580,7 +1746,7 @@ const paneStamps = {};
 function fmtClock(ms) { return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }); }
 function setStamp(paneId, updatedAt, stale, note) {
   paneStamps[paneId] = updatedAt
-    ? { text: (stale ? 'Offline – showing data from ' : 'Updated ') + fmtClock(updatedAt), stale: !!stale }
+    ? { text: (stale ? 'As of ' : 'Updated ') + fmtClock(updatedAt) + (stale ? ' (kept while offline)' : ''), stale: !!stale }
     : (note ? { text: note, stale: true } : null);
   if (typeof panes !== 'undefined' && panes[paneIndex] && panes[paneIndex].id === paneId) renderStamp(paneId);
 }
@@ -2021,6 +2187,9 @@ async function bootAfterLoading() {
 bootAfterLoading();
 
 // ---- Sleep mode (black screen) instead of powering the Pi off ----
+// The room TV is not a touch screen. Wake only when:
+//   - the server bumps wake (HDMI output goes connected, or PIN on /edit /events)
+//   - checked via /api/boot below
 function enterDisplaySleep() {
   if (autoShutdownMode !== 'sleep') return;
   sleepActive = true;
@@ -2036,7 +2205,9 @@ function exitDisplaySleep() {
 function scheduleDisplaySleep() {
   if (sleepTimer) { clearTimeout(sleepTimer); sleepTimer = null; }
   if (autoShutdownMode !== 'sleep') {
-    exitDisplaySleep();
+    sleepActive = false;
+    const el = document.getElementById('displaySleep');
+    if (el) el.classList.remove('on');
     return;
   }
   if (sleepActive) return;
@@ -2076,7 +2247,7 @@ async function checkForRestart() {
   } catch (e) { /* server is restarting - try again next time */ }
 }
 checkForRestart();
-setInterval(checkForRestart, 15 * 1000);
+setInterval(checkForRestart, 3 * 1000);
 
 // Leave the room screen for the holding page if an update starts while we're up
 async function watchForUpdate() {
@@ -2161,27 +2332,34 @@ function showPane(i) {
     document.getElementById('noWidgetsPane').classList.add('active');
     setTitle('Widgets');
     renderStamp('none');
-    clearInterval(eventsTimer);
+    stopEventsScroll();
     stopLeaderboardScroll();
     return;
   }
   document.getElementById(p.id).classList.add('active');
   setTitle(p.title);
   renderStamp(p.id);
-  if (p.id === 'eventsPane') startEventsRotation();
-  else clearInterval(eventsTimer);
+  if (p.id === 'eventsPane') {
+    clearTimeout(paneTimer);
+    paneTimer = null;
+    startEventsRotation();
+  } else {
+    stopEventsScroll();
+  }
   if (p.id === 'cocPane') scheduleCocLayout();
   if (p.id === 'lbPane') startLeaderboardScroll();
   else stopLeaderboardScroll();
 }
 
-// Every pane gets 10s, except events which gets 10s per page of events
+// Non-events panes get 10s. Events timing is driven by startEventsRotation (scroll + holds).
 function paneDuration(i) {
-  return panes[i] && panes[i].id === 'eventsPane' ? Math.max(1, eventsPages.length) * 10000 : 10000;
+  return 10000;
 }
 function scheduleNext() {
   clearTimeout(paneTimer);
-  if (panes.length > 1) paneTimer = setTimeout(nextPane, paneDuration(paneIndex));
+  if (panes.length > 1 && !(panes[paneIndex] && panes[paneIndex].id === 'eventsPane')) {
+    paneTimer = setTimeout(nextPane, paneDuration(paneIndex));
+  }
 }
 function nextPane() {
   paneIndex = (paneIndex + 1) % panes.length;

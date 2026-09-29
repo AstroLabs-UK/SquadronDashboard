@@ -1127,7 +1127,7 @@
 <div class="grid cols-2">
   <div>
     <label for="autoShutdownMinutes">Screen off after (minutes)</label>
-    <input id="autoShutdownMinutes" type="number" min="1" placeholder="165" inputmode="numeric">
+    <input id="autoShutdownMinutes" type="number" min="1" placeholder="150" inputmode="numeric">
   </div>
   <div>
     <label for="layout">Layout</label>
@@ -1142,7 +1142,7 @@
   <input type="checkbox" id="autoShutdownPoweroff">
   Also shut down the computer
 </label>
-<p class="hint">By default the room screen goes black after the timer — open /edit and enter the PIN to wake it. Tick the box if the Pi should power off instead (timer set at boot).</p>
+<p class="hint">By default the room screen goes black after the timer. Wake by powering the TV on (HDMI connect) or by opening /edit or /events and entering the PIN. Tick the box if the Pi should power off instead (timer set at boot).</p>
 <label for="weatherEmbedCode">Weather embed</label>
 <textarea id="weatherEmbedCode" rows="2" placeholder="Optional — blank uses built-in weather"></textarea>
 
@@ -2692,7 +2692,7 @@ function collectPayload() {
     calendarTimezone: document.getElementById('calendarTimezone').value,
     calendarDays: parseInt(document.getElementById('calendarDays').value, 10) || 60,
     calendarAccounts: calAccounts.map(accountPayload),
-    autoShutdownMinutes: parseInt(document.getElementById('autoShutdownMinutes').value, 10) || 165,
+    autoShutdownMinutes: parseInt(document.getElementById('autoShutdownMinutes').value, 10) || 150,
     autoShutdownMode: document.getElementById('autoShutdownPoweroff').checked ? 'poweroff' : 'sleep',
     instagramEmbedCode: document.getElementById('instagramEmbedCode').value,
     weatherEmbedCode: document.getElementById('weatherEmbedCode').value,
@@ -2844,7 +2844,7 @@ async function load() {
   });
   document.getElementById('calendarTimezone').value = data.calendarTimezone || 'Europe/London';
   document.getElementById('calendarDays').value = data.calendarDays || 60;
-  document.getElementById('autoShutdownMinutes').value = data.autoShutdownMinutes || 165;
+  document.getElementById('autoShutdownMinutes').value = data.autoShutdownMinutes || 150;
   document.getElementById('autoShutdownPoweroff').checked = data.autoShutdownMode === 'poweroff';
   document.getElementById('instagramEmbedCode').value = data.instagramEmbedCode || '';
   document.getElementById('weatherEmbedCode').value = data.weatherEmbedCode || '';
@@ -3411,13 +3411,30 @@ async function testCalendar() {
   try {
     const r = await (await fetch('/api/events', { cache: 'no-store' })).json();
     const c = r.calendar || {};
-    if (!c.configured) { el.textContent = 'No calendar linked (or none switched on).'; return; }
-    const lines = (c.accounts || []).map(a => a.name + ': ' + (a.ok ? 'OK, ' + a.events + ' event(s)' : (a.error || 'failed')));
+    const tz = document.getElementById('calendarTimezone').value || c.tz || 'Europe/London';
+    if (!c.configured) { el.textContent = 'No calendar linked (or none switched on). Time zone on form: ' + tz; return; }
+    const lines = [];
+    lines.push('Time zone: ' + tz + (c.tz && c.tz !== tz ? ' (server using ' + c.tz + ')' : ''));
+    (c.accounts || []).forEach(a => {
+      lines.push(a.name + ': ' + (a.ok ? 'OK, ' + a.events + ' event(s)' : (a.error || 'failed')));
+    });
     if (!c.ok) { el.style.color = 'var(--raf-red)'; el.textContent = lines.join('\n') || c.error || 'Failed'; return; }
-    const next = (r.events || []).find(e => e.source === 'calendar');
+    const upcoming = (r.events || []).filter(e => e.source === 'calendar').slice(0, 3);
+    if (upcoming.length) {
+      lines.push('Next ' + upcoming.length + ' calendar event(s):');
+      upcoming.forEach((e, i) => {
+        const bits = [e.title || 'Untitled'];
+        if (e.date) bits.push(e.date);
+        if (e.detail) bits.push(e.detail);
+        if (e.description) bits.push(e.description.length > 80 ? e.description.slice(0, 77) + '…' : e.description);
+        lines.push('  ' + (i + 1) + '. ' + bits.join(' · '));
+      });
+    } else {
+      lines.push('No upcoming calendar events in range');
+    }
     const anyBad = (c.accounts || []).some(a => !a.ok);
     el.style.color = anyBad ? 'var(--raf-red)' : 'var(--raf-navy)';
-    el.textContent = lines.join('\n') + '\n' + (next ? 'Next event: ' + next.title : 'No upcoming events');
+    el.textContent = lines.join('\n');
   } catch (e) {
     el.style.color = 'var(--raf-red)';
     el.textContent = e.message;

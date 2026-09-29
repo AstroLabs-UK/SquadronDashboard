@@ -6,6 +6,8 @@ const { createStore } = require('./storage');
 const { securityHeaders, rateLimit } = require('./lib/security');
 const { createEditorAuth } = require('./lib/auth');
 const autoUpdate = require('./autoUpdate');
+const hdmiWake = require('./lib/hdmiWake');
+const qrCache = require('./lib/qrCache');
 const updater = require('./updater');
 const themeAssets = require('./lib/themeAssets');
 const guard = require('./lib/settingsGuard');
@@ -65,7 +67,7 @@ const DEFAULT_DATA = {
   timetreeLabelsRefreshedAt: null,
   uniform: { items: [] },
   errorReportUrl: "",
-  autoShutdownMinutes: 165,
+  autoShutdownMinutes: 150,
   autoShutdownMode: "sleep",
   instagramEmbedCode: "",
   weatherEmbedCode: "",
@@ -118,8 +120,28 @@ if (guardActive) {
   }
 }
 try { fs.mkdirSync(CACHE_DIR, { recursive: true }); } catch (e) { /* best effort */ }
+const QR_CACHE_DIR = path.join(CACHE_DIR, 'qr');
+try { fs.mkdirSync(QR_CACHE_DIR, { recursive: true }); } catch (e) { /* best effort */ }
 const store = createStore({ dir: DATA_DIR, defaults: DEFAULT_DATA, legacyDir: __dirname, snapDir: guardActive ? SNAP_DIR : null });
 try { autoUpdate.clearRestartPending(DATA_DIR); } catch (e) {}
+
+// When /edit switches between sleep and power-off, nudge the Pi's shutdown timer unit so it
+// does not keep a stale "power off in N minutes" countdown from boot.
+function applyShutdownPolicy(mode) {
+  try {
+    const { execFile } = require('child_process');
+    const unit = 'squadron-dashboard-shutdown.service';
+    if (mode === 'sleep') {
+      execFile('systemctl', ['stop', unit], { timeout: 8000 }, () => {});
+      return;
+    }
+    if (mode === 'poweroff') {
+      // Restart so the script re-reads minutes from data.json from now
+      execFile('systemctl', ['restart', unit], { timeout: 8000 }, () => {});
+    }
+  } catch (e) { /* no systemctl (Windows / Docker) — ignore */ }
+}
+
 if (guardActive) {
   try {
     const main = path.join(DATA_DIR, 'data.json');
@@ -278,6 +300,10 @@ app.post('/api/data', requireEditor, sensitiveLimiter, (req, res) => {
     const previous = store.load();
     const updated = store.sanitize(previous, req.body);
     store.save(updated);
+    if (updated.autoShutdownMode !== previous.autoShutdownMode
+        || updated.autoShutdownMinutes !== previous.autoShutdownMinutes) {
+      try { applyShutdownPolicy(updated.autoShutdownMode || 'sleep'); } catch (e) { /* ignore */ }
+    }
     // Only keep the active theme crest on disk (fetched from repo / local seed)
     if (updated.theme !== previous.theme || !themeAssets.getCachedLogoPath(DATA_DIR)) {
       themeAssets.ensureThemeLogo({ dataDir: DATA_DIR, cwd: __dirname, theme: updated.theme || 'rafac', force: true })
@@ -396,6 +422,34 @@ app.post('/api/restart', requireEditor, sensitiveLimiter, (req, res) => {
 
 // ---------- API: weather / news / leaderboard / status / update ----------
 app.use(apiLimiter);
+
+// QR PNG temp cache (generated on the room browser, stored under data/cache/qr until restart or memory pressure)
+app.get('/api/qr/:key.png', apiLimiter, (req, res) => {
+  const key = String(req.params.key || '');
+  const buf = qrCache.getPng(QR_CACHE_DIR, key);
+  if (!buf) return res.status(404).end();
+  res.set('Content-Type', 'image/png');
+  res.set('Cache-Control', 'no-cache');
+  res.send(buf);
+});
+app.put('/api/qr/:key.png', apiLimiter, express.raw({ type: 'image/png', limit: '1mb' }), (req, res) => {
+  const key = String(req.params.key || '');
+  const body = Buffer.isBuffer(req.body) ? req.body : Buffer.from([]);
+  if (!qrCache.putPng(QR_CACHE_DIR, key, body)) {
+    return res.status(400).json({ ok: false, error: 'Could not store QR' });
+  }
+  res.json({ ok: true });
+});
+app.get('/api/memory', apiLimiter, (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const avail = qrCache.readAvailablePercent();
+  res.json({
+    availablePercent: avail,
+    pressure: qrCache.underPressure(),
+    thresholdAvailablePercent: 15
+  });
+});
+
 app.use(require('./routes/weather')({ store, cacheDir: CACHE_DIR }));
 app.use(require('./routes/news')({ cacheDir: CACHE_DIR }));
 app.use(require('./routes/leaderboard')({ store, cacheDir: CACHE_DIR }));
@@ -477,6 +531,21 @@ app.listen(PORT, HOST, () => {
     autoUpdate.startAutoUpdate({ cwd: __dirname, dataDir: DATA_DIR, intervalMs: 5 * 60 * 1000 });
     themeAssets.ensureThemeLogo({ dataDir: DATA_DIR, cwd: __dirname, theme: (store.load().theme || 'rafac') })
       .catch(e => console.warn('[theme] initial crest', e && e.message ? e.message : e));
+    // TV power-on: DRM connector disconnected → connected bumps wake for the room screen
+    try {
+      hdmiWake.startHdmiWake({
+        onConnect: () => {
+          if (control && typeof control.wakeDisplay === 'function') control.wakeDisplay();
+        }
+      });
+    } catch (e) {
+      console.warn('[hdmi] watcher failed to start', e && e.message ? e.message : e);
+    }
+    try {
+      qrCache.startMemoryWatch(QR_CACHE_DIR);
+    } catch (e) {
+      console.warn('[qr-cache] memory watch failed', e && e.message ? e.message : e);
+    }
   });
 }
 

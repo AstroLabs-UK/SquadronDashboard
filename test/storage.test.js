@@ -8,7 +8,7 @@ const { createStore, isHttpUrl } = require('../storage');
 const defaults = {
   squadronName: 'Default', location: { name: 'Town', lat: 1, lon: 2 },
   leaderboardCsvUrl: '', eventsSeeMoreUrl: 'https://example.com', errorReportUrl: '',
-  autoShutdownMinutes: 165, instagramEmbedCode: '', weatherEmbedCode: '', 
+  autoShutdownMinutes: 150, instagramEmbedCode: '', weatherEmbedCode: '', 
   importantInfo: { enabled: false, title: 'T', message: '' },
   widgets: { leaderboard: true, news: true, events: true, instagram: true },
   customWidgets: [], layout: 'auto', events: []
@@ -40,7 +40,7 @@ test('sanitize ignores junk and bad numbers', () => {
   const cur = store.load();
   const out = store.sanitize(cur, { squadronName: '   ', autoShutdownMinutes: -5, location: { lat: 999 }, layout: 'weird', events: 'nope' });
   assert.equal(out.squadronName, 'Default');
-  assert.equal(out.autoShutdownMinutes, 165);
+  assert.equal(out.autoShutdownMinutes, 150);
   assert.equal(out.location.lat, 1);
   assert.equal(out.layout, 'auto');
   assert.deepEqual(out.events, []);
