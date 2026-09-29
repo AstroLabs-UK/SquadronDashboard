@@ -239,18 +239,30 @@ fi
 echo "-> Setting up auto-shutdown (reads the duration from data.json at boot)..."
 cat > "$DIR/shutdown-timer.sh" <<EOF
 #!/usr/bin/env bash
-MINUTES=\$(python3 -c "
-import json
-import os
+# Reads autoShutdownMinutes + autoShutdownMode from settings (set on /edit).
+# sleep  = display blanks itself; this script exits without powering off.
+# poweroff = wait then /sbin/shutdown -h now
+eval "\$(python3 -c "
+import json, os
 p = '$DIR/data/data.json'
 if not os.path.exists(p):
     p = '$DIR/data.json'
+mins, mode = 165, 'poweroff'
 try:
     d = json.load(open(p))
-    print(int(d.get('autoShutdownMinutes', 165)))
+    mins = int(d.get('autoShutdownMinutes', 165))
+    mode = d.get('autoShutdownMode') or 'poweroff'
 except Exception:
-    print(165)
-")
+    pass
+if mode not in ('sleep', 'poweroff'):
+    mode = 'poweroff'
+print('MINUTES=%d' % max(1, mins))
+print('MODE=%s' % mode)
+")"
+if [ "\$MODE" = "sleep" ]; then
+  echo "Squadron Dashboard: sleep mode (black screen on the display) — not powering off"
+  exit 0
+fi
 echo "Squadron Dashboard: shutting down in \${MINUTES} minutes (set on /edit)"
 sleep "\$((MINUTES * 60))"
 /sbin/shutdown -h now

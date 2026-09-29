@@ -65,6 +65,7 @@ const DEFAULT_DATA = {
   uniform: { items: [] },
   errorReportUrl: "",
   autoShutdownMinutes: 165,
+  autoShutdownMode: "poweroff",
   instagramEmbedCode: "",
   weatherEmbedCode: "",
   // News panel is always the scraped BBC News feed (no embed code).
@@ -209,6 +210,14 @@ app.get('/status', sendPage('status.html'));
 // ---------- API: editor PIN (stylised screen posts here; no PIN is stored in the browser) ----------
 // Failures are rate-limited (skipSuccessful); successes are not counted.
 app.post('/api/auth/login', pinFailureLimiter, (req, res) => {
+  const send = res.json.bind(res);
+  res.json = function (body) {
+    // Unlocking the editor also wakes the room screen from sleep mode
+    if (body && body.ok && control && typeof control.wakeDisplay === 'function') {
+      try { control.wakeDisplay(); } catch (e) { /* ignore */ }
+    }
+    return send(body);
+  };
   requireEditor.login(req, res);
 });
 app.post('/api/auth/logout', (req, res) => {

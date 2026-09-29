@@ -464,6 +464,17 @@
   body.compact #cocPane .coc-node { min-width: 72px; max-width: 110px; }
 
   #noWidgetsPane { align-items: center; justify-content: center; text-align: center; color: var(--muted); font-size: 16px; }
+
+  /* Sleep mode: full black cover until woken via /edit PIN */
+  #displaySleep {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 200000;
+    background: #000;
+  }
+  #displaySleep.on { display: block; }
+
 body.loading-active
 /* Error fallback with QR */
   .error-box { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; text-align: center; }
@@ -737,6 +748,7 @@ body.loading-active
   </div>
 </div>
 <div id="astroBlackout"></div>
+<div id="displaySleep" aria-hidden="true"></div>
 
 <div id="sourceBanner" role="status"></div>
 <div id="offlineChip" role="status" aria-live="polite">No internet connection</div>
@@ -1008,6 +1020,11 @@ let eventsPageIndex = 0;
 let isCompact = false;               // small-screen layout active?
 let layoutSetting = 'auto';          // auto | full | compact (from /edit)
 let widgetFlags = { leaderboard: true, news: true, events: true, instagram: true, uniform: true, chainOfCommand: false };
+let autoShutdownMinutes = 165;
+let autoShutdownMode = 'poweroff';
+let sleepTimer = null;
+let sleepActive = false;
+let lastWakeId = null;
 let showFlightLeaderboard = true;
 let latestUniform = { thisWeek: [], nextWeek: [] };
 let eventsLoaded = false;
@@ -1303,6 +1320,11 @@ function applyWeatherMode() {
 function applyWidgetSettings(data) {
   layoutSetting = ['auto', 'full', 'compact'].includes(data.layout) ? data.layout : 'auto';
   applyLayout();
+
+  const mins = Number(data.autoShutdownMinutes);
+  autoShutdownMinutes = (Number.isFinite(mins) && mins >= 1) ? Math.round(mins) : 165;
+  autoShutdownMode = data.autoShutdownMode === 'sleep' ? 'sleep' : 'poweroff';
+  scheduleDisplaySleep();
 
   const f = data.widgets || {};
   const prev = widgetFlags;
@@ -1994,6 +2016,29 @@ async function bootAfterLoading() {
 }
 bootAfterLoading();
 
+// ---- Sleep mode (black screen) instead of powering the Pi off ----
+function enterDisplaySleep() {
+  if (autoShutdownMode !== 'sleep') return;
+  sleepActive = true;
+  const el = document.getElementById('displaySleep');
+  if (el) el.classList.add('on');
+}
+function exitDisplaySleep() {
+  sleepActive = false;
+  const el = document.getElementById('displaySleep');
+  if (el) el.classList.remove('on');
+  scheduleDisplaySleep();
+}
+function scheduleDisplaySleep() {
+  if (sleepTimer) { clearTimeout(sleepTimer); sleepTimer = null; }
+  if (autoShutdownMode !== 'sleep') {
+    exitDisplaySleep();
+    return;
+  }
+  if (sleepActive) return;
+  sleepTimer = setTimeout(enterDisplaySleep, Math.max(1, autoShutdownMinutes) * 60 * 1000);
+}
+
 // ---- Reload when the server restarts (e.g. after an auto-update) ----
 let bootId = null;
 let reloadId = null;
@@ -2015,6 +2060,14 @@ async function checkForRestart() {
     const b = await (await fetch('/api/boot', { cache: 'no-store' })).json();
     if (bootId === null) { bootId = b.id; reloadId = b.reload; }
     else if (b.id !== bootId || b.reload !== reloadId) location.reload();   // restarted, or "reload screens" pressed on /edit
+    // PIN on /edit bumps wake — clear the black sleep cover and restart the timer
+    if (b.wake != null) {
+      if (lastWakeId === null) lastWakeId = b.wake;
+      else if (b.wake !== lastWakeId) {
+        lastWakeId = b.wake;
+        exitDisplaySleep();
+      }
+    }
     showNotice(b.notice);
   } catch (e) { /* server is restarting - try again next time */ }
 }

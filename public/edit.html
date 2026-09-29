@@ -1103,9 +1103,19 @@
 <input id="errorReportUrl" placeholder="Optional form URL" inputmode="url">
 <div class="grid cols-2">
   <div>
-    <label for="autoShutdownMinutes">Shutdown (minutes)</label>
+    <label for="autoShutdownMinutes">After (minutes)</label>
     <input id="autoShutdownMinutes" type="number" min="1" placeholder="165" inputmode="numeric">
   </div>
+  <div>
+    <label for="autoShutdownMode">Then</label>
+    <select id="autoShutdownMode">
+      <option value="poweroff">Shut down the computer</option>
+      <option value="sleep">Sleep (black screen)</option>
+    </select>
+  </div>
+</div>
+<p class="hint">Sleep blanks the room screen only. Open /edit and enter the PIN to wake it. Shut down still powers the Pi off (timer set at boot).</p>
+<div class="grid cols-2">
   <div>
     <label for="layout">Layout</label>
     <select id="layout">
@@ -1114,6 +1124,7 @@
       <option value="compact">Compact</option>
     </select>
   </div>
+  <div></div>
 </div>
 <label for="weatherEmbedCode">Weather embed</label>
 <textarea id="weatherEmbedCode" rows="2" placeholder="Optional — blank uses built-in weather"></textarea>
@@ -2692,6 +2703,7 @@ function collectPayload() {
     timetreeUniformLabelIds: [...document.querySelectorAll('#timetreeUniformLabels input[type=checkbox]:checked')].map(c => Number(c.value)),
     timetreeLabels: Array.isArray(window._savedTimetreeLabels) ? window._savedTimetreeLabels : [],
     autoShutdownMinutes: parseInt(document.getElementById('autoShutdownMinutes').value, 10) || 165,
+    autoShutdownMode: document.getElementById('autoShutdownMode').value === 'sleep' ? 'sleep' : 'poweroff',
     instagramEmbedCode: document.getElementById('instagramEmbedCode').value,
     weatherEmbedCode: document.getElementById('weatherEmbedCode').value,
     layout: document.getElementById('layout').value,
@@ -2867,6 +2879,7 @@ async function load() {
   document.getElementById('calendarTimezone').value = data.calendarTimezone || 'Europe/London';
   document.getElementById('calendarDays').value = data.calendarDays || 60;
   document.getElementById('autoShutdownMinutes').value = data.autoShutdownMinutes || 165;
+  document.getElementById('autoShutdownMode').value = data.autoShutdownMode === 'sleep' ? 'sleep' : 'poweroff';
   document.getElementById('instagramEmbedCode').value = data.instagramEmbedCode || '';
   document.getElementById('weatherEmbedCode').value = data.weatherEmbedCode || '';
   document.getElementById('layout').value = data.layout || 'auto';
