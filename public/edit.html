@@ -1304,6 +1304,7 @@
 <div id="updateStatus"></div>
 <div class="actions" style="margin-top:8px;">
   <button type="button" class="primary" id="restartAfterUpdateBtn" onclick="restartDashboard()">Restart now</button>
+  <button type="button" class="add" id="sleepScreenBtnTop" onclick="sleepScreen()" title="Blank the room screen (not a full power-off)">Sleep screen</button>
 </div>
 </div>
 
@@ -1324,6 +1325,7 @@
   <div class="save-bar-inner">
     <button class="primary" type="button" onclick="save()">Save</button>
     <button class="force" type="button" id="forceBtn" onclick="forceUpdate()" disabled>Force update</button>
+    <button type="button" class="add" id="sleepScreenBtn" onclick="sleepScreen()" title="Blank the room screen (not a full power-off)">Sleep screen</button>
     <button type="button" class="primary" id="restartAfterUpdateBtnBottom" onclick="restartDashboard()">Restart now</button>
     <div id="status"></div>
   </div>
@@ -3564,6 +3566,38 @@ async function loadVersionInfo() {
   } catch (e) {
     el.textContent = 'Version check failed';
     return null;
+  }
+}
+
+async function sleepScreen() {
+  const el = document.getElementById('updateStatus') || document.getElementById('status');
+  try {
+    if (typeof hasUnsavedChanges === 'function' && hasUnsavedChanges()) {
+      // Prefer an explicit save so sleep does not discard form work
+      alert('Save your changes first before putting the screen to sleep.');
+      return;
+    }
+    const res = await fetch('/api/control', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ action: 'sleep' })
+    });
+    const body = await res.json().catch(() => ({}));
+    if (res.status === 401 || res.status === 403) {
+      if (el) { el.textContent = 'Unlock with your PIN and try again'; el.className = 'error'; }
+      return;
+    }
+    if (!res.ok) {
+      if (el) { el.textContent = body.error || 'Could not sleep the screen'; el.className = 'error'; }
+      return;
+    }
+    if (el) {
+      el.className = '';
+      el.textContent = 'Room screen sleeping — open /edit or /events and enter the PIN to wake (or power the TV).';
+    }
+  } catch (e) {
+    if (el) { el.textContent = e.message || String(e); el.className = 'error'; }
   }
 }
 
