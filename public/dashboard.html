@@ -4,6 +4,22 @@
 <meta charset="UTF-8">
 <title>Squadron Dashboard</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+// If an update is applying, hold on /updating before the Astro Labs boot sequence.
+(function () {
+  try {
+    var x = new XMLHttpRequest();
+    x.open('GET', '/api/update/status', false); // sync on purpose — block paint until we know
+    x.send(null);
+    if (x.status === 200) {
+      var s = JSON.parse(x.responseText || '{}');
+      if (s && (s.state === 'running' || s.state === 'requested')) {
+        location.replace('/updating');
+      }
+    }
+  } catch (e) { /* offline / first boot — continue normally */ }
+})();
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
   :root {
@@ -246,9 +262,19 @@
     margin: 0 0 10px 0; font-size: 12px; font-weight: 700; text-transform: uppercase;
     letter-spacing: 0.06em; color: var(--raf-blue); flex-shrink: 0;
   }
+  .lb-scroll {
+    flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto;
+    position: relative;
+    scrollbar-width: none;
+  }
+  .lb-scroll::-webkit-scrollbar { display: none; }
   /* Text fills the row height: more font, less empty padding (row size stays similar) */
-  .lb-col table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: clamp(15px, 3vh, 22px); flex: 1; }
-  .lb-col thead th { background: var(--raf-navy); color: var(--white); text-align: left; padding: clamp(5px, 0.9vh, 10px) 12px; font-size: 0.72em; text-transform: uppercase; letter-spacing: 0.06em; }
+  .lb-col table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: clamp(15px, 3vh, 22px); }
+  .lb-col thead th {
+    background: var(--raf-navy); color: var(--white); text-align: left;
+    padding: clamp(5px, 0.9vh, 10px) 12px; font-size: 0.72em; text-transform: uppercase;
+    letter-spacing: 0.06em; position: sticky; top: 0; z-index: 1;
+  }
   .lb-col thead th.num { text-align: right; }
   .lb-col td { padding: clamp(5px, 0.9vh, 10px) 12px; line-height: 1.2; border-bottom: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .lb-col tr:nth-child(even) td { background: var(--off-white); }
@@ -283,9 +309,19 @@
     #lbPane { flex-direction: column; }
   }
 
-  #eventsPane li { margin-bottom: 14px; font-size: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+  #eventsPane li {
+    margin-bottom: 14px; font-size: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 14px;
+  }
+  #eventsPane li .ev-text { flex: 1; min-width: 0; }
   #eventsPane li .title { font-weight: 700; color: var(--raf-navy); }
   #eventsPane li .meta { color: var(--muted); font-size: 14px; margin-top: 2px; }
+  #eventsPane li .desc { color: var(--raf-navy); font-size: 14px; margin-top: 3px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  #eventsPane li .ev-qr {
+    flex: 0 0 auto; padding: 4px; background: var(--white);
+    border: 1px solid var(--border); border-radius: 3px; line-height: 0;
+  }
+  #eventsPane li .ev-qr img, #eventsPane li .ev-qr canvas { display: block; }
   #eventsLayout { flex: 1; display: flex; gap: 24px; min-height: 0; }
   #eventsList { flex: 1; min-width: 0; }
   #eventsSeeMore { flex: 0 0 34%; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 16px; text-align: center; border-left: 1px solid var(--border); padding-left: 24px; }
@@ -429,6 +465,17 @@
   body.compact #cocPane .coc-node { min-width: 72px; max-width: 110px; }
 
   #noWidgetsPane { align-items: center; justify-content: center; text-align: center; color: var(--muted); font-size: 16px; }
+
+  /* Sleep mode: full black cover until woken via /edit PIN */
+  #displaySleep {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 200000;
+    background: #000;
+  }
+  #displaySleep.on { display: block; }
+
 body.loading-active
 /* Error fallback with QR */
   .error-box { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; text-align: center; }
@@ -553,6 +600,7 @@ body.loading-active
 
   body.compact #eventsPane li { font-size: var(--fm); margin-bottom: calc(5 * var(--u)); padding-bottom: calc(4 * var(--u)); }
   body.compact #eventsPane li .meta { font-size: var(--fs); margin-top: 1px; }
+  body.compact #eventsPane li .desc { font-size: var(--fs); margin-top: 1px; }
   body.compact #eventsLayout { gap: calc(8 * var(--u)); }
   body.compact #eventsSeeMore { flex: 0 0 calc(100 * var(--u)); padding-left: calc(8 * var(--u)); gap: calc(4 * var(--u)); }
   body.compact #eventsSeeMore .label { font-size: var(--fxs); }
@@ -702,6 +750,7 @@ body.loading-active
   </div>
 </div>
 <div id="astroBlackout"></div>
+<div id="displaySleep" aria-hidden="true"></div>
 
 <div id="sourceBanner" role="status"></div>
 <div id="offlineChip" role="status" aria-live="polite">No internet connection</div>
@@ -755,12 +804,16 @@ body.loading-active
       <div class="rotate-pane" id="lbPane">
         <div class="lb-col">
           <h3>Individual</h3>
-          <table><thead><tr><th>#</th><th>Cadet</th><th class="num">Points</th></tr></thead><tbody id="lbIndividualBody"></tbody></table>
+          <div class="lb-scroll" id="lbIndividualScroll">
+            <table><thead><tr><th>#</th><th>Cadet</th><th class="num">Points</th></tr></thead><tbody id="lbIndividualBody"></tbody></table>
+          </div>
         </div>
         <div class="lb-col">
           <h3>Flight</h3>
-          <table id="lbFlightTable"><thead><tr><th>#</th><th>Flight</th><th class="num">Points</th></tr></thead><tbody id="lbFlightBody"></tbody></table>
-          <div class="lb-unavailable" id="lbFlightUnavailable" style="display:none;">FLIGHT DATA UNAVAILABLE</div>
+          <div class="lb-scroll" id="lbFlightScroll">
+            <table id="lbFlightTable"><thead><tr><th>#</th><th>Flight</th><th class="num">Points</th></tr></thead><tbody id="lbFlightBody"></tbody></table>
+            <div class="lb-unavailable" id="lbFlightUnavailable" style="display:none;">FLIGHT DATA UNAVAILABLE</div>
+          </div>
         </div>
       </div>
 
@@ -969,6 +1022,11 @@ let eventsPageIndex = 0;
 let isCompact = false;               // small-screen layout active?
 let layoutSetting = 'auto';          // auto | full | compact (from /edit)
 let widgetFlags = { leaderboard: true, news: true, events: true, instagram: true, uniform: true, chainOfCommand: false };
+let autoShutdownMinutes = 165;
+let autoShutdownMode = 'sleep';
+let sleepTimer = null;
+let sleepActive = false;
+let lastWakeId = null;
 let showFlightLeaderboard = true;
 let latestUniform = { thisWeek: [], nextWeek: [] };
 let eventsLoaded = false;
@@ -1005,7 +1063,7 @@ let eventsTimer = null;
 function rebuildEventsPages() {
   // loadSettings() runs every 15 seconds - only rebuild when events or the QR link
   // actually changed, otherwise the page index gets reset every time.
-  const signature = JSON.stringify([latestEvents, eventsSeeMoreUrl]);
+  const signature = JSON.stringify([latestEvents, eventsSeeMoreUrl]); // urls included in latestEvents
   if (signature === eventsSignature) return;
   eventsSignature = signature;
 
@@ -1023,9 +1081,26 @@ function renderEventsPage() {
   const ul = document.getElementById('eventsList');
   const seeMore = document.getElementById('eventsSeeMore');
   const events = eventsPages[eventsPageIndex] || [];
-  ul.innerHTML = events.map(e =>
-    `<li><div class="title">${esc(e.title)}</div><div class="meta">${[e.date, e.detail].filter(x => x && String(x).trim()).map(esc).join(' &middot; ')}</div></li>`).join('')
-    || '<li><div class="meta">No events added yet - add some on /edit</div></li>';
+  if (!events.length) {
+    ul.innerHTML = '<li><div class="ev-text"><div class="meta">No events added yet - add some on /edit or /events</div></div></li>';
+  } else {
+    ul.innerHTML = events.map((e, i) => {
+      const meta = [e.date, e.detail].filter(x => x && String(x).trim()).map(esc).join(' &middot; ');
+      const url = (e.url || '').trim();
+      const qr = url
+        ? `<div class="ev-qr" id="evQr-${eventsPageIndex}-${i}"></div>`
+        : '';
+      const desc = (e.description || '').trim();
+      const descHtml = desc ? `<div class="desc">${esc(desc)}</div>` : '';
+      return `<li><div class="ev-text"><div class="title">${esc(e.title)}</div><div class="meta">${meta}</div>${descHtml}</div>${qr}</li>`;
+    }).join('');
+    // Per-event QRs (small — sits beside the text)
+    const qrPx = isCompact ? Math.max(40, Math.round(52 * unitPx())) : 72;
+    events.forEach((e, i) => {
+      const url = (e.url || '').trim();
+      if (url) makeQr('evQr-' + eventsPageIndex + '-' + i, url, qrPx);
+    });
+  }
 
   if (eventsSeeMoreUrl) {
     seeMore.style.display = 'flex';
@@ -1250,6 +1325,11 @@ function applyWidgetSettings(data) {
   layoutSetting = ['auto', 'full', 'compact'].includes(data.layout) ? data.layout : 'auto';
   applyLayout();
 
+  const mins = Number(data.autoShutdownMinutes);
+  autoShutdownMinutes = (Number.isFinite(mins) && mins >= 1) ? Math.round(mins) : 165;
+  autoShutdownMode = data.autoShutdownMode === 'poweroff' ? 'poweroff' : 'sleep';
+  scheduleDisplaySleep();
+
   const f = data.widgets || {};
   const prev = widgetFlags;
   widgetFlags = {
@@ -1391,12 +1471,12 @@ function renderLeaderboardFromCache() {
   const flightUnavailable = document.getElementById('lbFlightUnavailable');
   if (!indivBody) return;
 
-  // Fixed counts on all screen sizes: top 5 individual, top 3 flights
-  const rows = (cachedLb.rows || []).slice(0, 5);
+  // Longer list than fits on screen — auto-scroll handles the rest during the 10s pane
+  const rows = (cachedLb.rows || []).slice(0, 20);
   const flightSrc = showFlightLeaderboard ? (cachedLb.flightRows || []).filter(r => {
     const k = String(r.flight || '').trim().toLowerCase();
     return k && k !== 'n/a' && k !== 'na' && k !== '-' && k !== 'none';
-  }).slice(0, 3) : [];
+  }).slice(0, 8) : [];
   const hasFlight = showFlightLeaderboard && flightSrc.length > 0;
   const key = JSON.stringify([rows, flightSrc, showFlightLeaderboard]);
   if (key === lastLbKey) return;
@@ -1425,6 +1505,9 @@ function renderLeaderboardFromCache() {
     flightTable.style.display = 'none';
     flightUnavailable.style.display = 'block';
   }
+
+  // Data refreshed while we're on this pane — kick the scroll again from the top
+  if (panes[paneIndex] && panes[paneIndex].id === 'lbPane') startLeaderboardScroll();
 }
 
 async function loadNews() {
@@ -1937,6 +2020,29 @@ async function bootAfterLoading() {
 }
 bootAfterLoading();
 
+// ---- Sleep mode (black screen) instead of powering the Pi off ----
+function enterDisplaySleep() {
+  if (autoShutdownMode !== 'sleep') return;
+  sleepActive = true;
+  const el = document.getElementById('displaySleep');
+  if (el) el.classList.add('on');
+}
+function exitDisplaySleep() {
+  sleepActive = false;
+  const el = document.getElementById('displaySleep');
+  if (el) el.classList.remove('on');
+  scheduleDisplaySleep();
+}
+function scheduleDisplaySleep() {
+  if (sleepTimer) { clearTimeout(sleepTimer); sleepTimer = null; }
+  if (autoShutdownMode !== 'sleep') {
+    exitDisplaySleep();
+    return;
+  }
+  if (sleepActive) return;
+  sleepTimer = setTimeout(enterDisplaySleep, Math.max(1, autoShutdownMinutes) * 60 * 1000);
+}
+
 // ---- Reload when the server restarts (e.g. after an auto-update) ----
 let bootId = null;
 let reloadId = null;
@@ -1958,11 +2064,30 @@ async function checkForRestart() {
     const b = await (await fetch('/api/boot', { cache: 'no-store' })).json();
     if (bootId === null) { bootId = b.id; reloadId = b.reload; }
     else if (b.id !== bootId || b.reload !== reloadId) location.reload();   // restarted, or "reload screens" pressed on /edit
+    // PIN on /edit bumps wake — clear the black sleep cover and restart the timer
+    if (b.wake != null) {
+      if (lastWakeId === null) lastWakeId = b.wake;
+      else if (b.wake !== lastWakeId) {
+        lastWakeId = b.wake;
+        exitDisplaySleep();
+      }
+    }
     showNotice(b.notice);
   } catch (e) { /* server is restarting - try again next time */ }
 }
 checkForRestart();
 setInterval(checkForRestart, 15 * 1000);
+
+// Leave the room screen for the holding page if an update starts while we're up
+async function watchForUpdate() {
+  try {
+    const st = await (await fetch('/api/update/status', { cache: 'no-store' })).json();
+    if (st && (st.state === 'running' || st.state === 'requested')) {
+      location.replace('/updating');
+    }
+  } catch (e) { /* ignore */ }
+}
+setInterval(watchForUpdate, 5 * 1000);
 
 // ---- Carousel: rotates through the widgets that are ticked on /edit, every 10s ----
 // Order: Leaderboard, News, Events, Uniform, Instagram, then the extra embed widgets in the order
@@ -1988,6 +2113,47 @@ function computePanes() {
   return list;
 }
 
+// Leaderboard auto-scroll: hold at the top for a second, then ease down so we
+// reach the bottom just before the carousel moves on (10s pane → ~8.5s of motion).
+let lbScrollRaf = null;
+let lbScrollTimer = null;
+
+function stopLeaderboardScroll() {
+  if (lbScrollRaf) { cancelAnimationFrame(lbScrollRaf); lbScrollRaf = null; }
+  if (lbScrollTimer) { clearTimeout(lbScrollTimer); lbScrollTimer = null; }
+  document.querySelectorAll('#lbPane .lb-scroll').forEach(el => { el.scrollTop = 0; });
+}
+
+function startLeaderboardScroll() {
+  stopLeaderboardScroll();
+  const scrolls = [...document.querySelectorAll('#lbPane .lb-scroll')].filter(el => {
+    const col = el.closest('.lb-col');
+    return col && col.style.display !== 'none';
+  });
+  if (!scrolls.length) return;
+  scrolls.forEach(el => { el.scrollTop = 0; });
+
+  const pauseMs = 1000;
+  const endHoldMs = 500;
+  const scrollMs = Math.max(500, paneDuration(paneIndex) - pauseMs - endHoldMs);
+
+  lbScrollTimer = setTimeout(() => {
+    lbScrollTimer = null;
+    const maxScroll = Math.max(0, ...scrolls.map(el => el.scrollHeight - el.clientHeight));
+    if (maxScroll < 2) return;
+
+    const t0 = performance.now();
+    function tick(now) {
+      const t = Math.min(1, (now - t0) / scrollMs);
+      const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      scrolls.forEach(el => { el.scrollTop = maxScroll * e; });
+      if (t < 1) lbScrollRaf = requestAnimationFrame(tick);
+      else lbScrollRaf = null;
+    }
+    lbScrollRaf = requestAnimationFrame(tick);
+  }, pauseMs);
+}
+
 function showPane(i) {
   document.querySelectorAll('#rotatingPanel .rotate-pane').forEach(el => el.classList.remove('active'));
   const p = panes[i];
@@ -1996,6 +2162,7 @@ function showPane(i) {
     setTitle('Widgets');
     renderStamp('none');
     clearInterval(eventsTimer);
+    stopLeaderboardScroll();
     return;
   }
   document.getElementById(p.id).classList.add('active');
@@ -2004,6 +2171,8 @@ function showPane(i) {
   if (p.id === 'eventsPane') startEventsRotation();
   else clearInterval(eventsTimer);
   if (p.id === 'cocPane') scheduleCocLayout();
+  if (p.id === 'lbPane') startLeaderboardScroll();
+  else stopLeaderboardScroll();
 }
 
 // Every pane gets 10s, except events which gets 10s per page of events

@@ -234,7 +234,13 @@ async function refreshStatus() {
       : ((ci.usingCachedData ? 'using cached data · ' : '') +
          (ci.events != null ? ci.events + ' events in range' : '') +
          (ci.updatedAt ? ', fetched ' + new Date(ci.updatedAt).toLocaleTimeString() : ''));
-    if (ci.configured && ci.source === 'timetree') {
+    if (ci.configured && ci.source === 'multi') {
+      // several linked calendars: one line each, so a single broken account is easy to spot
+      const TYPE = { google: 'Google', outlook: 'Outlook', timetree: 'TimeTree', ics: 'Calendar link' };
+      const parts = (ci.accounts || []).map(a =>
+        (TYPE[a.type] || a.type) + ' "' + a.name + '": ' + (a.ok ? a.events + ' events' : (a.error || 'failed')));
+      calDetail = parts.join(' · ') + (ci.usingCachedData ? ' · using cached data' : '');
+    } else if (ci.configured && ci.source === 'timetree') {
       const bits = ['TimeTree'];
       if (ci.calendarName) bits.push(ci.calendarName);
       if (ci.timetreeEmail) bits.push(ci.timetreeEmail);

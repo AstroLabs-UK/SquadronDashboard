@@ -1,5 +1,6 @@
 const fs = require('fs');
 const express = require('express');
+const accountsLib = require('../lib/accounts');
 const { git } = require('../lib/git');
 const autoUpdate = require('../autoUpdate');
 const sysinfo = require('../lib/sysinfo');
@@ -79,6 +80,10 @@ module.exports = function statusRoutes({ store, cwd, dataDir, requireEditor, cal
 
     // Calendar feed (cached - this doesn't add extra requests to Google beyond calendar service)
     const cal = calendar ? await calendar.get() : { configured: false };
+    const tzAccounts = accountsLib.resolveAccounts(data).filter(a => a.type === 'timetree' && a.enabled !== false);
+    const tzLabels = tzAccounts.reduce((n, a) => n + (a.labels || []).length, 0);
+    const tzTicked = tzAccounts.reduce((n, a) => n + (a.labelIds || []).length, 0);
+    const tzRefreshed = tzAccounts.map(a => Number(a.labelsRefreshedAt) || 0).filter(Boolean);
     status.calendar = !cal.configured ? 'WARNING' : !cal.ok ? 'OFFLINE' : cal.stale ? 'WARNING' : 'ONLINE';
     status.calendarInfo = {
       configured: !!cal.configured,
@@ -87,13 +92,12 @@ module.exports = function statusRoutes({ store, cwd, dataDir, requireEditor, cal
       error: cal.error || undefined,
       usingCachedData: !!cal.stale,
       source: cal.source || data.calendarSource || 'ics',
-      calendarName: data.timetreeCalendarName || '',
-      labelCount: Array.isArray(data.timetreeLabels) ? data.timetreeLabels.length : 0,
-      selectedLabelCount: Array.isArray(data.timetreeLabelIds) ? data.timetreeLabelIds.length : 0,
-      lastLabelRefreshAt: data.timetreeLabelsRefreshedAt || null,
-      timetreeEmail: data.calendarSource === 'timetree' && data.timetreeEmail
-        ? String(data.timetreeEmail).replace(/(.{2}).+(@.+)/, '$1…$2')
-        : ''
+      accounts: (cal.accounts || []).map(x => ({ name: x.name, type: x.type, ok: x.ok, events: x.events, error: x.error })),
+      calendarName: tzAccounts.map(a => a.calendarName).filter(Boolean).join(', '),
+      labelCount: tzLabels,
+      selectedLabelCount: tzTicked,
+      lastLabelRefreshAt: tzRefreshed.length ? Math.max(...tzRefreshed) : null,
+      timetreeEmail: tzAccounts.filter(a => a.email).map(a => String(a.email).replace(/(.{2}).+(@.+)/, '$1…$2')).join(', ')
     };
     status.system = sysinfo.collect({ dir: cwd });
     status.instagramWidget = (data.instagramEmbedCode && data.instagramEmbedCode.trim()) ? 'ONLINE' : 'WARNING';

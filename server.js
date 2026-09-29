@@ -6,10 +6,12 @@ const { createStore } = require('./storage');
 const { securityHeaders, rateLimit } = require('./lib/security');
 const { createEditorAuth } = require('./lib/auth');
 const autoUpdate = require('./autoUpdate');
+const updater = require('./updater');
 const themeAssets = require('./lib/themeAssets');
 const guard = require('./lib/settingsGuard');
 const { removeTempFiles } = require('./lib/cleanup');
 const { createCalendarService } = require('./lib/calendar');
+const accountsLib = require('./lib/accounts');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -64,6 +66,7 @@ const DEFAULT_DATA = {
   uniform: { items: [] },
   errorReportUrl: "",
   autoShutdownMinutes: 165,
+  autoShutdownMode: "sleep",
   instagramEmbedCode: "",
   weatherEmbedCode: "",
   // News panel is always the scraped BBC News feed (no embed code).
@@ -188,14 +191,34 @@ app.get('/theme-logo', async (req, res) => {
   }
 });
 
-app.get('/', sendPage('dashboard.html'));
+// While an update is applying, send the room screen to a holding page so it
+// does not start the normal Astro Labs boot sequence mid-update.
+app.get('/', (req, res) => {
+  try {
+    const st = updater.getStatus(DATA_DIR);
+    if (st && (st.state === 'running' || st.state === 'requested')) {
+      return res.redirect(302, '/updating');
+    }
+  } catch (e) { /* fall through to dashboard */ }
+  return sendPage('dashboard.html')(req, res);
+});
+app.get('/updating', sendPage('updating.html'));
 app.get('/pin', sendPage('pin.html'));
 app.get('/edit', requireEditor, sendPage('edit.html'));
+app.get('/events', requireEditor, sendPage('events.html'));
 app.get('/status', sendPage('status.html'));
 
 // ---------- API: editor PIN (stylised screen posts here; no PIN is stored in the browser) ----------
 // Failures are rate-limited (skipSuccessful); successes are not counted.
 app.post('/api/auth/login', pinFailureLimiter, (req, res) => {
+  const send = res.json.bind(res);
+  res.json = function (body) {
+    // Unlocking the editor also wakes the room screen from sleep mode
+    if (body && body.ok && control && typeof control.wakeDisplay === 'function') {
+      try { control.wakeDisplay(); } catch (e) { /* ignore */ }
+    }
+    return send(body);
+  };
   requireEditor.login(req, res);
 });
 app.post('/api/auth/logout', (req, res) => {
@@ -231,8 +254,12 @@ app.get('/api/data', apiLimiter, (req, res) => {
   const body = {
     ...visible,
     branding,
-    icsUrlSet: !!data.icsUrl,
-    timetreeConfigured: !!(data.timetreeEmail && data.timetreePassword),
+    icsUrlSet: accountsLib.resolveAccounts(data).some(a => a.type !== 'timetree' && accountsLib.isComplete(a)),
+    timetreeConfigured: accountsLib.resolveAccounts(data).some(a => a.type === 'timetree' && accountsLib.isComplete(a)),
+    // linked calendars: the editor gets them with passwords masked, the public display gets nothing
+    calendarAccounts: requireEditor.isEditor(req)
+      ? accountsLib.maskAccounts(accountsLib.resolveAccounts(data), { editor: true })
+      : [],
     // never echo the real password back even to the editor — UI keeps a "unchanged" blank
     timetreePassword: requireEditor.isEditor(req) ? (data.timetreePassword ? '********' : '') : ''
   };
@@ -264,7 +291,12 @@ app.post('/api/data', requireEditor, sensitiveLimiter, (req, res) => {
     const safeBrand = updated.branding && typeof updated.branding === 'object'
       ? { loadingLogo: updated.branding.loadingLogo || '', unitCrest: updated.branding.unitCrest || '' }
       : { loadingLogo: '', unitCrest: '' };
-    const safe = { ...updated, timetreePassword: updated.timetreePassword ? '********' : '', branding: safeBrand };
+    const safe = {
+      ...updated,
+      timetreePassword: updated.timetreePassword ? '********' : '',
+      calendarAccounts: accountsLib.maskAccounts(accountsLib.resolveAccounts(updated), { editor: true }),
+      branding: safeBrand
+    };
     res.json({ ok: true, data: safe });
   } catch (e) {
     console.error('[storage] save failed', e);
@@ -392,22 +424,41 @@ if (require.main === module) {
   if (!process.env.CANARY) removeTempFiles(__dirname); // silent start-up housekeeping
   
 // ---- TimeTree label catalogue: refresh about weekly so renamed tags stay current ----
+// Runs for every linked TimeTree account that has a calendar picked.
 const LABEL_REFRESH_MS = 7 * 24 * 60 * 60 * 1000;
 async function refreshTimetreeLabels() {
   try {
     const s = store.load();
-    if (s.calendarSource !== 'timetree') return;
-    if (!s.timetreeEmail || !s.timetreePassword || !s.timetreeCalendarId) return;
-    const last = Number(s.timetreeLabelsRefreshedAt) || 0;
-    if (last && Date.now() - last < LABEL_REFRESH_MS - 60 * 60 * 1000) return; // within ~week
+    const list = accountsLib.resolveAccounts(s).map(a => ({ ...a }));
+    const due = list.filter(a => {
+      if (a.type !== 'timetree' || a.enabled === false) return false;
+      if (!a.email || !a.password || !a.calendarId) return false;
+      const last = Number(a.labelsRefreshedAt) || 0;
+      return !(last && Date.now() - last < LABEL_REFRESH_MS - 60 * 60 * 1000); // within ~week
+    });
+    if (!due.length) return;
     const timetree = require('./lib/timetree');
-    const sessionId = await timetree.login(s.timetreeEmail, s.timetreePassword);
-    const labels = await timetree.fetchLabels(sessionId, Number(s.timetreeCalendarId));
-    store.save(store.sanitize(s, {
-      timetreeLabels: labels,
-      timetreeLabelsRefreshedAt: Date.now()
-    }));
-    console.log('[timetree] refreshed', labels.length, 'label(s) for calendar', s.timetreeCalendarId);
+    let changed = false;
+    for (const a of due) {
+      try {
+        const sessionId = await timetree.login(a.email, a.password);
+        a.labels = await timetree.fetchLabels(sessionId, Number(a.calendarId));
+        a.labelsRefreshedAt = Date.now();
+        changed = true;
+        console.log('[timetree] refreshed', a.labels.length, 'label(s) for', a.name || a.id);
+      } catch (e) {
+        console.warn('[timetree] label refresh failed for', a.name || a.id + ':', e && e.message ? e.message : e);
+      }
+    }
+    if (changed) {
+      // apply only the refreshed tag lists onto the latest saved settings (the editor may have saved meanwhile)
+      const fresh = new Map(due.map(a => [a.id, a]));
+      const latest = accountsLib.resolveAccounts(store.load()).map(a => {
+        const f = fresh.get(a.id);
+        return f && f.labelsRefreshedAt ? { ...a, labels: f.labels, labelsRefreshedAt: f.labelsRefreshedAt } : a;
+      });
+      store.save(store.sanitize(store.load(), { calendarAccounts: latest }));
+    }
   } catch (e) {
     console.warn('[timetree] label refresh failed:', e && e.message ? e.message : e);
   }

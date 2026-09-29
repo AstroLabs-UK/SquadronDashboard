@@ -157,8 +157,15 @@ Theme crests are kept as a single active file under `data/theme-cache/`. Files i
 
 ### Calendar and tags
 
-- **ICS** secret link (Google, Outlook, iCloud, …), or **TimeTree** email + password
-- **Tags to show on the board** — filters which TimeTree events appear in the **Events** panel. Leave all unchecked to show every event; tick tags to limit to those labels
+- **Add an account** — link as many calendars as you like at the same time. Pick a type from the drop-down and fill in what it asks for:
+  - **Google Calendar** — the "Secret address in iCal format"
+  - **Outlook** — the published calendar's ICS link
+  - **TimeTree** — email + password, then pick the calendar (add a second TimeTree login for a second account)
+  - **Other calendar link** — any `.ics` / `webcal://` address (iCloud etc.)
+  
+  Every account has an on/off switch and a name. Events from all switched-on accounts are merged into one list; an event that appears in two accounts is shown once. If one account fails, the others still show (the **Status** page lists each account).
+- **Event description and QR code** — the event's note/description is shown under its title. The event's link (TimeTree link, or the URL field in Outlook/other calendars, or the first web link in a Google description) becomes the QR code next to the event.
+- **Tags to show on the board** — one menu holding the tags of every TimeTree account. Leave all unchecked to show every event; tick tags to show only those. Tags with the same name in different accounts count as one. Google/Outlook events are always shown.
 - **Uniform tags** — separate; used for “uniform of the week”
 - Time zone and “days ahead” controls
 

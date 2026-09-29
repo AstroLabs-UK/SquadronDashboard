@@ -11,6 +11,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const accounts = require('./lib/accounts');
 
 const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
 function isValidTimeZone(tz) {
@@ -243,6 +244,9 @@ function createStore({ dir, defaults, legacyDir, snapDir }) {
     // newsEmbedCode is no longer used (news is always the scraped BBC feed)
     const mins = Number(incoming.autoShutdownMinutes);
     if (Number.isFinite(mins) && mins >= 1) out.autoShutdownMinutes = Math.round(mins);
+    if (incoming.autoShutdownMode === 'sleep' || incoming.autoShutdownMode === 'poweroff') {
+      out.autoShutdownMode = incoming.autoShutdownMode;
+    }
 
     const loc = incoming.location;
     if (loc && typeof loc === 'object') {
@@ -298,11 +302,20 @@ function createStore({ dir, defaults, legacyDir, snapDir }) {
     if (Array.isArray(incoming.events)) {
       out.events = incoming.events
         .filter(e => e && typeof e === 'object')
-        .map(e => ({
-          title: String(e.title ?? ''), date: String(e.date ?? ''), detail: String(e.detail ?? ''),
-          // optional YYYY-MM-DD: the event is hidden from the display the day after this
-          hideAfter: isStr(e.hideAfter) && DATE_KEY.test(e.hideAfter.trim()) ? e.hideAfter.trim() : ''
-        }));
+        .map(e => {
+          let url = '';
+          if (isStr(e.url)) {
+            const v = e.url.trim();
+            if (v === '' || isHttpUrl(v)) url = v;
+          }
+          return {
+            title: String(e.title ?? ''), date: String(e.date ?? ''), detail: String(e.detail ?? ''),
+            // optional YYYY-MM-DD: the event is hidden from the display the day after this
+            hideAfter: isStr(e.hideAfter) && DATE_KEY.test(e.hideAfter.trim()) ? e.hideAfter.trim() : '',
+            // optional link shown as a QR next to the event on the room screen
+            url
+          };
+        });
     }
 
     // Uniform panel: manual entries (date + uniform), used alongside "Uniform:" lines found in calendar events
@@ -350,6 +363,14 @@ function createStore({ dir, defaults, legacyDir, snapDir }) {
         })
         .filter(p => p.name);
       out.chainOfCommand = { people: raw };
+    }
+    // Linked calendars (Google / Outlook / TimeTree / other .ics). Once /edit saves this list it replaces the
+    // old single-calendar fields, so the old secrets are cleared to avoid stale credentials sitting on disk.
+    if (Array.isArray(incoming.calendarAccounts)) {
+      const before = accounts.resolveAccounts(current);
+      out.calendarAccounts = accounts.sanitizeAccounts(incoming.calendarAccounts, before);
+      out.icsUrl = '';
+      out.timetreePassword = '';
     }
     // Branding: custom loading logo (data URL; transparent PNG recommended)
     if (incoming.branding && typeof incoming.branding === 'object') {
