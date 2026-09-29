@@ -1,0 +1,2 @@
+# Shell scripts must keep Unix line endings, or they fail on the Pi / in Docker after a Windows checkout
+*.sh text eol=lf
