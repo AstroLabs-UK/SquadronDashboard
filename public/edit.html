@@ -3411,13 +3411,30 @@ async function testCalendar() {
   try {
     const r = await (await fetch('/api/events', { cache: 'no-store' })).json();
     const c = r.calendar || {};
-    if (!c.configured) { el.textContent = 'No calendar linked (or none switched on).'; return; }
-    const lines = (c.accounts || []).map(a => a.name + ': ' + (a.ok ? 'OK, ' + a.events + ' event(s)' : (a.error || 'failed')));
+    const tz = document.getElementById('calendarTimezone').value || c.tz || 'Europe/London';
+    if (!c.configured) { el.textContent = 'No calendar linked (or none switched on). Time zone on form: ' + tz; return; }
+    const lines = [];
+    lines.push('Time zone: ' + tz + (c.tz && c.tz !== tz ? ' (server using ' + c.tz + ')' : ''));
+    (c.accounts || []).forEach(a => {
+      lines.push(a.name + ': ' + (a.ok ? 'OK, ' + a.events + ' event(s)' : (a.error || 'failed')));
+    });
     if (!c.ok) { el.style.color = 'var(--raf-red)'; el.textContent = lines.join('\n') || c.error || 'Failed'; return; }
-    const next = (r.events || []).find(e => e.source === 'calendar');
+    const upcoming = (r.events || []).filter(e => e.source === 'calendar').slice(0, 3);
+    if (upcoming.length) {
+      lines.push('Next ' + upcoming.length + ' calendar event(s):');
+      upcoming.forEach((e, i) => {
+        const bits = [e.title || 'Untitled'];
+        if (e.date) bits.push(e.date);
+        if (e.detail) bits.push(e.detail);
+        if (e.description) bits.push(e.description.length > 80 ? e.description.slice(0, 77) + '…' : e.description);
+        lines.push('  ' + (i + 1) + '. ' + bits.join(' · '));
+      });
+    } else {
+      lines.push('No upcoming calendar events in range');
+    }
     const anyBad = (c.accounts || []).some(a => !a.ok);
     el.style.color = anyBad ? 'var(--raf-red)' : 'var(--raf-navy)';
-    el.textContent = lines.join('\n') + '\n' + (next ? 'Next event: ' + next.title : 'No upcoming events');
+    el.textContent = lines.join('\n');
   } catch (e) {
     el.style.color = 'var(--raf-red)';
     el.textContent = e.message;

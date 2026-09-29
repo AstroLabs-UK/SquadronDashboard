@@ -120,6 +120,24 @@ if (guardActive) {
 try { fs.mkdirSync(CACHE_DIR, { recursive: true }); } catch (e) { /* best effort */ }
 const store = createStore({ dir: DATA_DIR, defaults: DEFAULT_DATA, legacyDir: __dirname, snapDir: guardActive ? SNAP_DIR : null });
 try { autoUpdate.clearRestartPending(DATA_DIR); } catch (e) {}
+
+// When /edit switches between sleep and power-off, nudge the Pi's shutdown timer unit so it
+// does not keep a stale "power off in N minutes" countdown from boot.
+function applyShutdownPolicy(mode) {
+  try {
+    const { execFile } = require('child_process');
+    const unit = 'squadron-dashboard-shutdown.service';
+    if (mode === 'sleep') {
+      execFile('systemctl', ['stop', unit], { timeout: 8000 }, () => {});
+      return;
+    }
+    if (mode === 'poweroff') {
+      // Restart so the script re-reads minutes from data.json from now
+      execFile('systemctl', ['restart', unit], { timeout: 8000 }, () => {});
+    }
+  } catch (e) { /* no systemctl (Windows / Docker) — ignore */ }
+}
+
 if (guardActive) {
   try {
     const main = path.join(DATA_DIR, 'data.json');
@@ -278,6 +296,10 @@ app.post('/api/data', requireEditor, sensitiveLimiter, (req, res) => {
     const previous = store.load();
     const updated = store.sanitize(previous, req.body);
     store.save(updated);
+    if (updated.autoShutdownMode !== previous.autoShutdownMode
+        || updated.autoShutdownMinutes !== previous.autoShutdownMinutes) {
+      try { applyShutdownPolicy(updated.autoShutdownMode || 'sleep'); } catch (e) { /* ignore */ }
+    }
     // Only keep the active theme crest on disk (fetched from repo / local seed)
     if (updated.theme !== previous.theme || !themeAssets.getCachedLogoPath(DATA_DIR)) {
       themeAssets.ensureThemeLogo({ dataDir: DATA_DIR, cwd: __dirname, theme: updated.theme || 'rafac', force: true })

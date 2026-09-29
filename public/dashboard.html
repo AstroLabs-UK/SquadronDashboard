@@ -20,7 +20,7 @@
   } catch (e) { /* offline / first boot — continue normally */ }
 })();
 </script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="/vendor/qrcode.min.js"></script>
 <style>
   :root {
     --raf-navy: #00205B;
@@ -322,6 +322,7 @@
     border: 1px solid var(--border); border-radius: 3px; line-height: 0;
   }
   #eventsPane li .ev-qr img, #eventsPane li .ev-qr canvas { display: block; }
+  .qr-fallback { font-size: 12px; color: var(--raf-blue); word-break: break-all; }
   #eventsLayout { flex: 1; display: flex; gap: 24px; min-height: 0; }
   #eventsList { flex: 1; min-width: 0; }
   #eventsSeeMore { flex: 0 0 34%; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 16px; text-align: center; border-left: 1px solid var(--border); padding-left: 24px; }
@@ -475,6 +476,29 @@
     background: #000;
   }
   #displaySleep.on { display: block; }
+  #displaySleep .sleep-pin {
+    position: absolute;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(320px, 90vw);
+    padding: 24px 20px;
+    background: #111;
+    border: 1px solid #333;
+    border-radius: 6px;
+    text-align: center;
+    color: #eee;
+  }
+  #displaySleep .sleep-pin-title { margin: 0 0 12px; font-size: 16px; font-weight: 700; }
+  #displaySleep .sleep-pin-hint { margin: 12px 0 0; font-size: 12px; color: #888; }
+  #displaySleep .sleep-pin-err { margin: 8px 0 0; font-size: 13px; color: #C8102E; min-height: 1.2em; }
+  #displaySleep .sleep-pin input {
+    width: 100%; padding: 12px; font-size: 20px; text-align: center;
+    border: 1px solid #444; border-radius: 4px; background: #000; color: #fff;
+  }
+  #displaySleep .sleep-pin button {
+    margin-top: 12px; width: 100%; padding: 12px; font-size: 16px; font-weight: 700;
+    border: 0; border-radius: 4px; background: #0066A1; color: #fff; cursor: pointer;
+  }
 
 body.loading-active
 /* Error fallback with QR */
@@ -750,7 +774,15 @@ body.loading-active
   </div>
 </div>
 <div id="astroBlackout"></div>
-<div id="displaySleep" aria-hidden="true"></div>
+<div id="displaySleep" aria-hidden="true">
+  <div id="sleepPinWrap" class="sleep-pin" hidden>
+    <p class="sleep-pin-title">Enter PIN to wake</p>
+    <input id="sleepPinInput" type="password" inputmode="numeric" maxlength="12" autocomplete="off" placeholder="PIN">
+    <button type="button" id="sleepPinBtn">Wake</button>
+    <p id="sleepPinErr" class="sleep-pin-err"></p>
+    <p class="sleep-pin-hint">Or unlock /edit on a phone</p>
+  </div>
+</div>
 
 <div id="sourceBanner" role="status"></div>
 <div id="offlineChip" role="status" aria-live="polite">No internet connection</div>
@@ -1194,10 +1226,15 @@ function makeQr(containerId, url, size) {
   const el = document.getElementById(containerId);
   if (!el) return;
   el.innerHTML = '';
-  // The QR library comes from a CDN - if the Pi is offline it won't have loaded, and that
-  // must never stop the rest of the dashboard working.
-  if (typeof QRCode === 'undefined') return;
-  try { new QRCode(el, { text: url, width: size || 120, height: size || 120 }); } catch (e) { console.error('QR failed', e); }
+  // Built on each paint from the event link — nothing is stored. Library is local (/vendor) so offline still works.
+  if (typeof QRCode === 'undefined') {
+    el.innerHTML = '<a class="qr-fallback" href="' + esc(url) + '" target="_blank" rel="noopener">Open link</a>';
+    return;
+  }
+  try { new QRCode(el, { text: url, width: size || 120, height: size || 120 }); } catch (e) {
+    console.error('QR failed', e);
+    el.innerHTML = '<a class="qr-fallback" href="' + esc(url) + '" target="_blank" rel="noopener">Open link</a>';
+  }
 }
 
 function qrSizeFor(referenceEl) {
@@ -1553,21 +1590,34 @@ async function loadNews() {
 async function loadLeaderboard() {
   if (!widgetFlags.leaderboard) return;
   const pane = ensurePaneSkeleton('lbPane');
+  // Restore last good table after a kiosk reload while the sheet is down
+  if (!cachedLb) {
+    try {
+      const raw = sessionStorage.getItem('sqndash-lb-cache');
+      if (raw) cachedLb = JSON.parse(raw);
+    } catch (e) { /* ignore */ }
+  }
   try {
     const lb = await apiJson('/api/leaderboard');
-    // Empty is valid — show friendly empty state rather than a hard error
-    cachedLb = lb || { rows: [], flightRows: [] };
+    // Prefer a non-empty new payload; if the sheet fails open with empty rows but we have
+    // a previous table, keep the previous one and mark it stale.
+    const incoming = lb || { rows: [], flightRows: [] };
+    const hasRows = (incoming.rows && incoming.rows.length) || (incoming.flightRows && incoming.flightRows.length);
+    if (hasRows || !cachedLb || !((cachedLb.rows || []).length || (cachedLb.flightRows || []).length)) {
+      cachedLb = incoming;
+      try { sessionStorage.setItem('sqndash-lb-cache', JSON.stringify(cachedLb)); } catch (e) { /* ignore */ }
+    } else {
+      cachedLb = { ...cachedLb, stale: true, updatedAt: cachedLb.updatedAt || incoming.updatedAt };
+    }
     lastLbKey = '';
-    setStamp('lbPane', lb && lb.updatedAt, !!(lb && lb.stale));
+    setStamp('lbPane', cachedLb && cachedLb.updatedAt, !!(cachedLb && (cachedLb.stale || lb && lb.stale)));
     renderLeaderboardFromCache();
   } catch (e) {
     // Keep last good table; only show error if we never had data.
-    if (cachedLb && cachedLb.rows && cachedLb.rows.length) {
+    if (cachedLb && ((cachedLb.rows && cachedLb.rows.length) || (cachedLb.flightRows && cachedLb.flightRows.length))) {
       setStamp('lbPane', cachedLb.updatedAt, true);
       renderLeaderboardFromCache();
     } else {
-      cachedLb = null;
-      lastLbKey = '';
       showError(pane, 'leaderboard', e.message || String(e));
     }
   }
@@ -1580,7 +1630,7 @@ const paneStamps = {};
 function fmtClock(ms) { return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }); }
 function setStamp(paneId, updatedAt, stale, note) {
   paneStamps[paneId] = updatedAt
-    ? { text: (stale ? 'Offline – showing data from ' : 'Updated ') + fmtClock(updatedAt), stale: !!stale }
+    ? { text: (stale ? 'As of ' : 'Updated ') + fmtClock(updatedAt) + (stale ? ' (kept while offline)' : ''), stale: !!stale }
     : (note ? { text: note, stale: true } : null);
   if (typeof panes !== 'undefined' && panes[paneIndex] && panes[paneIndex].id === paneId) renderStamp(paneId);
 }
@@ -2021,27 +2071,109 @@ async function bootAfterLoading() {
 bootAfterLoading();
 
 // ---- Sleep mode (black screen) instead of powering the Pi off ----
+function hideSleepPin() {
+  const wrap = document.getElementById('sleepPinWrap');
+  if (wrap) wrap.hidden = true;
+  const inp = document.getElementById('sleepPinInput');
+  if (inp) inp.value = '';
+  const err = document.getElementById('sleepPinErr');
+  if (err) err.textContent = '';
+}
+function showSleepPin() {
+  const wrap = document.getElementById('sleepPinWrap');
+  if (!wrap) return;
+  wrap.hidden = false;
+  const inp = document.getElementById('sleepPinInput');
+  if (inp) { inp.value = ''; setTimeout(() => inp.focus(), 50); }
+}
 function enterDisplaySleep() {
   if (autoShutdownMode !== 'sleep') return;
   sleepActive = true;
   const el = document.getElementById('displaySleep');
   if (el) el.classList.add('on');
+  hideSleepPin();
 }
 function exitDisplaySleep() {
+  if (!sleepActive && !(document.getElementById('displaySleep') || {}).classList?.contains('on')) {
+    scheduleDisplaySleep();
+    return;
+  }
   sleepActive = false;
   const el = document.getElementById('displaySleep');
   if (el) el.classList.remove('on');
+  hideSleepPin();
   scheduleDisplaySleep();
 }
 function scheduleDisplaySleep() {
   if (sleepTimer) { clearTimeout(sleepTimer); sleepTimer = null; }
   if (autoShutdownMode !== 'sleep') {
-    exitDisplaySleep();
+    sleepActive = false;
+    const el = document.getElementById('displaySleep');
+    if (el) el.classList.remove('on');
+    hideSleepPin();
     return;
   }
   if (sleepActive) return;
   sleepTimer = setTimeout(enterDisplaySleep, Math.max(1, autoShutdownMinutes) * 60 * 1000);
 }
+
+async function submitSleepPin() {
+  const inp = document.getElementById('sleepPinInput');
+  const err = document.getElementById('sleepPinErr');
+  const pin = (inp && inp.value || '').trim();
+  if (err) err.textContent = '';
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ pin })
+    });
+    const body = await res.json().catch(() => ({}));
+    if (res.ok && body.ok) {
+      exitDisplaySleep();
+      return;
+    }
+    if (err) err.textContent = body.error || 'Incorrect PIN';
+  } catch (e) {
+    if (err) err.textContent = e.message || 'Could not reach the server';
+  }
+}
+
+// Long-press the black screen to show the PIN pad; HDMI/display coming back also wakes
+(function setupSleepWake() {
+  const el = document.getElementById('displaySleep');
+  if (!el) return;
+  let pressTimer = null;
+  const clearPress = () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } };
+  el.addEventListener('pointerdown', (e) => {
+    if (!sleepActive) return;
+    if (e.target && e.target.closest && e.target.closest('.sleep-pin')) return;
+    clearPress();
+    pressTimer = setTimeout(showSleepPin, 1200);
+  });
+  el.addEventListener('pointerup', clearPress);
+  el.addEventListener('pointerleave', clearPress);
+  el.addEventListener('pointercancel', clearPress);
+  const btn = document.getElementById('sleepPinBtn');
+  if (btn) btn.addEventListener('click', submitSleepPin);
+  const inp = document.getElementById('sleepPinInput');
+  if (inp) inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitSleepPin(); });
+
+  // Display / HDMI activity — when the output wakes or the page is shown again, clear sleep
+  const onDisplayActivity = () => {
+    if (sleepActive && document.visibilityState === 'visible') exitDisplaySleep();
+  };
+  document.addEventListener('visibilitychange', onDisplayActivity);
+  window.addEventListener('focus', onDisplayActivity);
+  window.addEventListener('pageshow', onDisplayActivity);
+  let resizeT = null;
+  window.addEventListener('resize', () => {
+    if (!sleepActive) return;
+    clearTimeout(resizeT);
+    resizeT = setTimeout(onDisplayActivity, 400);
+  });
+})();
 
 // ---- Reload when the server restarts (e.g. after an auto-update) ----
 let bootId = null;
