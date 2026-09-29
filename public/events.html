@@ -140,6 +140,11 @@
     flex-wrap: wrap;
   }
   .save-bar button { margin: 0; }
+  #sleepBtn {
+    background: var(--white); color: var(--raf-navy);
+    border: 2px solid var(--border); font-weight: 700;
+  }
+
   #status { flex: 1; min-height: 1.2em; font-size: 14px; font-weight: 600; }
   .cols {
     display: grid;
@@ -158,6 +163,14 @@
 </header>
 
 <div class="wrap">
+  <h2>Banner</h2>
+  <p class="hint">Shown across the top of the room screen. Tick the box when you want it visible.</p>
+  <label class="check"><input type="checkbox" id="importantInfoEnabled"> Show banner on display</label>
+  <label for="importantInfoTitle">Title</label>
+  <input id="importantInfoTitle" placeholder="IMPORTANT INFORMATION">
+  <label for="importantInfoMessage">Message</label>
+  <textarea id="importantInfoMessage" rows="2" placeholder="Banner text"></textarea>
+
   <h2>Events</h2>
   <p class="hint">These show on the room screen. Add a link if you want a QR code next to that event (sign-up form, orders, map, etc.).</p>
   <div id="eventsContainer"></div>
@@ -172,6 +185,7 @@
 <div class="save-bar">
   <div class="save-bar-inner">
     <button class="primary" type="button" onclick="save()">Save</button>
+    <button type="button" id="sleepBtn" onclick="sleepScreen()" title="Blank the room screen (not a full power-off)">Sleep screen</button>
     <div id="status"></div>
   </div>
 </div>
@@ -238,6 +252,11 @@ function addUniform() {
 
 function collectPayload() {
   return {
+    importantInfo: {
+      enabled: document.getElementById('importantInfoEnabled').checked,
+      title: document.getElementById('importantInfoTitle').value,
+      message: document.getElementById('importantInfoMessage').value
+    },
     events: [...document.querySelectorAll('#eventsContainer .event-row')].map(r => ({
       title: r.querySelector('.ev-title').value,
       date: r.querySelector('.ev-date').value,
@@ -274,6 +293,10 @@ async function load() {
   if (data.squadronName) {
     document.getElementById('pageTitle').textContent = data.squadronName + ' — Events & Uniform';
   }
+  const info = data.importantInfo || {};
+  document.getElementById('importantInfoEnabled').checked = !!info.enabled;
+  document.getElementById('importantInfoTitle').value = info.title || '';
+  document.getElementById('importantInfoMessage').value = info.message || '';
   const ec = document.getElementById('eventsContainer');
   ec.innerHTML = '';
   (data.events || []).forEach(e => ec.appendChild(eventRow(e)));
@@ -327,6 +350,36 @@ window.addEventListener('beforeunload', e => {
     e.returnValue = '';
   }
 });
+
+async function sleepScreen() {
+  const st = document.getElementById('status');
+  st.style.color = '';
+  st.textContent = 'Sleeping screen…';
+  try {
+    if (hasUnsavedChanges()) await save();
+    const res = await fetch('/api/control', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ action: 'sleep' })
+    });
+    const body = await res.json().catch(() => ({}));
+    if (res.status === 401) {
+      window.location.replace('/pin?next=' + encodeURIComponent('/events'));
+      return;
+    }
+    if (!res.ok) {
+      st.style.color = 'var(--raf-red)';
+      st.textContent = body.error || 'Could not sleep the screen';
+      return;
+    }
+    st.style.color = 'var(--raf-navy)';
+    st.textContent = 'Room screen sleeping — unlock /events or power the TV to wake';
+  } catch (e) {
+    st.style.color = 'var(--raf-red)';
+    st.textContent = e.message || String(e);
+  }
+}
 
 load().catch(e => {
   document.getElementById('status').style.color = 'var(--raf-red)';
