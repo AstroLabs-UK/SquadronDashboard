@@ -1022,7 +1022,7 @@ let eventsPageIndex = 0;
 let isCompact = false;               // small-screen layout active?
 let layoutSetting = 'auto';          // auto | full | compact (from /edit)
 let widgetFlags = { leaderboard: true, news: true, events: true, instagram: true, uniform: true, chainOfCommand: false };
-let autoShutdownMinutes = 165;
+let autoShutdownMinutes = 150;
 let autoShutdownMode = 'sleep';
 let sleepTimer = null;
 let sleepActive = false;
@@ -1326,7 +1326,7 @@ function applyWidgetSettings(data) {
   applyLayout();
 
   const mins = Number(data.autoShutdownMinutes);
-  autoShutdownMinutes = (Number.isFinite(mins) && mins >= 1) ? Math.round(mins) : 165;
+  autoShutdownMinutes = (Number.isFinite(mins) && mins >= 1) ? Math.round(mins) : 150;
   autoShutdownMode = data.autoShutdownMode === 'poweroff' ? 'poweroff' : 'sleep';
   scheduleDisplaySleep();
 

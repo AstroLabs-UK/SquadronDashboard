@@ -10,7 +10,7 @@
   "showFlightLeaderboard": true,
   "eventsSeeMoreUrl": "https://cadets.bader.mod.uk/events",
   "errorReportUrl": "",
-  "autoShutdownMinutes": 165,
+  "autoShutdownMinutes": 150,
   "autoShutdownMode": "sleep",
   "instagramEmbedCode": "",
   "weatherEmbedCode": "",

@@ -65,7 +65,7 @@ const DEFAULT_DATA = {
   timetreeLabelsRefreshedAt: null,
   uniform: { items: [] },
   errorReportUrl: "",
-  autoShutdownMinutes: 165,
+  autoShutdownMinutes: 150,
   autoShutdownMode: "sleep",
   instagramEmbedCode: "",
   weatherEmbedCode: "",

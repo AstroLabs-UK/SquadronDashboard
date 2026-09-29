@@ -1127,7 +1127,7 @@
 <div class="grid cols-2">
   <div>
     <label for="autoShutdownMinutes">Screen off after (minutes)</label>
-    <input id="autoShutdownMinutes" type="number" min="1" placeholder="165" inputmode="numeric">
+    <input id="autoShutdownMinutes" type="number" min="1" placeholder="150" inputmode="numeric">
   </div>
   <div>
     <label for="layout">Layout</label>
@@ -2692,7 +2692,7 @@ function collectPayload() {
     calendarTimezone: document.getElementById('calendarTimezone').value,
     calendarDays: parseInt(document.getElementById('calendarDays').value, 10) || 60,
     calendarAccounts: calAccounts.map(accountPayload),
-    autoShutdownMinutes: parseInt(document.getElementById('autoShutdownMinutes').value, 10) || 165,
+    autoShutdownMinutes: parseInt(document.getElementById('autoShutdownMinutes').value, 10) || 150,
     autoShutdownMode: document.getElementById('autoShutdownPoweroff').checked ? 'poweroff' : 'sleep',
     instagramEmbedCode: document.getElementById('instagramEmbedCode').value,
     weatherEmbedCode: document.getElementById('weatherEmbedCode').value,
@@ -2844,7 +2844,7 @@ async function load() {
   });
   document.getElementById('calendarTimezone').value = data.calendarTimezone || 'Europe/London';
   document.getElementById('calendarDays').value = data.calendarDays || 60;
-  document.getElementById('autoShutdownMinutes').value = data.autoShutdownMinutes || 165;
+  document.getElementById('autoShutdownMinutes').value = data.autoShutdownMinutes || 150;
   document.getElementById('autoShutdownPoweroff').checked = data.autoShutdownMode === 'poweroff';
   document.getElementById('instagramEmbedCode').value = data.instagramEmbedCode || '';
   document.getElementById('weatherEmbedCode').value = data.weatherEmbedCode || '';
