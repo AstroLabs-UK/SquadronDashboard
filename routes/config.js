@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const guard = require('../lib/settingsGuard');
+const accountsLib = require('../lib/accounts');
 
 const FORMAT = 'squadron-dashboard-config';
 
@@ -41,6 +42,11 @@ module.exports = function configRoutes({ store, dataDir, snapDir, requireEditor,
       settings.timetreePassword = '';
       settings.timetreePasswordOmitted = true;
     }
+    // Same for every linked TimeTree account
+    if (Array.isArray(settings.calendarAccounts)) {
+      settings.calendarAccounts = settings.calendarAccounts.map(a =>
+        a && a.type === 'timetree' && a.password ? { ...a, password: '', passwordOmitted: true } : a);
+    }
     res.json({ format: FORMAT, version: 1, appVersion, exportedAt: new Date().toISOString(), settings });
   });
 
@@ -78,6 +84,18 @@ module.exports = function configRoutes({ store, dataDir, snapDir, requireEditor,
         incoming.timetreePassword = previous.timetreePassword || '';
       }
       delete incoming.timetreePasswordOmitted;
+      // Linked calendars: a stripped TimeTree password is filled back in from this device's copy of the same account
+      if (Array.isArray(incoming.calendarAccounts)) {
+        const before = new Map(accountsLib.resolveAccounts(previous).map(a => [a.id, a]));
+        incoming.calendarAccounts = incoming.calendarAccounts.map(a => {
+          if (!a || typeof a !== 'object') return a;
+          const { passwordOmitted, ...rest } = a;
+          if (rest.type === 'timetree' && (passwordOmitted || !rest.password) && before.has(rest.id)) {
+            rest.password = before.get(rest.id).password || '';
+          }
+          return rest;
+        });
+      }
       const imported = store.sanitize(store.defaultData(), incoming);
       try {
         fs.writeFileSync(path.join(dataDir, 'data.before-import.json'), JSON.stringify(previous, null, 2));
@@ -85,7 +103,8 @@ module.exports = function configRoutes({ store, dataDir, snapDir, requireEditor,
       store.save(imported);
       try { guard.snapshot(dataDir, resolveSnapDir()); } catch (e) { /* best effort */ }
       const safe = Object.assign({}, imported, {
-        timetreePassword: imported.timetreePassword ? '********' : ''
+        timetreePassword: imported.timetreePassword ? '********' : '',
+        calendarAccounts: accountsLib.maskAccounts(accountsLib.resolveAccounts(imported), { editor: true })
       });
       res.json({ ok: true, data: safe });
     } catch (e) {

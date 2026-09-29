@@ -11,6 +11,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const accounts = require('./lib/accounts');
 
 const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
 function isValidTimeZone(tz) {
@@ -362,6 +363,14 @@ function createStore({ dir, defaults, legacyDir, snapDir }) {
         })
         .filter(p => p.name);
       out.chainOfCommand = { people: raw };
+    }
+    // Linked calendars (Google / Outlook / TimeTree / other .ics). Once /edit saves this list it replaces the
+    // old single-calendar fields, so the old secrets are cleared to avoid stale credentials sitting on disk.
+    if (Array.isArray(incoming.calendarAccounts)) {
+      const before = accounts.resolveAccounts(current);
+      out.calendarAccounts = accounts.sanitizeAccounts(incoming.calendarAccounts, before);
+      out.icsUrl = '';
+      out.timetreePassword = '';
     }
     // Branding: custom loading logo (data URL; transparent PNG recommended)
     if (incoming.branding && typeof incoming.branding === 'object') {

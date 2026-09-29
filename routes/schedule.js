@@ -1,17 +1,10 @@
 const express = require('express');
 const { buildEventList } = require('../lib/events');
 const { buildUniform } = require('../lib/uniform');
+const accountsLib = require('../lib/accounts');
 
 module.exports = function eventsRoutes({ store, calendar }) {
   const router = express.Router();
-
-  function labelNamesFromSettings(s, idKey) {
-    const ids = Array.isArray(s[idKey]) ? s[idKey].map(Number) : [];
-    if (!ids.length) return [];
-    const catalogue = Array.isArray(s.timetreeLabels) ? s.timetreeLabels : [];
-    const byId = new Map(catalogue.map(l => [Number(l.id), String(l.name || '')]));
-    return ids.map(id => byId.get(id)).filter(Boolean);
-  }
 
   const calendarInfo = (cal, s) => ({
     configured: cal.configured,
@@ -20,6 +13,7 @@ module.exports = function eventsRoutes({ store, calendar }) {
     updatedAt: cal.updatedAt,
     source: cal.source || (s && s.calendarSource) || 'ics',
     calendarName: (s && s.timetreeCalendarName) || '',
+    accounts: cal.accounts || [],
     ...(cal.error ? { error: cal.error } : {})
   });
 
@@ -42,8 +36,8 @@ module.exports = function eventsRoutes({ store, calendar }) {
     try {
       const s = store.load();
       const cal = await calendar.get();
-      const uniformLabelNames = labelNamesFromSettings(s, 'timetreeUniformLabelIds')
-        .map(n => n.toLowerCase());
+      // tags ticked as "uniform" in any linked TimeTree account (same-named tags count as one)
+      const uniformLabelNames = accountsLib.uniformTagNames(accountsLib.resolveAccounts(s));
       const uniform = buildUniform({
         calendar: cal.events,
         manual: (s.uniform || {}).items,
