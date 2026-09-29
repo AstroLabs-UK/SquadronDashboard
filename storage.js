@@ -298,11 +298,20 @@ function createStore({ dir, defaults, legacyDir, snapDir }) {
     if (Array.isArray(incoming.events)) {
       out.events = incoming.events
         .filter(e => e && typeof e === 'object')
-        .map(e => ({
-          title: String(e.title ?? ''), date: String(e.date ?? ''), detail: String(e.detail ?? ''),
-          // optional YYYY-MM-DD: the event is hidden from the display the day after this
-          hideAfter: isStr(e.hideAfter) && DATE_KEY.test(e.hideAfter.trim()) ? e.hideAfter.trim() : ''
-        }));
+        .map(e => {
+          let url = '';
+          if (isStr(e.url)) {
+            const v = e.url.trim();
+            if (v === '' || isHttpUrl(v)) url = v;
+          }
+          return {
+            title: String(e.title ?? ''), date: String(e.date ?? ''), detail: String(e.detail ?? ''),
+            // optional YYYY-MM-DD: the event is hidden from the display the day after this
+            hideAfter: isStr(e.hideAfter) && DATE_KEY.test(e.hideAfter.trim()) ? e.hideAfter.trim() : '',
+            // optional link shown as a QR next to the event on the room screen
+            url
+          };
+        });
     }
 
     // Uniform panel: manual entries (date + uniform), used alongside "Uniform:" lines found in calendar events
