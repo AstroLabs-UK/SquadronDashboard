@@ -7,6 +7,7 @@ const { securityHeaders, rateLimit } = require('./lib/security');
 const { createEditorAuth } = require('./lib/auth');
 const autoUpdate = require('./autoUpdate');
 const hdmiWake = require('./lib/hdmiWake');
+const qrCache = require('./lib/qrCache');
 const updater = require('./updater');
 const themeAssets = require('./lib/themeAssets');
 const guard = require('./lib/settingsGuard');
@@ -119,6 +120,8 @@ if (guardActive) {
   }
 }
 try { fs.mkdirSync(CACHE_DIR, { recursive: true }); } catch (e) { /* best effort */ }
+const QR_CACHE_DIR = path.join(CACHE_DIR, 'qr');
+try { fs.mkdirSync(QR_CACHE_DIR, { recursive: true }); } catch (e) { /* best effort */ }
 const store = createStore({ dir: DATA_DIR, defaults: DEFAULT_DATA, legacyDir: __dirname, snapDir: guardActive ? SNAP_DIR : null });
 try { autoUpdate.clearRestartPending(DATA_DIR); } catch (e) {}
 
@@ -419,6 +422,34 @@ app.post('/api/restart', requireEditor, sensitiveLimiter, (req, res) => {
 
 // ---------- API: weather / news / leaderboard / status / update ----------
 app.use(apiLimiter);
+
+// QR PNG temp cache (generated on the room browser, stored under data/cache/qr until restart or memory pressure)
+app.get('/api/qr/:key.png', apiLimiter, (req, res) => {
+  const key = String(req.params.key || '');
+  const buf = qrCache.getPng(QR_CACHE_DIR, key);
+  if (!buf) return res.status(404).end();
+  res.set('Content-Type', 'image/png');
+  res.set('Cache-Control', 'no-cache');
+  res.send(buf);
+});
+app.put('/api/qr/:key.png', apiLimiter, express.raw({ type: 'image/png', limit: '1mb' }), (req, res) => {
+  const key = String(req.params.key || '');
+  const body = Buffer.isBuffer(req.body) ? req.body : Buffer.from([]);
+  if (!qrCache.putPng(QR_CACHE_DIR, key, body)) {
+    return res.status(400).json({ ok: false, error: 'Could not store QR' });
+  }
+  res.json({ ok: true });
+});
+app.get('/api/memory', apiLimiter, (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const avail = qrCache.readAvailablePercent();
+  res.json({
+    availablePercent: avail,
+    pressure: qrCache.underPressure(),
+    thresholdAvailablePercent: 15
+  });
+});
+
 app.use(require('./routes/weather')({ store, cacheDir: CACHE_DIR }));
 app.use(require('./routes/news')({ cacheDir: CACHE_DIR }));
 app.use(require('./routes/leaderboard')({ store, cacheDir: CACHE_DIR }));
@@ -509,6 +540,11 @@ app.listen(PORT, HOST, () => {
       });
     } catch (e) {
       console.warn('[hdmi] watcher failed to start', e && e.message ? e.message : e);
+    }
+    try {
+      qrCache.startMemoryWatch(QR_CACHE_DIR);
+    } catch (e) {
+      console.warn('[qr-cache] memory watch failed', e && e.message ? e.message : e);
     }
   });
 }

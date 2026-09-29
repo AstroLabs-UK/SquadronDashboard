@@ -1257,30 +1257,24 @@ function tick() {
 tick();
 setInterval(tick, 1000);
 
-// QR images kept in memory for this browser session only (cleared on reload/restart).
-const qrRamCache = new Map();
+// QRs: try disk temp on the Pi first (data/cache/qr), else generate once in the browser,
+// show it, and offload the PNG to temp. Under memory pressure the server deletes the folder;
+// the next need regenerates. Small in-RAM map only holds object URLs for the current paint set.
+const qrRamCache = new Map(); // key -> object URL or data URL (session only)
 
-function makeQr(containerId, url, size) {
-  const el = document.getElementById(containerId);
-  if (!el) return;
-  el.innerHTML = '';
-  const px = size || 120;
-  const text = String(url || '').trim();
-  if (!text) return;
-  if (typeof QRCode === 'undefined') return;
-
-  const key = text + '|' + px;
-  const cached = qrRamCache.get(key);
-  if (cached) {
-    const img = document.createElement('img');
-    img.src = cached;
-    img.width = px;
-    img.height = px;
-    img.alt = '';
-    el.appendChild(img);
-    return;
+function qrCacheKey(text, px) {
+  // Same idea as the server hash, but lightweight in the browser
+  let h = 2166136261;
+  const s = String(text) + '|' + px;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
   }
+  return (h >>> 0).toString(16).padStart(8, '0') + '_' + px;
+}
 
+function generateQrDataUrl(text, px) {
+  if (typeof QRCode === 'undefined') return '';
   try {
     const tmp = document.createElement('div');
     tmp.style.position = 'absolute';
@@ -1290,24 +1284,73 @@ function makeQr(containerId, url, size) {
     const canvas = tmp.querySelector('canvas');
     const imgNode = tmp.querySelector('img');
     let dataUrl = '';
-    if (canvas && canvas.toDataURL) {
-      dataUrl = canvas.toDataURL('image/png');
-    } else if (imgNode && imgNode.src) {
-      dataUrl = imgNode.src;
-    }
+    if (canvas && canvas.toDataURL) dataUrl = canvas.toDataURL('image/png');
+    else if (imgNode && imgNode.src) dataUrl = imgNode.src;
     tmp.remove();
-    if (dataUrl) {
-      qrRamCache.set(key, dataUrl);
-      const img = document.createElement('img');
-      img.src = dataUrl;
-      img.width = px;
-      img.height = px;
-      img.alt = '';
-      el.appendChild(img);
-    }
+    return dataUrl || '';
   } catch (e) {
     console.error('QR failed', e);
+    return '';
   }
+}
+
+function dataUrlToPngBlob(dataUrl) {
+  try {
+    const m = /^data:image\/png;base64,(.+)$/i.exec(dataUrl);
+    if (!m) return null;
+    const bin = atob(m[1]);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return new Blob([arr], { type: 'image/png' });
+  } catch (e) {
+    return null;
+  }
+}
+
+function offloadQrToTemp(key, dataUrl) {
+  const blob = dataUrlToPngBlob(dataUrl);
+  if (!blob) return;
+  fetch('/api/qr/' + encodeURIComponent(key) + '.png', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'image/png' },
+    body: blob
+  }).catch(() => { /* offline / full disk — keep using local image */ });
+}
+
+function makeQr(containerId, url, size) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = '';
+  const px = size || 120;
+  const text = String(url || '').trim();
+  if (!text) return;
+
+  const key = qrCacheKey(text, px);
+  const apiSrc = '/api/qr/' + encodeURIComponent(key) + '.png';
+  const img = document.createElement('img');
+  img.width = px;
+  img.height = px;
+  img.alt = '';
+
+  const local = qrRamCache.get(key);
+  if (local) {
+    img.src = local;
+    el.appendChild(img);
+    return;
+  }
+
+  // Prefer temp on disk so JS heap stays small across pane rotations
+  img.onload = function () { img.onload = null; img.onerror = null; };
+  img.onerror = function () {
+    img.onerror = null;
+    const dataUrl = generateQrDataUrl(text, px);
+    if (!dataUrl) { img.remove(); return; }
+    qrRamCache.set(key, dataUrl);
+    img.src = dataUrl;
+    offloadQrToTemp(key, dataUrl);
+  };
+  el.appendChild(img);
+  img.src = apiSrc;
 }
 
 function qrSizeFor(referenceEl) {
