@@ -1034,6 +1034,7 @@ let autoShutdownMode = 'sleep';
 let sleepTimer = null;
 let sleepActive = false;
 let lastWakeId = null;
+let lastSleepId = null;
 let showFlightLeaderboard = true;
 let latestUniform = { thisWeek: [], nextWeek: [] };
 let eventsLoaded = false;
@@ -2235,12 +2236,20 @@ async function checkForRestart() {
     const b = await (await fetch('/api/boot', { cache: 'no-store' })).json();
     if (bootId === null) { bootId = b.id; reloadId = b.reload; }
     else if (b.id !== bootId || b.reload !== reloadId) location.reload();   // restarted, or "reload screens" pressed on /edit
-    // PIN on /edit bumps wake — clear the black sleep cover and restart the timer
+    // PIN / HDMI connect bumps wake — clear the black sleep cover and restart the timer
     if (b.wake != null) {
       if (lastWakeId === null) lastWakeId = b.wake;
       else if (b.wake !== lastWakeId) {
         lastWakeId = b.wake;
         exitDisplaySleep();
+      }
+    }
+    // /events or /edit "Sleep screen" bumps sleep — enter the black cover (HDMI blank is server-side)
+    if (b.sleep != null) {
+      if (lastSleepId === null) lastSleepId = b.sleep;
+      else if (b.sleep !== lastSleepId) {
+        lastSleepId = b.sleep;
+        enterDisplaySleep();
       }
     }
     showNotice(b.notice);
