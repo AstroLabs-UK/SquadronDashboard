@@ -197,14 +197,49 @@ function restartProcess(cwd) {
   process.exit(0);
 }
 
+// Shared in-process checker so "at launch", the interval, and "on wake" all share one lock.
+let _checkCtx = null; // { cwd, dataDir, busy, lastStartedAt }
+
+async function runUpdateTick(label) {
+  if (!_checkCtx) return;
+  if (_checkCtx.busy) return;
+  const flag = (process.env.AUTO_UPDATE || '').toLowerCase();
+  if (flag === '0' || flag === 'false') return;
+  if (!fs.existsSync(path.join(_checkCtx.cwd, '.git'))) return;
+
+  _checkCtx.busy = true;
+  _checkCtx.lastStartedAt = Date.now();
+  try {
+    console.log('[auto-update] ' + label + '…');
+    const result = await checkAndUpdate({ cwd: _checkCtx.cwd, dataDir: _checkCtx.dataDir, force: false });
+    if (result.updated) {
+      console.log('[auto-update] applied ' + (result.short || result.remote) + ' — ready on next launch (no restart)');
+      return;
+    }
+    console.log('[auto-update] ' + result.reason);
+  } catch (e) {
+    console.error('[auto-update] error', e);
+    writeStatus(_checkCtx.dataDir, 'error', String(e && e.message ? e.message : e));
+  } finally {
+    _checkCtx.busy = false;
+  }
+}
+
+// Fire a check when the room screen wakes (PIN / HDMI). Debounced so rapid wakes do not spam GitHub.
+function requestCheckOnWake() {
+  if (!_checkCtx) return;
+  const since = Date.now() - (_checkCtx.lastStartedAt || 0);
+  if (since < 2 * 60 * 1000) {
+    console.log('[auto-update] wake check skipped — last check was ' + Math.round(since / 1000) + 's ago');
+    return;
+  }
+  setTimeout(() => runUpdateTick('check on wake'), 1500);
+}
+
 function startAutoUpdate({ cwd, dataDir, intervalMs }) {
   const flag = (process.env.AUTO_UPDATE || '').toLowerCase();
   if (flag === '0' || flag === 'false') {
     console.log('[auto-update] disabled (AUTO_UPDATE=0)');
-    return;
-  }
-  if (isSupervised() && flag !== '1' && flag !== 'true') {
-    console.log('[auto-update] skipped - running under systemd/Docker, where the host update timer does this');
     return;
   }
   if (!fs.existsSync(path.join(cwd, '.git'))) {
@@ -212,32 +247,22 @@ function startAutoUpdate({ cwd, dataDir, intervalMs }) {
     return;
   }
 
-  const ms = intervalMs || parseInt(process.env.AUTO_UPDATE_MS || '', 10) || DEFAULT_INTERVAL_MS;
-  let busy = false;
+  _checkCtx = { cwd, dataDir, busy: false, lastStartedAt: 0 };
 
-  async function tick(label) {
-    if (busy) return;
-    busy = true;
-    try {
-      console.log('[auto-update] ' + label + '…');
-      const result = await checkAndUpdate({ cwd, dataDir, force: false });
-      if (result.updated) {
-        // Files on disk are updated; keep this process running. New code loads on next launch/restart.
-        console.log('[auto-update] applied ' + (result.short || result.remote) + ' — ready on next launch (no restart)');
-        return;
-      }
-      console.log('[auto-update] ' + result.reason);
-    } catch (e) {
-      console.error('[auto-update] error', e);
-      writeStatus(dataDir, 'error', String(e && e.message ? e.message : e));
-    } finally {
-      busy = false;
-    }
+  // Under systemd/Docker the host timer does the regular schedule; we still keep _checkCtx
+  // so a wake (or manual force) can run an in-process check without fighting respawn.
+  if (isSupervised() && flag !== '1' && flag !== 'true') {
+    console.log('[auto-update] interval skipped - systemd/Docker timer handles the schedule; wake checks still run');
+    return;
   }
 
-  setTimeout(() => tick('check at launch'), 8000);
-  setInterval(() => tick('scheduled check'), ms);
+  const ms = intervalMs || parseInt(process.env.AUTO_UPDATE_MS || '', 10) || DEFAULT_INTERVAL_MS;
+  setTimeout(() => runUpdateTick('check at launch'), 8000);
+  setInterval(() => runUpdateTick('scheduled check'), ms);
   console.log('[auto-update] enabled (' + release.readChannel(dataDir) + ' channel) — check at launch, then every ' + Math.round(ms / 60000) + ' min');
 }
 
-module.exports = { checkAndUpdate, startAutoUpdate, restartProcess, writeStatus, isSupervised, writeRestartPending, clearRestartPending, readRestartPending };
+module.exports = {
+  checkAndUpdate, startAutoUpdate, requestCheckOnWake, restartProcess, writeStatus,
+  isSupervised, writeRestartPending, clearRestartPending, readRestartPending
+};
