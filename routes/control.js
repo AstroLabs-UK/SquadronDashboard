@@ -3,7 +3,7 @@ const { setDisplayPower } = require('../lib/hdmiPower');
 
 // Remote control from /edit and /events: reload, notice, wake, sleep.
 // Kept in memory on purpose - a restart clears any notice. The display picks it up from /api/boot.
-module.exports = function controlRoutes({ requireEditor, limiter, now = Date.now }) {
+module.exports = function controlRoutes({ requireEditor, limiter, now = Date.now, onWake }) {
   const router = express.Router();
   const state = { reloadId: 0, wakeId: 0, sleepId: 0, notice: null }; // notice: { text, until (ms) }
 
@@ -18,6 +18,10 @@ module.exports = function controlRoutes({ requireEditor, limiter, now = Date.now
   function wakeDisplay() {
     state.wakeId++;
     try { setDisplayPower(true); } catch (e) { /* ignore */ }
+    // Room screen coming back — opportunistic update check (debounced in autoUpdate)
+    if (typeof onWake === 'function') {
+      try { onWake(); } catch (e) { /* ignore */ }
+    }
   }
 
   function sleepDisplay() {

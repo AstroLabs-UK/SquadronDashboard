@@ -256,7 +256,13 @@ app.get('/api/auth/check', (req, res) => {
 // version without anyone touching the Pi.
 const BOOT_ID = Date.now().toString(36);
 const calendar = createCalendarService({ store });
-const control = require('./routes/control')({ requireEditor, limiter: sensitiveLimiter });
+const control = require('./routes/control')({
+  requireEditor,
+  limiter: sensitiveLimiter,
+  onWake: () => {
+    try { autoUpdate.requestCheckOnWake(); } catch (e) { /* ignore */ }
+  }
+});
 app.get('/api/boot', (req, res) => {
   res.set('Cache-Control', 'no-store');
   // reload / notice come from the buttons on /edit (see routes/control.js)
