@@ -284,7 +284,7 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now squadron-dashboard-shutdown.service
 
 # ---------- Auto update ----------
-echo "-> Setting up auto-update (checks every 30 minutes)..."
+echo "-> Setting up auto-update (checks every 5 minutes)..."
 cat > "$DIR/npm-update.sh" <<EOF
 #!/usr/bin/env bash
 exec bash "$DIR/update.sh"
@@ -304,11 +304,11 @@ ExecStart=$DIR/npm-update.sh
 EOF
 sudo tee /etc/systemd/system/squadron-dashboard-update.timer > /dev/null <<'EOF'
 [Unit]
-Description=Run Squadron Dashboard update check every 30 minutes
+Description=Run Squadron Dashboard update check every 5 minutes
 
 [Timer]
-OnBootSec=2min
-OnUnitActiveSec=30min
+OnBootSec=1min
+OnUnitActiveSec=5min
 Persistent=true
 
 [Install]
