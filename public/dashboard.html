@@ -278,7 +278,15 @@
   .lb-col thead th.num { text-align: right; }
   .lb-col td { padding: clamp(5px, 0.9vh, 10px) 12px; line-height: 1.2; border-bottom: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .lb-col tr:nth-child(even) td { background: var(--off-white); }
-  .lb-col td.rank, .lb-col th:first-child { width: 48px; }
+  .lb-col td.rank, .lb-col th:first-child {
+    width: 2.5ch; /* JS widens to fit the largest rank number */
+    min-width: 1.5ch;
+    text-align: right;
+    white-space: nowrap;
+    overflow: visible;
+    text-overflow: clip;
+    font-variant-numeric: tabular-nums;
+  }
   .lb-col td.rank { color: var(--raf-blue); font-weight: 700; }
   .lb-col th:last-child, .lb-col td.points { width: 90px; }
   .lb-col td.points { text-align: right; font-weight: 700; color: var(--raf-navy); }
@@ -601,7 +609,10 @@ body.loading-active
   body.compact .lb-col table { font-size: var(--fs); }
   body.compact .lb-col thead th { font-size: var(--fxs); padding: calc(2 * var(--u)) calc(4 * var(--u)); letter-spacing: 0.02em; }
   body.compact .lb-col td { padding: calc(2 * var(--u)) calc(4 * var(--u)); }
-  body.compact .lb-col td.rank, body.compact .lb-col th:first-child { width: calc(20 * var(--u)); }
+  body.compact .lb-col td.rank, body.compact .lb-col th:first-child {
+    /* width set by fitRankColumnWidths() to the largest rank */
+    min-width: calc(12 * var(--u));
+  }
   body.compact .lb-col th:last-child, body.compact .lb-col td.points { width: max(38px, calc(46 * var(--u))); }
   body.compact .lb-unavailable { font-size: var(--fs); padding: calc(4 * var(--u)) 0; }
 
@@ -1613,6 +1624,27 @@ async function loadWeather() {
   }
 }
 
+
+// Size the # column so the widest rank (e.g. "20") fits without clipping or wasted space
+function fitRankColumnWidths() {
+  document.querySelectorAll('#lbPane .lb-col table').forEach(table => {
+    const cells = [...table.querySelectorAll('td.rank')];
+    if (!cells.length) return;
+    let maxChars = 1;
+    cells.forEach(td => {
+      maxChars = Math.max(maxChars, String(td.textContent || '').trim().length);
+    });
+    // ch tracks digit width; padding matches the cell horizontal padding (~12px each side)
+    const pad = document.body.classList.contains('compact') ? 'calc(8 * var(--u))' : '24px';
+    const w = 'calc(' + maxChars + 'ch + ' + pad + ')';
+    table.querySelectorAll('th:first-child, td.rank').forEach(el => {
+      el.style.width = w;
+      el.style.minWidth = w;
+      el.style.maxWidth = w;
+    });
+  });
+}
+
 let cachedLb = null;
 let lastLbKey = '';
 function renderLeaderboardFromCache() {
@@ -1659,6 +1691,8 @@ function renderLeaderboardFromCache() {
     flightTable.style.display = 'none';
     flightUnavailable.style.display = 'block';
   }
+
+  fitRankColumnWidths();
 
   // Data refreshed while we're on this pane — kick the scroll again from the top
   if (panes[paneIndex] && panes[paneIndex].id === 'lbPane') startLeaderboardScroll();
